@@ -19,7 +19,7 @@ import setuptools
 
 setuptools.setup(
     name="cyclone",
-    version="0.5-rc1",
+    version="0.5",
     packages=["cyclone", "cyclone.tw", "cyclone.redis"],
 #    install_requires=["twisted"],
     author="fiorix",
