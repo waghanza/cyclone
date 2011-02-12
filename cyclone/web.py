@@ -974,7 +974,6 @@ class WebSocketHandler(RequestHandler):
     def _execute(self, transforms, *args, **kwargs):
         self.request.connection.setRawMode()
         self.request.connection.rawDataReceived = self._rawDataReceived
-        self.notifyFinish().addCallback(self.connectionLost)
 
         try:
             assert self.request.headers["Upgrade"] == "WebSocket"
