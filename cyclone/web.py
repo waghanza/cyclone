@@ -44,7 +44,7 @@ import urllib
 import urlparse
 import uuid
 import xmlrpclib
-import struct 
+import struct
 
 class RequestHandler(object):
     """Subclass this class and define get() or post() to make a handler.
@@ -958,7 +958,7 @@ class WebSocketHandler(RequestHandler):
             return
         elif ord(data[0]) & 0x80 == 0x80 and self._protocol < 76:
             raise Exception("Length-encoded format not yet supported")
-        
+
         try:
             idx = data.find("\xff")
             message = data[1:idx]
@@ -1379,7 +1379,7 @@ class StaticFileHandler(RequestHandler):
         if not include_body:
             return
         self.set_header("Content-Length", stat_result[stat.ST_SIZE])
-        file = open(abspath, "r")
+        file = open(abspath, "rb")
         try:
             self.write(file.read())
         finally:
