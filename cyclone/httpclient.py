@@ -63,9 +63,9 @@ class HTTPClient(object):
         self.url = url
         self.followRedirect = self._kwargs.get("followRedirect", 0)
         self.maxRedirects = self._kwargs.get("maxRedirects", 3)
-        self.method = self._kwargs.get("method","GET")
         self.headers = self._kwargs.get("headers")
         self.body = self._kwargs.get("postdata")
+        self.method = self._kwargs.get("method", self.body and "POST" or "GET")
         self.response = None
         if self.body:
             self.body_producer = StringProducer(self.body)
