@@ -17,4 +17,4 @@
 # under the License.
 
 __author__ = "Alexandre Fiori"
-__version__ = "0.5"
+__version__ = "0.6-rc1"
