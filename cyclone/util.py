@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 #
 # Copyright 2010 Alexandre Fiori
@@ -67,7 +66,7 @@ if __name__ == "__main__":
     project = None
     modname = None
     use_git = False
-    default_version, version = "0.1", None
+    default_version, version = "", None
     default_target, target = os.getcwd(), None
 
     short = "hgp:m:v:t:"
