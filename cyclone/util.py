@@ -57,6 +57,7 @@ Options:
  -p --project=NAME      Create new cyclone project.
  -m --modname=NAME      Use another name for the module [default: project_name]
  -v --version=VERSION   Set project version [default: %s]
+ -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
     """ % (sys.argv[0], version, target))
     sys.exit(0)
@@ -66,11 +67,12 @@ if __name__ == "__main__":
     project = None
     modname = None
     use_git = False
-    default_version, version = "", None
+    set_pkg_version = False
+    default_version, version = "0.1", None
     default_target, target = os.getcwd(), None
 
-    short = "hgp:m:v:t:"
-    long  = ["help", "git", "project=", "modname=", "version=", "target="]
+    short = "hgsp:m:v:t:"
+    long  = ["help", "git", "set-pkg-version", "project=", "modname=", "version=", "target="]
     try:
         opts, args = getopt.getopt(sys.argv[1:], short, long)
     except getopt.GetoptError, err:
@@ -82,6 +84,9 @@ if __name__ == "__main__":
 
         if o in ("-g", "--git"):
             use_git = True
+
+        if o in ("-s", "--set-pkg-version"):
+            set_pkg_version = True
 
         elif o in ("-p", "--project"):
             project = a
@@ -101,8 +106,17 @@ if __name__ == "__main__":
         print("Invalid project name.")
         sys.exit(1)
 
+    mod_is_proj = False
     if modname is None:
+        mod_is_proj = True
         modname = project
+
+    if modname in ("frontend", "tools", "twisted"):
+        if mod_is_proj is True:
+            print("Please specify a different modname, using --modname=name. '%s' is not allowed." % modname)
+        else:
+            print("Please specify a different modname. '%s' is not allowed." % modname)
+        sys.exit(1)
 
     if not re.match(r"^[0-9a-z_]+$", modname, re.I):
         print("Invalid module name.")
@@ -137,7 +151,10 @@ if __name__ == "__main__":
     skel = zipfile.ZipFile(open(
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "appskel.zip")))
 
-    project_name="%s-%s" % (project, version)
+    if set_pkg_version is True:
+        project_name="%s-%s" % (project, version)
+    else:
+        project_name=project
     project_path=os.path.join(target, project_name)
     new_project(
         skel=skel,
