@@ -92,7 +92,7 @@ class HTTPClient(object):
 
                     #print("redirecting to:", location)
                     response = yield agent.request(
-                        self.method,
+                        "GET", #self.method,
                         location,
                         request_headers,
                         self.body_producer)
