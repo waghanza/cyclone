@@ -1236,6 +1236,7 @@ class Application(protocol.ServerFactory):
         transforms = [t(request) for t in self.transforms]
         handler = None
         args = []
+        kwargs = {}
         handlers = self._get_host_handlers(request)
         if not handlers:
             handler = RedirectHandler(
