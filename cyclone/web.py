@@ -1361,9 +1361,11 @@ class StaticFileHandler(RequestHandler):
         self.get(path, include_body=False)
 
     def get(self, path, include_body=True):
-        abspath = os.path.abspath(os.path.join(self.root, path))
-        if not abspath.startswith(self.root):
-            raise HTTPError(403, "%s is not in root static directory", path)
+        root = self.root.rstrip('/')
+        path = path.lstrip('/')
+        abspath = os.path.abspath(os.path.join(root, path))
+        #if not abspath.startswith(self.root):
+        #    raise HTTPError(403, "%s is not in root static directory", path)
         if not os.path.exists(abspath):
             raise HTTPError(404)
         if not os.path.isfile(abspath):
