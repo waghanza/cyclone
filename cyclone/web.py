@@ -55,7 +55,7 @@ class RequestHandler(object):
     SUPPORTED_METHODS = ("GET", "HEAD", "POST", "DELETE", "PUT")
 
     no_keep_alive = False
-    def __init__(self, application, request, transforms=None):
+    def __init__(self, application, request, transforms=None, **kwargs):
         self.application = application
         self.request = request
         self._headers_written = False
@@ -68,7 +68,12 @@ class RequestHandler(object):
                                 application.ui_modules.iteritems())
         self.clear()
         self.request.connection.no_keep_alive = self.no_keep_alive
-
+        self.initialize(**kwargs)
+    
+    # override for subclass initialization hook
+    def initialize(self, **kwargs):
+        pass
+    
     @property
     def settings(self):
         return self.application.settings
@@ -1231,6 +1236,7 @@ class Application(protocol.ServerFactory):
         transforms = [t(request) for t in self.transforms]
         handler = None
         args = []
+        kwargs = {}
         handlers = self._get_host_handlers(request)
         if not handlers:
             handler = RedirectHandler(
@@ -1239,8 +1245,21 @@ class Application(protocol.ServerFactory):
             for spec in handlers:
                 match = spec.regex.match(request.path)
                 if match:
+                    # None-safe wrapper around urllib.unquote to handle
+                    # unmatched optional groups correctly
+                    def unquote(s):
+                        if s is None: return s
+                        return urllib.unquote(s)                    
                     handler = spec.handler_class(self, request, **spec.kwargs)
-                    args = match.groups()
+                    # Pass matched groups to the handler.  Since
+                    # match.groups() includes both named and unnamed groups,
+                    # we want to use either groups or groupdict but not both.
+                    kwargs = dict((k, unquote(v))
+                                  for (k, v) in match.groupdict().iteritems())
+                    if kwargs:
+                        args = []
+                    else:
+                        args = [unquote(s) for s in match.groups()]
                     break
             if not handler:
                 handler = ErrorHandler(self, request, 404)
@@ -1251,7 +1270,7 @@ class Application(protocol.ServerFactory):
             RequestHandler._templates = None
             RequestHandler._static_hashes = {}
 
-        handler._execute(transforms, *args)
+        handler._execute(transforms, *args, **kwargs)
         return handler
 
     def reverse_url(self, name, *args):
@@ -1342,9 +1361,11 @@ class StaticFileHandler(RequestHandler):
         self.get(path, include_body=False)
 
     def get(self, path, include_body=True):
-        abspath = os.path.abspath(os.path.join(self.root, path))
-        if not abspath.startswith(self.root):
-            raise HTTPError(403, "%s is not in root static directory", path)
+        root = self.root.rstrip('/')
+        path = path.lstrip('/')
+        abspath = os.path.abspath(os.path.join(root, path))
+        #if not abspath.startswith(self.root):
+        #    raise HTTPError(403, "%s is not in root static directory", path)
         if not os.path.exists(abspath):
             raise HTTPError(404)
         if not os.path.isfile(abspath):
