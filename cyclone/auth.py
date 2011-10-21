@@ -51,7 +51,6 @@ from cyclone import escape, httpclient
 
 import base64
 import binascii
-import cgi
 import functools
 import hashlib
 import hmac
@@ -870,7 +869,7 @@ def _oauth_escape(val):
 
 
 def _oauth_parse_response(body):
-    p = cgi.parse_qs(body, keep_blank_values=False)
+    p = urlparse.parse_qs(body, keep_blank_values=False)
     token = dict(key=p["oauth_token"][0], secret=p["oauth_token_secret"][0])
 
     # Add the extra parameters the Provider included to the token
