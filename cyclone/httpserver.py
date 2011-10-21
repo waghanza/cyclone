@@ -18,7 +18,6 @@
 from twisted.python import log
 from twisted.protocols import basic
 from twisted.internet import defer, protocol
-import cgi
 import errno
 import functools
 import time
@@ -146,7 +145,7 @@ class HTTPConnection(basic.LineReceiver):
         content_type = self._request.headers.get("Content-Type", "")
         if self._request.method == "POST":
             if content_type.startswith("application/x-www-form-urlencoded"):
-                arguments = cgi.parse_qs(self._request.body)
+                arguments = urlparse.parse_qs(self._request.body)
                 for name, values in arguments.iteritems():
                     values = [v for v in values if v]
                     if values:
@@ -236,7 +235,7 @@ class HTTPRequest(object):
         scheme, netloc, path, query, fragment = urlparse.urlsplit(uri)
         self.path = path
         self.query = query
-        arguments = cgi.parse_qs(query)
+        arguments = urlparse.parse_qs(query)
         self.arguments = {}
         for name, values in arguments.iteritems():
             values = [v for v in values if v]
