@@ -301,10 +301,10 @@ class RequestHandler(object):
             # digits from the payload to the timestamp without altering the
             # signature.  For backwards compatibility, sanity-check timestamp
             # here instead of modifying _cookie_signature.
-            logging.warning("Cookie timestamp in future; possible tampering %r", value)
+            log.warning("Cookie timestamp in future; possible tampering %r", value)
             return None
         if parts[1].startswith("0"):
-            logging.warning("Tampered cookie %r", value)
+            log.warning("Tampered cookie %r", value)
         try:
             return base64.b64decode(parts[0])
         except:
@@ -862,7 +862,7 @@ class XmlrpcRequestHandler(RequestHandler):
             s = xmlrpclib.dumps(result,
                 methodresponse=True, allow_none=self.allowNone)
         except Exception, e:
-            f = Fault(self.FAILURE, "can't serialize output: %s" % e)
+            f = xmlrpclib.Fault(self.FAILURE, "can't serialize output: %s" % e)
             s = xmlrpclib.dumps(f,
                 methodresponse=True, allow_none=self.allowNone)
 
