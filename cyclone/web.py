@@ -919,6 +919,7 @@ class WebSocketHandler(RequestHandler):
         self.k1 = None
         self.k2 = None
         self._postheader = False
+        self._protocol = None
 
     def headersReceived(self):
         pass
@@ -930,12 +931,30 @@ class WebSocketHandler(RequestHandler):
         pass
 
     def sendMessage(self, message):
-        if isinstance(message, dict):
-            message = escape.json_encode(message)
-        if isinstance(message, unicode):
-            message = message.encode("utf-8")
-        assert isinstance(message, str)
-        self.transport.write("\x00" + message + "\xff")
+        if self._protocol == 10:
+            message = unicode(message, "utf-8")
+            length = len(message)
+            newFrame = []
+            newFrame.append(0x81)
+            newFrame = bytearray(newFrame)
+            if length <= 125:
+                newFrame.append(length)
+            elif length > 125 and length < 65536:
+                newFrame.append(126)
+                newFrame += struct.pack('!H', length)
+            elif length >= 65536:
+                newFrame.append(127)
+                newFrame += struct.pack('!Q', length)
+
+            newFrame += message.encode()
+            self.transport.write(str(newFrame))
+        else:
+            if isinstance(message, dict):
+                message = escape.json_encode(message)
+            if isinstance(message, unicode):
+                message = message.encode("utf-8")
+            assert isinstance(message, str)
+            self.transport.write("\x00" + message + "\xff")
     
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
@@ -946,7 +965,7 @@ class WebSocketHandler(RequestHandler):
             self.transport.loseConnection()
 
     def _rawDataReceived(self, data):
-        if len(data) == 8 and self._postheader == True:
+        if len(data) == 8 and self._postheader == True and self._protocol >= 76:
             self.nonce = data.strip()
             token = self._calculate_token(self.k1, self.k2, self.nonce)
             self.transport.write(
@@ -960,8 +979,70 @@ class WebSocketHandler(RequestHandler):
             self._postheader = False
             self.flush()
             return
-        elif ord(data[0]) & 0x80 == 0x80 and self._protocol < 76:
-            raise Exception("Length-encoded format not yet supported")
+        elif ord(data[0]) & 0x80 == 0x80 and self._protocol == 10:
+            ## Draft 10 Reference:
+            ## https://github.com/oberstet/Autobahn/blob/master/lib/python/autobahn/websocket.py
+
+            buffered_len = len(data)
+            ## FIN, RSV, OPCODE
+            ##
+            b = ord(data[0])
+            frame_fin = (b & 0x80) != 0
+            frame_rsv = (b & 0x70) >> 4
+            frame_opcode = b & 0x0f
+
+            ## MASK, PAYLOAD LEN 1
+            ##
+            b = ord(data[1])
+            frame_masked = (b & 0x80) != 0
+            frame_payload_len1 = b & 0x7f
+
+            ## compute complete header length
+            ##
+            if frame_masked:
+                mask_len = 4
+            else:
+                mask_len = 0
+
+            if frame_payload_len1 <  126:
+                frame_header_len = 2 + mask_len
+            elif frame_payload_len1 == 126:
+                frame_header_len = 2 + 2 + mask_len
+            elif frame_payload_len1 == 127:
+                frame_header_len = 2 + 8 + mask_len
+
+            ## only proceed when we have enough data buffered for complete
+            ## frame header (which includes extended payload len + mask)
+            ##
+            if buffered_len >= frame_header_len:
+                i = 2
+                ## extract extended payload length
+                ##
+                if frame_payload_len1 == 126:
+                    frame_payload_len = struct.unpack("!H", data[i:i+2])[0]
+                    i += 2
+                elif frame_payload_len1 == 127:
+                    frame_payload_len = struct.unpack("!Q", data[i:i+8])[0]
+                    i += 8
+                else:
+                    frame_payload_len = frame_payload_len1
+
+                ## when payload is masked, extract frame mask
+                ##
+                frame_mask = None
+                frame_mask_array = []
+                if frame_masked:
+                    frame_mask = data[i:i+4]
+                    for j in range(0, 4):
+                        frame_mask_array.append(ord(frame_mask[j]))
+                    i += 4
+                    payload = bytearray(data[i:i+frame_payload_len])
+                    l = frame_payload_len
+                    for k in xrange(0, l):
+                        payload[k] ^= frame_mask_array[k % 4]
+
+                    self.messageReceived(str(payload))
+                    return
 
         try:
             idx = data.find("\xff")
@@ -980,9 +1061,8 @@ class WebSocketHandler(RequestHandler):
         self.request.connection.rawDataReceived = self._rawDataReceived
 
         try:
-            assert self.request.headers["Upgrade"] == "WebSocket"
+            assert self.request.headers["Upgrade"].lower() == "WebSocket".lower()
             assert self.request.headers["Connection"] == "Upgrade"
-            assert self.request.headers.get("Origin") is not None
         except:
             message = "Expected WebSocket Headers"
             self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
@@ -996,16 +1076,32 @@ class WebSocketHandler(RequestHandler):
 
             if self.request.headers.has_key('Sec-Websocket-Key1') == False or \
                 self.request.headers.has_key('Sec-Websocket-Key2') == False: 
-                log.msg('Using old ws spec (draft 75)')
-                self.transport.write(
-                    "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                    "Upgrade: WebSocket\r\n"
-                    "Connection: Upgrade\r\n"
-                    "Server: CycloneServer/"+__version__+"\r\n"
-                    "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
-                    "WebSocket-Location: ws://" + self.request.host +
-                    self.request.path + "\r\n\r\n")
-                self._protocol = 75
+                if self.request.headers.has_key('Origin'):
+                    log.msg('Using old ws spec (draft 75)')   
+                    self.transport.write(
+                        "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                        "Upgrade: WebSocket\r\n"
+                        "Connection: Upgrade\r\n"
+                        "Server: CycloneServer/"+__version__+"\r\n"
+                        "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
+                        "WebSocket-Location: ws://" + self.request.host +
+                        self.request.path + "\r\n\r\n")
+                    self._protocol = 75
+                elif self.request.headers.has_key('Sec-Websocket-Origin'):
+                    log.msg('Using ws spec (draft 10)')   
+                    origin = self.request.headers['Sec-Websocket-Origin']
+                    key = self.request.headers['Sec-Websocket-Key']
+                    accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
+                    self.transport.write(
+                        "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                        "Upgrade: WebSocket\r\n"
+                        "Connection: Upgrade\r\n"
+                        "Sec-WebSocket-Accept: " + accept + "\r\n"
+                        "Server: CycloneServer/" +__version__+ "\r\n"
+                        "WebSocket-Origin: " + origin + "\r\n"
+                        "WebSocket-Location: ws://" + self.request.host +
+                        self.request.path + "\r\n\r\n")
+                    self._protocol = 10
             else:
                 log.msg('Using ws draft 76 header exchange')
                 self.k1 = self.request.headers["Sec-WebSocket-Key1"]
