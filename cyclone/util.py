@@ -167,8 +167,5 @@ if __name__ == "__main__":
         version=version,
         target=target,
         use_git=use_git,
-        locale_path=os.path.join(project_path, "frontend", "locale"),
-        static_path=os.path.join(project_path, "frontend", "static"),
-        template_path=os.path.join(project_path, "frontend", "template"),
         cookie_secret=base64.b64encode(uuid.uuid4().bytes + uuid.uuid4().bytes),
         )
