@@ -1061,8 +1061,8 @@ class WebSocketHandler(RequestHandler):
         self.request.connection.rawDataReceived = self._rawDataReceived
 
         try:
-            assert self.request.headers["Upgrade"].lower() == "WebSocket".lower()
-            assert self.request.headers["Connection"] == "Upgrade"
+            assert self.request.headers["Upgrade"].lower() == "websocket"
+            assert self.request.headers["Connection"].lower() == "upgrade"
         except:
             message = "Expected WebSocket Headers"
             self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
@@ -1074,34 +1074,43 @@ class WebSocketHandler(RequestHandler):
             except Exception, e:
                 return self._handle_request_exception(e)
 
-            if self.request.headers.has_key('Sec-Websocket-Key1') == False or \
-                self.request.headers.has_key('Sec-Websocket-Key2') == False: 
-                if self.request.headers.has_key('Origin'):
-                    log.msg('Using old ws spec (draft 75)')   
-                    self.transport.write(
-                        "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                        "Upgrade: WebSocket\r\n"
-                        "Connection: Upgrade\r\n"
-                        "Server: CycloneServer/"+__version__+"\r\n"
-                        "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
-                        "WebSocket-Location: ws://" + self.request.host +
-                        self.request.path + "\r\n\r\n")
-                    self._protocol = 75
-                elif self.request.headers.has_key('Sec-Websocket-Origin'):
-                    log.msg('Using ws spec (draft 10)')   
+            if 'Sec-Websocket-Version' in self.request.headers:
+                versions = ('7', '8', '13')
+                if self.request.headers['Sec-WebSocket-Version'] not in versions:
+                    message = "Unsupported WebSocket Protocol Version" 
+                    self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+                        str(len(message)) + "\r\n\r\n" + message)
+                    return self.transport.loseConnection()
+
+                log.msg('Using ws spec (draft 10)')   
+                if 'Origin' in self.request.headers:
+                    origin = self.request.headers['Origin']
+                else:
                     origin = self.request.headers['Sec-Websocket-Origin']
-                    key = self.request.headers['Sec-Websocket-Key']
-                    accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
-                    self.transport.write(
-                        "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                        "Upgrade: WebSocket\r\n"
-                        "Connection: Upgrade\r\n"
-                        "Sec-WebSocket-Accept: " + accept + "\r\n"
-                        "Server: CycloneServer/" +__version__+ "\r\n"
-                        "WebSocket-Origin: " + origin + "\r\n"
-                        "WebSocket-Location: ws://" + self.request.host +
-                        self.request.path + "\r\n\r\n")
-                    self._protocol = 10
+                key = self.request.headers['Sec-Websocket-Key']
+                accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
+                self.transport.write(
+                    "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                    "Upgrade: WebSocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    "Sec-WebSocket-Accept: " + accept + "\r\n"
+                    "Server: CycloneServer/" +__version__+ "\r\n"
+                    "WebSocket-Origin: " + origin + "\r\n"
+                    "WebSocket-Location: ws://" + self.request.host +
+                    self.request.path + "\r\n\r\n")
+                self._protocol = 10
+            elif self.request.headers.has_key('Sec-Websocket-Key1') == False or \
+                self.request.headers.has_key('Sec-Websocket-Key2') == False: 
+                log.msg('Using old ws spec (draft 75)')   
+                self.transport.write(
+                    "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                    "Upgrade: WebSocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    "Server: CycloneServer/"+__version__+"\r\n"
+                    "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
+                    "WebSocket-Location: ws://" + self.request.host +
+                    self.request.path + "\r\n\r\n")
+                self._protocol = 75
             else:
                 log.msg('Using ws draft 76 header exchange')
                 self.k1 = self.request.headers["Sec-WebSocket-Key1"]
