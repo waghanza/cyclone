@@ -69,11 +69,11 @@ class RequestHandler(object):
         self.clear()
         self.request.connection.no_keep_alive = self.no_keep_alive
         self.initialize(**kwargs)
-    
+
     # override for subclass initialization hook
     def initialize(self, **kwargs):
         pass
-    
+
     @property
     def settings(self):
         return self.application.settings
@@ -955,7 +955,7 @@ class WebSocketHandler(RequestHandler):
                 message = message.encode("utf-8")
             assert isinstance(message, str)
             self.transport.write("\x00" + message + "\xff")
-    
+
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
             self.transport.loseConnection()
@@ -1055,7 +1055,7 @@ class WebSocketHandler(RequestHandler):
                 self.messageReceived(message)
             except Exception, e:
                 self._handle_request_exception(e)
-            
+
     def _execute(self, transforms, *args, **kwargs):
         self.request.connection.setRawMode()
         self.request.connection.rawDataReceived = self._rawDataReceived
@@ -1077,12 +1077,12 @@ class WebSocketHandler(RequestHandler):
             if 'Sec-Websocket-Version' in self.request.headers:
                 versions = ('7', '8', '13')
                 if self.request.headers['Sec-WebSocket-Version'] not in versions:
-                    message = "Unsupported WebSocket Protocol Version" 
+                    message = "Unsupported WebSocket Protocol Version"
                     self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
                         str(len(message)) + "\r\n\r\n" + message)
                     return self.transport.loseConnection()
 
-                log.msg('Using ws spec (draft 10)')   
+                log.msg('Using ws spec (draft 10)')
                 if 'Origin' in self.request.headers:
                     origin = self.request.headers['Origin']
                 else:
@@ -1100,8 +1100,8 @@ class WebSocketHandler(RequestHandler):
                     self.request.path + "\r\n\r\n")
                 self._protocol = 10
             elif self.request.headers.has_key('Sec-Websocket-Key1') == False or \
-                self.request.headers.has_key('Sec-Websocket-Key2') == False: 
-                log.msg('Using old ws spec (draft 75)')   
+                self.request.headers.has_key('Sec-Websocket-Key2') == False:
+                log.msg('Using old ws spec (draft 75)')
                 self.transport.write(
                     "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
                     "Upgrade: WebSocket\r\n"
@@ -1122,7 +1122,7 @@ class WebSocketHandler(RequestHandler):
     def _calculate_token(self, k1, k2, k3):
         token = struct.pack('>ii8s', self._filterella(k1), self._filterella(k2), k3)
         return hashlib.md5(token).digest()
-    
+
     def _filterella(self, w):
         nums = []
         spaces = 0
@@ -1354,7 +1354,7 @@ class Application(protocol.ServerFactory):
                     # unmatched optional groups correctly
                     def unquote(s):
                         if s is None: return s
-                        return urllib.unquote(s)                    
+                        return urllib.unquote(s)
                     handler = spec.handler_class(self, request, **spec.kwargs)
                     # Pass matched groups to the handler.  Since
                     # match.groups() includes both named and unnamed groups,
