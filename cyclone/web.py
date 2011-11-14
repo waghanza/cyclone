@@ -1152,11 +1152,11 @@ class SSEHandler(RequestHandler):
 		    message = message.encode("utf-8")
 		assert isinstance(message, str)
 
-		if eid: self.transport.write("id: %s\n" % eid)		
+		if eid: self.transport.write("id: %s\n" % eid)
 		if event: self.transport.write("event: %s\n" % event)
 		if retry: self.transport.write("retry: %s\n" % retry)
 		self.transport.write("data: " + message + "\n\n")
-		
+
 	def _execute(self, transforms, *args, **kwargs):
 		log.msg('SSE new connection from %s' % self.request.remote_ip)
 		self.set_header("Content-Type", "text/event-stream")
@@ -1168,8 +1168,8 @@ class SSEHandler(RequestHandler):
 
 	def bind(self):
 		pass
-	
-		
+
+
 def asynchronous(method):
     """Wrap request handler methods with this if they are asynchronous.
 
