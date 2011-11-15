@@ -22,7 +22,8 @@ import sys
 from twisted.python import log
 from twisted.internet import reactor
 
-__handlers = []
+_handlers = []
+_BaseHandler = None
 
 class Router:
     def __init__(self):
@@ -32,7 +33,7 @@ class Router:
         self.items.append((method, callback))
 
     def __call__(self, *args, **kwargs):
-        obj = cyclone.web.RequestHandler(*args, **kwargs)
+        obj = _BaseHandler(*args, **kwargs)
         for (method, callback) in self.items:
             callback = functools.partial(callback, obj)
             setattr(obj, method.lower(), callback)
@@ -43,22 +44,28 @@ def route(path=None, method="GET", callback=None, **kwargs):
         path, callback = None, path
 
     def decorator(callback):
-        __handlers.append((path, method, callback, kwargs))
+        _handlers.append((path, method, callback, kwargs))
         return callback
 
     return decorator
 
 
 def run(**settings):
+    global _handlers, _BaseHandler
+    port = settings.get("port", 8888)
+    interface = settings.get("host", "127.0.0.1")
+    log.startLogging(settings.pop("log", sys.stdout))
+    _BaseHandler = settings.pop("base_handler", cyclone.web.RequestHandler)
+
     handlers = {}
-    for (path, method, callback, kwargs) in __handlers:
+    for (path, method, callback, kwargs) in _handlers:
         if path not in handlers:
             handlers[path] = Router()
         handlers[path].add(method, callback)
 
-    log.startLogging(settings.get("log", sys.stdout))
-    application = cyclone.web.Application(handlers.items(), **settings)
-    port = settings.get("port", 8888)
-    interface = settings.get("host", "127.0.0.1")
+    _handlers = None
+
+    handlers = handlers.items() + settings.pop("more_handlers", [])
+    application = cyclone.web.Application(handlers, **settings)
     reactor.listenTCP(port, application, interface=interface)
     reactor.run()
