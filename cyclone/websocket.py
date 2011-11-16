@@ -21,6 +21,7 @@ import time
 import base64
 import cyclone.escape
 import cyclone.web
+from twisted.python import log
 
 from cyclone.util import bytes_type, b
 
@@ -82,10 +83,13 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.open_args = args
         self.open_kwargs = kwargs
 
+        log.msg('self.stream %s' % self.stream)
+
         # The difference between version 8 and 13 is that in 8 the
         # client sends a "Sec-Websocket-Origin" header and in 13 it's
         # simply "Origin".
-        if self.request.headers.get("Sec-WebSocket-Version") in ("7", "8", "13"):
+        if self.request.headers.has_key('Sec-Websocket-Version') and \
+        self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
             self.ws_connection = WebSocketProtocol8(self)
             self.ws_connection.accept_connection()
             
@@ -313,7 +317,7 @@ class WebSocketProtocol76(WebSocketProtocol):
     def write_message(self, message):
         """Sends the given message to the client of this Web Socket."""
         if isinstance(message, dict):
-            message = cyclon.escape.json_encode(message)
+            message = cyclone.escape.json_encode(message)
         if isinstance(message, unicode):
             message = message.encode("utf-8")
         assert isinstance(message, bytes_type)
@@ -373,7 +377,7 @@ class WebSocketProtocol8(WebSocketProtocol):
         sha1.update(cyclone.escape.utf8(
                 self.request.headers.get("Sec-Websocket-Key")))
         sha1.update(b("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")) # Magic value
-        return cyclon.escape.native_str(base64.b64encode(sha1.digest()))
+        return unicode(base64.b64encode(sha1.digest()), 'utf-8')
 
     def _accept_connection(self):
         self.stream.write(cyclone.escape.utf8(
