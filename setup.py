@@ -19,14 +19,14 @@ import setuptools
 
 setuptools.setup(
     name="cyclone",
-    version="0.6-rc2",
+    version="0.7",
     packages=["cyclone", "cyclone.tw", "cyclone.redis"],
     #install_requires=["twisted"],
     author="fiorix",
     author_email="fiorix@gmail.com",
-    url="http://github.com/fiorix/cyclone/",
+    url="http://cyclone.io/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    description="Non-blocking web server. A facebook's tornado implementation on top of Twisted.",
+    description="Non-blocking web server. A facebook's Tornado on top of Twisted.",
     keywords="web server non-blocking python twisted facebook tornado",
     package_data={"cyclone":["appskel.zip"]},
 )
