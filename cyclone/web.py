@@ -338,7 +338,7 @@ class RequestHandler(object):
         assert not self._finished
         if isinstance(chunk, dict):
             chunk = escape.json_encode(chunk)
-            self.set_header("Content-Type", "text/javascript; charset=UTF-8")
+            self.set_header("Content-Type", "application/json; charset=UTF-8")
         chunk = _utf8(chunk)
         self._write_buffer.append(chunk)
 
