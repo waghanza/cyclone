@@ -82,7 +82,7 @@ class HTTPClient(object):
 
         mr = self.maxRedirects
         while mr >= 1:
-            if response.code in (301, 302) and self.followRedirect:
+            if response.code in (301, 302, 303) and self.followRedirect:
                 mr -= 1
                 headers = dict(response.headers.getAllRawHeaders())
                 location = headers.get("Location")
