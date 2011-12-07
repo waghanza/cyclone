@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # coding: utf-8
 #
-# Copyright 2010 Alexandre Fiori
+# Copyright 2011 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,5 +16,21 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-__author__ = "Alexandre Fiori"
-__version__ = "0.7"
+import sys
+import cyclone.sqlite
+from cyclone.bottle import run, route
+
+@route("/")
+def index(web):
+    web.write("try /sqlite\r\n")
+
+@route("/sqlite")
+def sqlite_get(web):
+    v = web.settings.sqlite.runQuery("select strftime('%Y-%m-%d')")
+    web.write("today is " + repr(v) + "\r\n")
+
+run(host="127.0.0.1", port=8080,
+    log=sys.stdout, # or any file descriptor
+    static_path="static", template_path="template",
+    sqlite=cyclone.sqlite.InlineSQLite(":memory:"))
+

@@ -112,7 +112,7 @@ class RequestHandler(object):
     def clear(self):
         """Resets all headers and content for this response."""
         self._headers = {
-            "Server": "CycloneServer/" + __version__,
+            "Server": "cyclone/" + __version__,
             "Content-Type": "text/html; charset=UTF-8",
         }
         if not self.request.supports_http_1_1():
@@ -333,12 +333,12 @@ class RequestHandler(object):
         To write the output to the network, use the flush() method below.
 
         If the given chunk is a dictionary, we write it as JSON and set
-        the Content-Type of the response to be text/javascript.
+        the Content-Type of the response to be application/json.
         """
         assert not self._finished
         if isinstance(chunk, dict):
             chunk = escape.json_encode(chunk)
-            self.set_header("Content-Type", "text/javascript; charset=UTF-8")
+            self.set_header("Content-Type", "application/json")
         chunk = _utf8(chunk)
         self._write_buffer.append(chunk)
 
@@ -972,7 +972,7 @@ class WebSocketHandler(RequestHandler):
                 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
                 "Upgrade: WebSocket\r\n"
                 "Connection: Upgrade\r\n"
-                "Server: CycloneServer/"+__version__+"\r\n"
+                "Server: cyclone/"+__version__+"\r\n"
                 "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
                 "Sec-WebSocket-Location: ws://" + self.request.host +
                 self.request.path + "\r\n\r\n"+token+"\r\n")
@@ -1094,7 +1094,7 @@ class WebSocketHandler(RequestHandler):
                     "Upgrade: WebSocket\r\n"
                     "Connection: Upgrade\r\n"
                     "Sec-WebSocket-Accept: " + accept + "\r\n"
-                    "Server: CycloneServer/" +__version__+ "\r\n"
+                    "Server: cyclone/" +__version__+ "\r\n"
                     "WebSocket-Origin: " + origin + "\r\n"
                     "WebSocket-Location: ws://" + self.request.host +
                     self.request.path + "\r\n\r\n")
@@ -1106,7 +1106,7 @@ class WebSocketHandler(RequestHandler):
                     "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
                     "Upgrade: WebSocket\r\n"
                     "Connection: Upgrade\r\n"
-                    "Server: CycloneServer/"+__version__+"\r\n"
+                    "Server: cyclone/"+__version__+"\r\n"
                     "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
                     "WebSocket-Location: ws://" + self.request.host +
                     self.request.path + "\r\n\r\n")

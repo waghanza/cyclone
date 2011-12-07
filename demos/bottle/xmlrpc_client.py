@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # coding: utf-8
 #
 # Copyright 2010 Alexandre Fiori
@@ -15,5 +16,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-__author__ = "Alexandre Fiori"
-__version__ = "0.7"
+import xmlrpclib
+
+srv = xmlrpclib.Server("http://localhost:8080/xmlrpc")
+print "echo:", srv.echo("hello world!")
