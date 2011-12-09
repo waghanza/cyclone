@@ -1042,6 +1042,13 @@ class WebSocketHandler(RequestHandler):
                         payload[k] ^= frame_mask_array[k % 4]
 
                     self.messageReceived(str(payload))
+
+                    ## if there is still data after this frame, process again
+                    ##
+                    current_len = frame_header_len + frame_payload_len
+                    if current_len < buffered_len:
+                        self._rawDataReceived(data[current_len:])
+
                     return
 
         try:

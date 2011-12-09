@@ -169,3 +169,12 @@ if __name__ == "__main__":
         use_git=use_git,
         cookie_secret=base64.b64encode(uuid.uuid4().bytes + uuid.uuid4().bytes),
         )
+
+if str is unicode:
+    def b(s):
+        return s.encode('latin1')
+    bytes_type = bytes
+else:
+    def b(s):
+        return s
+    bytes_type = str
