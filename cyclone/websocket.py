@@ -89,17 +89,16 @@ class WebSocketProtocol17(WebSocketProtocol):
         log.msg('raw data length %d' % self._raw_data_len)
 
         if self._partial_data:
-            log.msg('we have partial data')
-            data[0:0] = self._partial_data
+            self._partial_data += data
+            data = self._partial_data
             self._partial_data = None
-        else:
-            self._processFrameHeader(data)
+
+        self._processFrameHeader(data)
 
         if (self._raw_data_len - self._header_index) < self._frame_payload_len:
             log.msg('not enough data')
-            self._partial_data = data[self._header_index:]
+            self._partial_data = data
             return
-
 
         self._message_buffer += self._extractMessageFromFrame(data)
         log.msg('message buffer %s' % self._message_buffer)
