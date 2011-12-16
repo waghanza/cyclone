@@ -1,506 +1,425 @@
-"""Server-side implementation of the WebSocket protocol.
+# coding: utf-8
+#
+# Copyright 2011 Alexandre Fiori
+# based on the original Tornado by Facebook
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
 
-`WebSockets <http://dev.w3.org/html5/websockets/>`_ allow for bidirectional
-communication between the browser and server.
-
-.. warning::
-
-   The WebSocket protocol is still in development.  This module
-   currently implements the "hixie-76", "hybi-10", and "hybi-17"
-   versions of the protocol.  See this `browser compatibility table
-   <http://en.wikipedia.org/wiki/WebSockets#Browser_support>`_ on
-   Wikipedia.
-"""
-# Author: Jacob Kristhammar, 2010
-
-import functools
-import hashlib
-import logging
-import struct
-import time
 import base64
-import cyclone.escape
+import hashlib
+import struct
 import cyclone.web
 from twisted.python import log
+from cyclone import __version__
 
-from cyclone.util import bytes_type, b
+class WebSocketProtocol(object):
+    def __init__(self, handler):
+        self.handler = handler
+        self.request = handler.request
+        self.transport = handler.transport
+
+    def acceptConnection(self):
+        pass
+
+    def rawDataReceived(self, data):
+        pass
+
+    def sendMessage(self, message):
+        pass
+
+
+class WebSocketProtocol17(WebSocketProtocol):
+    def __init__(self, handler):
+        WebSocketProtocol.__init__(self, handler)
+
+        self._frame_fin = None
+        self._frame_rsv = None
+        self_frame_ops = None
+        self._frame_mask = None
+        self._frame_payload_length = None
+        self._frame_header_length = None
+
+        self._raw_data_length = None
+
+        self._message_buffer = ""
+
+
+    def acceptConnection(self):
+        versions = ('7', '8', '13')
+        if self.request.headers['Sec-WebSocket-Version'] not in versions:
+            message = "Unsupported WebSocket Protocol Version"
+            self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+                str(len(message)) + "\r\n\r\n" + message)
+            return self.transport.loseConnection()
+
+        log.msg('Using ws spec (draft 17)')
+        if 'Origin' in self.request.headers:
+            origin = self.request.headers['Origin']
+        else:
+            origin = self.request.headers['Sec-Websocket-Origin']
+
+        key = self.request.headers['Sec-Websocket-Key']
+        accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
+
+        self.transport.write(
+            "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+            "Upgrade: WebSocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Accept: " + accept + "\r\n"
+            "Server: cyclone/" +__version__+ "\r\n"
+            "WebSocket-Origin: " + origin + "\r\n"
+            "WebSocket-Location: ws://" + self.request.host +
+            self.request.path + "\r\n\r\n")
+
+    def rawDataReceived(self, data):
+        self._raw_data_len = len(data)
+        log.msg('raw data length %d' % self._raw_data_len)
+        self._message_buffer += self._extractMessageFromFrame(data)
+        log.msg('fin %d rsv %d ops %d' % (self._frame_fin, self._frame_rsv, self._frame_ops))
+        log.msg('masked  %d payload length %d header length %d' % (self._frame_mask, 
+                                                                   self._frame_payload_len, 
+                                                                   self._frame_header_len))
+        log.msg('message buffer %s' % self._message_buffer)
+        if (self._frame_fin):
+            self.handler.messageReceived(self._message_buffer)
+            self._message_buffer = ""
+
+        # if there is still data after this frame, process again
+        current_len = self._frame_header_len + self._frame_payload_len
+        if current_len < self._raw_data_len:
+            self.rawDataReceived(data[current_len:])
+
+    def _extractMessageFromFrame(self, data):
+        # first byte contains fin, rsv and ops
+        b = ord(data[0])
+        self._frame_fin = (b & 0x80) != 0
+        self._frame_rsv = (b & 0x70) >> 4
+        self._frame_ops = b & 0x0f
+
+        # second byte contains mask and payload length
+        b = ord(data[1])
+        self._frame_mask = (b & 0x80) != 0
+        frame_payload_len1 = b & 0x7f
+
+        if (self._frame_mask):
+            mask_len = 4
+        else:
+            mask_len = 0
+
+        # i is frame index. It's at 2 here because we've already processed the
+        # first 2 bytes of the frame.
+        i = 2
+
+        if frame_payload_len1 <  126:
+            self._frame_header_len = i + mask_len
+            self._frame_payload_len = frame_payload_len1
+        elif frame_payload_len1 == 126:
+            self._frame_header_len = i + 2 + mask_len
+            self._frame_payload_len = struct.unpack("!H", data[i:i+2])[0]
+            i += 2
+        elif frame_payload_len1 == 127:
+            self._frame_header_len = i + 8 + mask_len
+            self._frame_payload_len = struct.unpack("!Q", data[i:i+8])[0]
+            i += 8
+
+        # when payload is masked, extract frame mask
+        frame_mask = None
+        frame_mask_array = []
+        if self._frame_mask:
+            frame_mask = data[i:i+4]
+            for j in range(0, 4):
+                frame_mask_array.append(ord(frame_mask[j]))
+            i += 4
+            payload = bytearray(data[i:i+self._frame_payload_len])
+            for k in xrange(0, self._frame_payload_len):
+                payload[k] ^= frame_mask_array[k % 4]
+
+            return str(payload)
+
+    def sendMessage(self, message):
+        message = unicode(message, "utf-8")
+        length = len(message)
+        newFrame = []
+        newFrame.append(0x81)
+        newFrame = bytearray(newFrame)
+        if length <= 125:
+            newFrame.append(length)
+        elif length > 125 and length < 65536:
+            newFrame.append(126)
+            newFrame += struct.pack('!H', length)
+        elif length >= 65536:
+            newFrame.append(127)
+            newFrame += struct.pack('!Q', length)
+
+        newFrame += message.encode('utf-8')
+        self.handler.transport.write(str(newFrame))
+
+
+class WebSocketProtocol76(WebSocketProtocol):
+    def acceptConnection(self):
+        log.msg('accept connection!')
+
+    def rawDataReceived(self, data):
+        log.msg('raw data!')
+
 
 class WebSocketHandler(cyclone.web.RequestHandler):
-    """Subclass this class to create a basic WebSocket handler.
+    def __init__(self, application, request):
+        cyclone.web.RequestHandler.__init__(self, application, request)
+        self.application = application
+        self.request = request
+        self.transport = request.connection.transport
+        self.ws_protocol = None;
 
-    Override on_message to handle incoming messages. You can also override
-    open and on_close to handle opened and closed connections.
+    def headersReceived(self):
+        pass
 
-    See http://dev.w3.org/html5/websockets/ for details on the
-    JavaScript interface. This implement the protocol as specified at
-    http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17
-    The older protocol versions specified at
-    http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-10
-    and 
-    http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76.
-    are also supported.
+    def connectionMade(self, *args, **kwargs):
+        pass
 
-    Here is an example Web Socket handler that echos back all received messages
-    back to the client::
+    def messageReceived(self, message):
+        pass
 
-      class EchoWebSocket(websocket.WebSocketHandler):
-          def open(self):
-              print "WebSocket opened"
+    def sendMessage(self, message):
+        self.ws_protocol.sendMessage(message)
+        """
+        if self._protocol == 10:
+            message = unicode(message, "utf-8")
+            length = len(message)
+            newFrame = []
+            newFrame.append(0x81)
+            newFrame = bytearray(newFrame)
+            if length <= 125:
+                newFrame.append(length)
+            elif length > 125 and length < 65536:
+                newFrame.append(126)
+                newFrame += struct.pack('!H', length)
+            elif length >= 65536:
+                newFrame.append(127)
+                newFrame += struct.pack('!Q', length)
 
-          def on_message(self, message):
-              self.write_message(u"You said: " + message)
+            newFrame += message.encode()
+            self.transport.write(str(newFrame))
+        else:
+            if isinstance(message, dict):
+                message = escape.json_encode(message)
+            if isinstance(message, unicode):
+                message = message.encode("utf-8")
+            assert isinstance(message, str)
+            self.transport.write("\x00" + message + "\xff")
+        """
 
-          def on_close(self):
-              print "WebSocket closed"
+    def _handle_request_exception(self, e):
+        if isinstance(e, HTTPError):
+            self.transport.loseConnection()
+        else:
+            log.err(e)
+            log.err("Uncaught exception %s :: %r" % (self._request_summary(), self.request))
+            self.transport.loseConnection()
 
-    Web Sockets are not standard HTTP connections. The "handshake" is HTTP,
-    but after the handshake, the protocol is message-based. Consequently,
-    most of the Tornado HTTP facilities are not available in handlers of this
-    type. The only communication methods available to you are write_message()
-    and close(). Likewise, your request handler class should
-    implement open() method rather than get() or post().
+    def _rawDataReceived(self, data):
+        self.ws_protocol.handleRawData(data)
+        """
+        if len(data) == 8 and self._postheader == True and self._protocol >= 76:
+            self.nonce = data.strip()
+            token = self._calculate_token(self.k1, self.k2, self.nonce)
+            self.transport.write(
+                "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                "Upgrade: WebSocket\r\n"
+                "Connection: Upgrade\r\n"
+                "Server: cyclone/"+__version__+"\r\n"
+                "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
+                "Sec-WebSocket-Location: ws://" + self.request.host +
+                self.request.path + "\r\n\r\n"+token+"\r\n")
+            self._postheader = False
+            self.flush()
+            return
+        elif ord(data[0]) & 0x80 == 0x80 and self._protocol == 10:
+            ## Draft 10 Reference:
+            ## https://github.com/oberstet/Autobahn/blob/master/lib/python/autobahn/websocket.py
 
-    If you map the handler above to "/websocket" in your application, you can
-    invoke it in JavaScript with::
+            buffered_len = len(data)
+            ## FIN, RSV, OPCODE
+            ##
+            b = ord(data[0])
+            frame_fin = (b & 0x80) != 0
+            frame_rsv = (b & 0x70) >> 4
+            frame_opcode = b & 0x0f
 
-      var ws = new WebSocket("ws://localhost:8888/websocket");
-      ws.onopen = function() {
-         ws.send("Hello, world");
-      };
-      ws.onmessage = function (evt) {
-         alert(evt.data);
-      };
+            ## MASK, PAYLOAD LEN 1
+            ##
+            b = ord(data[1])
+            frame_masked = (b & 0x80) != 0
+            frame_payload_len1 = b & 0x7f
 
-    This script pops up an alert box that says "You said: Hello, world".
-    """
-    def __init__(self, application, request, **kwargs):
-        cyclone.web.RequestHandler.__init__(self, application, request,
-                                            **kwargs)
-        self.stream = request.connection.transport
-        self.ws_connection = None
+            ## compute complete header length
+            ##
+            if frame_masked:
+                mask_len = 4
+            else:
+                mask_len = 0
+
+            if frame_payload_len1 <  126:
+                frame_header_len = 2 + mask_len
+            elif frame_payload_len1 == 126:
+                frame_header_len = 2 + 2 + mask_len
+            elif frame_payload_len1 == 127:
+                frame_header_len = 2 + 8 + mask_len
+
+            ## only proceed when we have enough data buffered for complete
+            ## frame header (which includes extended payload len + mask)
+            ##
+            if buffered_len >= frame_header_len:
+                i = 2
+                ## extract extended payload length
+                ##
+                if frame_payload_len1 == 126:
+                    frame_payload_len = struct.unpack("!H", data[i:i+2])[0]
+                    i += 2
+                elif frame_payload_len1 == 127:
+                    frame_payload_len = struct.unpack("!Q", data[i:i+8])[0]
+                    i += 8
+                else:
+                    frame_payload_len = frame_payload_len1
+
+                ## when payload is masked, extract frame mask
+                ##
+                frame_mask = None
+                frame_mask_array = []
+                if frame_masked:
+                    frame_mask = data[i:i+4]
+                    for j in range(0, 4):
+                        frame_mask_array.append(ord(frame_mask[j]))
+                    i += 4
+                    payload = bytearray(data[i:i+frame_payload_len])
+                    l = frame_payload_len
+                    for k in xrange(0, l):
+                        payload[k] ^= frame_mask_array[k % 4]
+
+                    self.messageReceived(str(payload))
+
+                    ## if there is still data after this frame, process again
+                    ##
+                    current_len = frame_header_len + frame_payload_len
+                    if current_len < buffered_len:
+                        self._rawDataReceived(data[current_len:])
+
+                    return
+
+        try:
+            idx = data.find("\xff")
+            message = data[1:idx]
+            self._wsbuffer = data[idx+1:]
+        except:
+            log.err("Invalid WebSocket Message: %s" % repr(data))
+        else:
+            try:
+                self.messageReceived(message)
+            except Exception, e:
+                self._handle_request_exception(e)
+        """
 
     def _execute(self, transforms, *args, **kwargs):
-        self.open_args = args
-        self.open_kwargs = kwargs
-
-        log.msg('self.stream %s' % self.stream)
+        self.request.connection.setRawMode()
 
         # The difference between version 8 and 13 is that in 8 the
         # client sends a "Sec-Websocket-Origin" header and in 13 it's
         # simply "Origin".
         if self.request.headers.has_key('Sec-Websocket-Version') and \
         self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
-            self.ws_connection = WebSocketProtocol8(self)
-            self.ws_connection.accept_connection()
-            
+            self.ws_protocol  = WebSocketProtocol17(self)
         elif self.request.headers.get("Sec-WebSocket-Version"):
-            self.stream.write(cyclone.escape.utf8(
+            self.transport.write(cyclone.escape.utf8(
                 "HTTP/1.1 426 Upgrade Required\r\n"
                 "Sec-WebSocket-Version: 8\r\n\r\n"))
-            self.stream.loseConnection()
+            self.transport.loseConnection()
             
         else:
-            self.ws_connection = WebSocketProtocol76(self)
-            self.ws_connection.accept_connection()
+            self.ws_protocol = WebSocketProtocol76(self)
 
-    def write_message(self, message):
-        """Sends the given message to the client of this Web Socket."""
-        self.ws_connection.write_message(message)
+        self.request.connection.rawDataReceived = self.ws_protocol.rawDataReceived
+        self.ws_protocol.acceptConnection()
 
-    def open(self, *args, **kwargs):
-        """Invoked when a new WebSocket is opened."""
-        pass
-
-    def on_message(self, message):
-        """Handle incoming messages on the WebSocket
-
-        This method must be overloaded
         """
-        raise NotImplementedError
-
-    def on_close(self):
-        """Invoked when the WebSocket is closed."""
-        pass
-
-    def close(self):
-        """Closes this Web Socket.
-
-        Once the close handshake is successful the socket will be closed.
-        """
-        self.ws_connection.close()
-
-    def async_callback(self, callback, *args, **kwargs):
-        """Wrap callbacks with this if they are used on asynchronous requests.
-
-        Catches exceptions properly and closes this WebSocket if an exception
-        is uncaught.
-        """
-        return self.ws_connection.async_callback(callback, *args, **kwargs)
-
-    def _not_supported(self, *args, **kwargs):
-        raise Exception("Method not supported for Web Sockets")
-
-    def on_connection_close(self):
-        if self.ws_connection:
-            self.ws_connection.client_terminated = True
-            self.on_close()
-
-    def _set_client_terminated(self, value):
-        self.ws_connection.client_terminated = value
-
-    client_terminated = property(lambda self: self.ws_connection.client_terminated,
-                                 _set_client_terminated)
-
-
-for method in ["write", "redirect", "set_header", "send_error", "set_cookie",
-               "set_status", "flush", "finish"]:
-    setattr(WebSocketHandler, method, WebSocketHandler._not_supported)
-
-
-class WebSocketProtocol(object):
-    """Base class for WebSocket protocol versions.
-    """
-    def __init__(self, handler):
-        self.handler = handler
-        self.request = handler.request
-        self.stream = handler.stream
-        self.client_terminated = False
-
-    def async_callback(self, callback, *args, **kwargs):
-        """Wrap callbacks with this if they are used on asynchronous requests.
-
-        Catches exceptions properly and closes this WebSocket if an exception
-        is uncaught.
-        """
-        if args or kwargs:
-            callback = functools.partial(callback, *args, **kwargs)
-        def wrapper(*args, **kwargs):
+        try:
+            assert self.request.headers["Upgrade"].lower() == "websocket"
+            assert self.request.headers["Connection"].lower() == "upgrade"
+        except:
+            message = "Expected WebSocket Headers"
+            self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+                str(len(message)) + "\r\n\r\n" + message)
+            return self.transport.loseConnection()
+        else:
             try:
-                return callback(*args, **kwargs)
-            except Exception:
-                logging.error("Uncaught exception in %s",
-                              self.request.path, exc_info=True)
-                self._abort()
-        return wrapper
+                self.headersReceived()
+            except Exception, e:
+                return self._handle_request_exception(e)
 
-    def _abort(self):
-        """Instantly aborts the WebSocket connection by closing the socket"""
-        self.client_terminated = True
-        self.stream.loseConnection()
+            if 'Sec-Websocket-Version' in self.request.headers:
+                versions = ('7', '8', '13')
+                if self.request.headers['Sec-WebSocket-Version'] not in versions:
+                    message = "Unsupported WebSocket Protocol Version"
+                    self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+                        str(len(message)) + "\r\n\r\n" + message)
+                    return self.transport.loseConnection()
 
-
-class WebSocketProtocol76(WebSocketProtocol):
-    """Implementation of the WebSockets protocol, version hixie-76.
-
-    This class provides basic functionality to process WebSockets requests as
-    specified in
-    http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76
-    """
-    def __init__(self, handler):
-        WebSocketProtocol.__init__(self, handler)
-        self.challenge = None
-
-    def accept_connection(self):
-        try:
-            self._handle_websocket_headers()
-        except ValueError:
-            logging.debug("Malformed WebSocket request received")
-            self._abort()
-            return
-        scheme = "wss" if self.request.protocol == "https" else "ws"
-        # Write the initial headers before attempting to read the challenge.
-        # This is necessary when using proxies (such as HAProxy), which
-        # need to see the Upgrade headers before passing through the
-        # non-HTTP traffic that follows.
-        self.stream.write(cyclone.escape.utf8(
-            "HTTP/1.1 101 WebSocket Protocol Handshake\r\n"
-            "Upgrade: WebSocket\r\n"
-            "Connection: Upgrade\r\n"
-            "Server: TornadoServer/%(version)s\r\n"
-            "Sec-WebSocket-Origin: %(origin)s\r\n"
-            "Sec-WebSocket-Location: %(scheme)s://%(host)s%(uri)s\r\n\r\n" % (dict(
-                    version=cyclone.version,
-                    origin=self.request.headers["Origin"],
-                    scheme=scheme,
-                    host=self.request.host,
-                    uri=self.request.uri))))
-        self.stream.read_bytes(8, self._handle_challenge)
-
-    def challenge_response(self, challenge):
-        """Generates the challenge response that's needed in the handshake
-
-        The challenge parameter should be the raw bytes as sent from the
-        client.
-        """
-        key_1 = self.request.headers.get("Sec-Websocket-Key1")
-        key_2 = self.request.headers.get("Sec-Websocket-Key2")
-        try:
-            part_1 = self._calculate_part(key_1)
-            part_2 = self._calculate_part(key_2)
-        except ValueError:
-            raise ValueError("Invalid Keys/Challenge")
-        return self._generate_challenge_response(part_1, part_2, challenge)
-
-    def _handle_challenge(self, challenge):
-        try:
-            challenge_response = self.challenge_response(challenge)
-        except ValueError:
-            logging.debug("Malformed key data in WebSocket request")
-            self._abort()
-            return
-        self._write_response(challenge_response)
-
-    def _write_response(self, challenge):
-        self.stream.write(challenge)
-        self.async_callback(self.handler.open)(*self.handler.open_args, **self.handler.open_kwargs)
-        self._receive_message()
-
-    def _handle_websocket_headers(self):
-        """Verifies all invariant- and required headers
-
-        If a header is missing or have an incorrect value ValueError will be
-        raised
-        """
-        headers = self.request.headers
-        fields = ("Origin", "Host", "Sec-Websocket-Key1",
-                  "Sec-Websocket-Key2")
-        if headers.get("Upgrade", '').lower() != "websocket" or \
-           headers.get("Connection", '').lower() != "upgrade" or \
-           not all(map(lambda f: self.request.headers.get(f), fields)):
-            raise ValueError("Missing/Invalid WebSocket headers")
-
-    def _calculate_part(self, key):
-        """Processes the key headers and calculates their key value.
-
-        Raises ValueError when feed invalid key."""
-        number = int(''.join(c for c in key if c.isdigit()))
-        spaces = len([c for c in key if c.isspace()])
-        try:
-            key_number = number // spaces
-        except (ValueError, ZeroDivisionError):
-            raise ValueError
-        return struct.pack(">I", key_number)
-
-    def _generate_challenge_response(self, part_1, part_2, part_3):
-        m = hashlib.md5()
-        m.update(part_1)
-        m.update(part_2)
-        m.update(part_3)
-        return m.digest()
-
-    def _receive_message(self):
-        self.stream.read_bytes(1, self._on_frame_type)
-
-    def _on_frame_type(self, byte):
-        frame_type = ord(byte)
-        if frame_type == 0x00:
-            self.stream.read_until(b("\xff"), self._on_end_delimiter)
-        elif frame_type == 0xff:
-            self.stream.read_bytes(1, self._on_length_indicator)
-        else:
-            self._abort()
-
-    def _on_end_delimiter(self, frame):
-        if not self.client_terminated:
-            self.async_callback(self.handler.on_message)(
-                    frame[:-1].decode("utf-8", "replace"))
-        if not self.client_terminated:
-            self._receive_message()
-
-    def _on_length_indicator(self, byte):
-        if ord(byte) != 0x00:
-            self._abort()
-            return
-        self.client_terminated = True
-        self.close()
-
-    def write_message(self, message):
-        """Sends the given message to the client of this Web Socket."""
-        if isinstance(message, dict):
-            message = cyclone.escape.json_encode(message)
-        if isinstance(message, unicode):
-            message = message.encode("utf-8")
-        assert isinstance(message, bytes_type)
-        self.stream.write(b("\x00") + message + b("\xff"))
-
-    def close(self):
-        """Closes the WebSocket connection."""
-        if self.client_terminated: 
-            self.stream.loseConnection()
-        else:
-            self.stream.write("\xff\x00")
-            reactor.callLater(5, self._abort, None)
-
-
-class WebSocketProtocol8(WebSocketProtocol):
-    """Implementation of the WebSocket protocol, version 8 (draft version 10).
-
-    Compare
-    http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-10
-    """
-    def __init__(self, handler):
-        WebSocketProtocol.__init__(self, handler)
-        self._final_frame = False
-        self._frame_opcode = None
-        self._frame_mask = None
-        self._frame_length = None
-        self._fragmented_message_buffer = None
-        self._fragmented_message_opcode = None
-        self._started_closing_handshake = False
-
-    def accept_connection(self):
-        try:
-            self._handle_websocket_headers()
-            self._accept_connection()
-        except ValueError:
-            logging.debug("Malformed WebSocket request received")
-            self._abort()
-            return
-    
-    def _handle_websocket_headers(self):
-        """Verifies all invariant- and required headers
-
-        If a header is missing or have an incorrect value ValueError will be
-        raised
-        """
-        headers = self.request.headers
-        fields = ("Host", "Sec-Websocket-Key", "Sec-Websocket-Version")
-        connection = map(lambda s: s.strip().lower(), headers.get("Connection", '').split(","))
-        if (self.request.method != "GET" or
-            headers.get("Upgrade", '').lower() != "websocket" or
-            "upgrade" not in connection or
-            not all(map(lambda f: self.request.headers.get(f), fields))):
-            raise ValueError("Missing/Invalid WebSocket headers")
-
-    def _challenge_response(self):
-        sha1 = hashlib.sha1()
-        sha1.update(cyclone.escape.utf8(
-                self.request.headers.get("Sec-Websocket-Key")))
-        sha1.update(b("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")) # Magic value
-        return unicode(base64.b64encode(sha1.digest()), 'utf-8')
-
-    def _accept_connection(self):
-        self.stream.write(cyclone.escape.utf8(
-            "HTTP/1.1 101 Switching Protocols\r\n"
-            "Upgrade: websocket\r\n"
-            "Connection: Upgrade\r\n"
-            "Sec-WebSocket-Accept: %s\r\n\r\n" % self._challenge_response()))
-
-        self.async_callback(self.handler.open)(*self.handler.open_args, **self.handler.open_kwargs)
-        self._receive_frame()
-
-    def _write_frame(self, fin, opcode, data):
-        if fin:
-            finbit = 0x80
-        else:
-            finbit = 0
-        frame = struct.pack("B", finbit | opcode)
-        l = len(data)
-        if l < 126:
-            frame += struct.pack("B", l)
-        elif l <= 0xFFFF:
-            frame += struct.pack("!BH", 126, l)
-        else:
-            frame += struct.pack("!BQ", 127, l)
-        frame += data
-        self.stream.write(frame)
-
-    def write_message(self, message, binary=False):
-        """Sends the given message to the client of this Web Socket."""
-        if isinstance(message, dict):
-            message = cyclone.escape.json_encode(message)
-        if isinstance(message, unicode):
-            message = message.encode("utf-8")
-        assert isinstance(message, bytes_type)
-        if not binary:
-            opcode = 0x1
-        else:
-            opcode = 0x2
-        self._write_frame(True, opcode, message)
-
-    def _receive_frame(self):
-        self.stream.read_bytes(2, self._on_frame_start)
-
-    def _on_frame_start(self, data):
-        header, payloadlen = struct.unpack("BB", data)
-        self._final_frame = header & 0x80
-        self._frame_opcode = header & 0xf
-        if not (payloadlen & 0x80):
-            # Unmasked frame -> abort connection
-            self._abort()
-        payloadlen = payloadlen & 0x7f
-        if payloadlen < 126:
-            self._frame_length = payloadlen
-            self.stream.read_bytes(4, self._on_masking_key)
-        elif payloadlen == 126:
-            self.stream.read_bytes(2, self._on_frame_length_16)
-        elif payloadlen == 127:
-            self.stream.read_bytes(8, self._on_frame_length_64)
-
-    def _on_frame_length_16(self, data):
-        self._frame_length = struct.unpack("!H", data)[0];
-        self.stream.read_bytes(4, self._on_masking_key);
-        
-    def _on_frame_length_64(self, data):
-        self._frame_length = struct.unpack("!Q", data)[0];
-        self.stream.read_bytes(4, self._on_masking_key);
-
-    def _on_masking_key(self, data):
-        self._frame_mask = bytearray(data)
-        self.stream.read_bytes(self._frame_length, self._on_frame_data)
-
-    def _on_frame_data(self, data):
-        unmasked = bytearray(data)
-        for i in xrange(len(data)):
-            unmasked[i] = unmasked[i] ^ self._frame_mask[i % 4]
-
-        if not self._final_frame:
-            if self._fragmented_message_buffer:
-                self._fragmented_message_buffer += unmasked
+                log.msg('Using ws spec (draft 10)')
+                if 'Origin' in self.request.headers:
+                    origin = self.request.headers['Origin']
+                else:
+                    origin = self.request.headers['Sec-Websocket-Origin']
+                key = self.request.headers['Sec-Websocket-Key']
+                accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
+                self.transport.write(
+                    "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                    "Upgrade: WebSocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    "Sec-WebSocket-Accept: " + accept + "\r\n"
+                    "Server: cyclone/" +__version__+ "\r\n"
+                    "WebSocket-Origin: " + origin + "\r\n"
+                    "WebSocket-Location: ws://" + self.request.host +
+                    self.request.path + "\r\n\r\n")
+                self._protocol = 10
+            elif self.request.headers.has_key('Sec-Websocket-Key1') == False or \
+                self.request.headers.has_key('Sec-Websocket-Key2') == False:
+                log.msg('Using old ws spec (draft 75)')
+                self.transport.write(
+                    "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                    "Upgrade: WebSocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    "Server: cyclone/"+__version__+"\r\n"
+                    "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
+                    "WebSocket-Location: ws://" + self.request.host +
+                    self.request.path + "\r\n\r\n")
+                self._protocol = 75
             else:
-                self._fragmented_message_opcode = self._frame_opcode
-                self._fragmented_message_buffer = unmasked
-        else:
-            if self._frame_opcode == 0:
-                unmasked = self._fragmented_message_buffer + unmasked
-                opcode = self._fragmented_message_opcode
-                self._fragmented_message_buffer = None
-            else:
-                opcode = self._frame_opcode
+                log.msg('Using ws draft 76 header exchange')
+                self.k1 = self.request.headers["Sec-WebSocket-Key1"]
+                self.k2 = self.request.headers["Sec-WebSocket-Key2"]
+                self._protocol = 76
+        self._postheader = True
+        self.connectionMade(*args, **kwargs)
+        """
 
-            self._handle_message(opcode, bytes_type(unmasked))
+    def _calculate_token(self, k1, k2, k3):
+        token = struct.pack('>ii8s', self._filterella(k1), self._filterella(k2), k3)
+        return hashlib.md5(token).digest()
 
-        if not self.client_terminated:
-            self._receive_frame()
-        
-
-    def _handle_message(self, opcode, data):
-        if self.client_terminated: return
-        
-        if opcode == 0x1:
-            # UTF-8 data
-            self.async_callback(self.handler.on_message)(data.decode("utf-8", "replace"))
-        elif opcode == 0x2:
-            # Binary data
-            self.async_callback(self.handler.on_message)(data)
-        elif opcode == 0x8:
-            # Close
-            self.client_terminated = True
-            if not self._started_closing_handshake:
-                self._write_frame(True, 0x8, b(""))
-            self.stream.loseConnection()
-        elif opcode == 0x9:
-            # Ping
-            self._write_frame(True, 0xA, data)
-        elif opcode == 0xA:
-            # Pong
-            pass
-        else:
-            self._abort()
-        
-    def close(self):
-        """Closes the WebSocket connection."""
-        self._write_frame(True, 0x8, b(""))
-        self._started_closing_handshake = True
-        reactor.callLater(5, self._abort, None)
-
+    def _filterella(self, w):
+        nums = []
+        spaces = 0
+        for l in w:
+            if l.isdigit(): nums.append(l)
+            if l.isspace(): spaces = spaces + 1
+        x = int(''.join(nums))/spaces
+        return x
