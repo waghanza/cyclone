@@ -44,7 +44,7 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         self._frame_fin = None
         self._frame_rsv = None
-        self_frame_ops = None
+        self._frame_ops = None
         self._frame_mask = None
         self._frame_payload_length = None
         self._frame_header_length = None
@@ -85,7 +85,6 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._raw_data_len = len(data)
         log.msg('raw data length %d' % self._raw_data_len)
         self._message_buffer += self._extractMessageFromFrame(data)
-        log.msg('fin %d rsv %d ops %d' % (self._frame_fin, self._frame_rsv, self._frame_ops))
         log.msg('masked  %d payload length %d header length %d' % (self._frame_mask, 
                                                                    self._frame_payload_len, 
                                                                    self._frame_header_len))
@@ -105,6 +104,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._frame_fin = (b & 0x80) != 0
         self._frame_rsv = (b & 0x70) >> 4
         self._frame_ops = b & 0x0f
+        log.msg('fin %d rsv %d ops %d' % (self._frame_fin, self._frame_rsv, self._frame_ops))
 
         # second byte contains mask and payload length
         b = ord(data[1])
