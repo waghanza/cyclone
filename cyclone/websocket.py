@@ -42,6 +42,8 @@ class WebSocketProtocol17(WebSocketProtocol):
     def __init__(self, handler):
         WebSocketProtocol.__init__(self, handler)
 
+        self._partial_data = None
+
         self._frame_fin = None
         self._frame_rsv = None
         self._frame_ops = None
@@ -50,6 +52,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._frame_header_length = None
 
         self._raw_data_length = None
+        self._header_index = None
 
         self._message_buffer = ""
 
@@ -84,10 +87,13 @@ class WebSocketProtocol17(WebSocketProtocol):
     def rawDataReceived(self, data):
         self._raw_data_len = len(data)
         log.msg('raw data length %d' % self._raw_data_len)
-        self._message_buffer += self._extractMessageFromFrame(data)
+
+        self._processFrameHeader(data)
         log.msg('masked  %d payload length %d header length %d' % (self._frame_mask, 
                                                                    self._frame_payload_len, 
                                                                    self._frame_header_len))
+
+        self._message_buffer += self._extractMessageFromFrame(data)
         log.msg('message buffer %s' % self._message_buffer)
         if (self._frame_fin):
             self.handler.messageReceived(self._message_buffer)
@@ -98,7 +104,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         if current_len < self._raw_data_len:
             self.rawDataReceived(data[current_len:])
 
-    def _extractMessageFromFrame(self, data):
+    def _processFrameHeader(self, data):
         # first byte contains fin, rsv and ops
         b = ord(data[0])
         self._frame_fin = (b & 0x80) != 0
@@ -131,6 +137,11 @@ class WebSocketProtocol17(WebSocketProtocol):
             self._frame_header_len = i + 8 + mask_len
             self._frame_payload_len = struct.unpack("!Q", data[i:i+8])[0]
             i += 8
+
+        self._header_index = i
+
+    def _extractMessageFromFrame(self, data):
+        i = self._header_index
 
         # when payload is masked, extract frame mask
         frame_mask = None
