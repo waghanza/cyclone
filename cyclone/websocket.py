@@ -88,14 +88,22 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._raw_data_len = len(data)
         log.msg('raw data length %d' % self._raw_data_len)
 
-        self._processFrameHeader(data)
-        log.msg('masked  %d payload length %d header length %d' % (self._frame_mask, 
-                                                                   self._frame_payload_len, 
-                                                                   self._frame_header_len))
+        if self._partial_data:
+            log.msg('we have partial data')
+            data[0:0] = self._partial_data
+            self._partial_data = None
+        else:
+            self._processFrameHeader(data)
+
+        if (self._raw_data_len - self._header_index) < self._frame_payload_len:
+            log.msg('not enough data')
+            self._partial_data = data[self._header_index:]
+            return
+
 
         self._message_buffer += self._extractMessageFromFrame(data)
         log.msg('message buffer %s' % self._message_buffer)
-        if (self._frame_fin):
+        if self._frame_fin:
             self.handler.messageReceived(self._message_buffer)
             self._message_buffer = ""
 
@@ -139,6 +147,10 @@ class WebSocketProtocol17(WebSocketProtocol):
             i += 8
 
         self._header_index = i
+        log.msg('masked  %d payload length %d header length %d header_index %d' % (self._frame_mask,
+                                                                                   self._frame_payload_len, 
+                                                                                   self._frame_header_len,
+                                                                                   self._header_index))
 
     def _extractMessageFromFrame(self, data):
         i = self._header_index
