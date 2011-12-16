@@ -141,6 +141,8 @@ class WebSocketProtocol17(WebSocketProtocol):
                 frame_mask_array.append(ord(frame_mask[j]))
             i += 4
             payload = bytearray(data[i:i+self._frame_payload_len])
+            log.msg('len(payload) %d' % len(payload))
+            log.msg('self._frame_payload_len %d' % self._frame_payload_len)
             for k in xrange(0, self._frame_payload_len):
                 payload[k] ^= frame_mask_array[k % 4]
 
