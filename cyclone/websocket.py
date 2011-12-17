@@ -22,6 +22,60 @@ import cyclone.web
 from twisted.python import log
 from cyclone import __version__
 
+
+class WebSocketHandler(cyclone.web.RequestHandler):
+    def __init__(self, application, request):
+        cyclone.web.RequestHandler.__init__(self, application, request)
+        self.application = application
+        self.request = request
+        self.transport = request.connection.transport
+        self.ws_protocol = None;
+
+    def headersReceived(self):
+        pass
+
+    def connectionMade(self, *args, **kwargs):
+        pass
+
+    def messageReceived(self, message):
+        pass
+
+    def sendMessage(self, message):
+        self.ws_protocol.sendMessage(message)
+
+    def _rawDataReceived(self, data):
+        self.ws_protocol.handleRawData(data)
+
+    def _execute(self, transforms, *args, **kwargs):
+        try:
+            assert self.request.headers["Upgrade"].lower() == "websocket"
+            assert self.request.headers["Connection"].lower() == "upgrade"
+        except:
+            return self.forbidConnection("Expected WebSocket Headers")
+
+        if self.request.headers.has_key('Sec-Websocket-Version') and \
+        self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
+            self.ws_protocol  = WebSocketProtocol17(self)
+        elif self.request.headers.has_key("Sec-WebSocket-Version"):
+            self.transport.write(cyclone.escape.utf8(
+                "HTTP/1.1 426 Upgrade Required\r\n"
+                "Sec-WebSocket-Version: 8\r\n\r\n"))
+            self.transport.loseConnection()
+        else:
+            self.ws_protocol = WebSocketProtocol76(self)
+
+        self.request.connection.setRawMode()
+        self.request.connection.rawDataReceived = self.ws_protocol.rawDataReceived
+        self.ws_protocol.acceptConnection()
+
+        self.connectionMade(*args, **kwargs)
+
+    def forbidConnection(self, message):
+        self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+            str(len(message)) + "\r\n\r\n" + message)
+        return self.transport.loseConnection()
+
+
 class WebSocketProtocol(object):
     def __init__(self, handler):
         self.handler = handler
@@ -46,7 +100,6 @@ class WebSocketProtocol(object):
             self.transport.loseConnection()
 
 
-
 class WebSocketProtocol17(WebSocketProtocol):
     def __init__(self, handler):
         WebSocketProtocol.__init__(self, handler)
@@ -67,11 +120,11 @@ class WebSocketProtocol17(WebSocketProtocol):
 
 
     def acceptConnection(self):
-        versions = ('7', '8', '13')
-        if self.request.headers['Sec-WebSocket-Version'] not in versions:
-            return self.handler.forbidConnection("Unsupported WebSocket Protocol Version")
-
         log.msg('Using ws spec (draft 17)')
+
+        # The difference between version 8 and 13 is that in 8 the
+        # client sends a "Sec-Websocket-Origin" header and in 13 it's
+        # simply "Origin".
         if 'Origin' in self.request.headers:
             origin = self.request.headers['Origin']
         else:
@@ -275,71 +328,4 @@ class WebSocketProtocol76(WebSocketProtocol):
             if l.isspace(): spaces = spaces + 1
         x = int(''.join(nums))/spaces
         return x
-
-
-class WebSocketHandler(cyclone.web.RequestHandler):
-    def __init__(self, application, request):
-        cyclone.web.RequestHandler.__init__(self, application, request)
-        self.application = application
-        self.request = request
-        self.transport = request.connection.transport
-        self.ws_protocol = None;
-
-    def headersReceived(self):
-        pass
-
-    def connectionMade(self, *args, **kwargs):
-        pass
-
-    def messageReceived(self, message):
-        pass
-
-    def sendMessage(self, message):
-        self.ws_protocol.sendMessage(message)
-
-    def _rawDataReceived(self, data):
-        self.ws_protocol.handleRawData(data)
-
-    def _execute(self, transforms, *args, **kwargs):
-        self.request.connection.setRawMode()
-
-        try:
-            assert self.request.headers["Upgrade"].lower() == "websocket"
-            assert self.request.headers["Connection"].lower() == "upgrade"
-        except:
-            return self.forbidConnection("Expected WebSocket Headers")
-
-        # The difference between version 8 and 13 is that in 8 the
-        # client sends a "Sec-Websocket-Origin" header and in 13 it's
-        # simply "Origin".
-        if self.request.headers.has_key('Sec-Websocket-Version') and \
-        self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
-            self.ws_protocol  = WebSocketProtocol17(self)
-        elif self.request.headers.get("Sec-WebSocket-Version"):
-            self.transport.write(cyclone.escape.utf8(
-                "HTTP/1.1 426 Upgrade Required\r\n"
-                "Sec-WebSocket-Version: 8\r\n\r\n"))
-            self.transport.loseConnection()
-            
-        else:
-            self.ws_protocol = WebSocketProtocol76(self)
-
-        self.request.connection.rawDataReceived = self.ws_protocol.rawDataReceived
-        self.ws_protocol.acceptConnection()
-
-        """
-        else:
-            try:
-                self.headersReceived()
-            except Exception, e:
-                return self._handle_request_exception(e)
-
-        self._postheader = True
-        self.connectionMade(*args, **kwargs)
-        """
-    def forbidConnection(self, message):
-        self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
-            str(len(message)) + "\r\n\r\n" + message)
-        return self.transport.loseConnection()
-
 
