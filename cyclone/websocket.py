@@ -37,10 +37,14 @@ class WebSocketProtocol(object):
     def sendMessage(self, message):
         pass
 
-    def loseConnection(self, message):
-        self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
-            str(len(message)) + "\r\n\r\n" + message)
-        return self.transport.loseConnection()
+    def _handle_request_exception(self, e):
+        if isinstance(e, HTTPError):
+            self.transport.loseConnection()
+        else:
+            log.err(e)
+            log.err("Uncaught exception %s :: %r" % (self._request_summary(), self.request))
+            self.transport.loseConnection()
+
 
 
 class WebSocketProtocol17(WebSocketProtocol):
@@ -65,7 +69,7 @@ class WebSocketProtocol17(WebSocketProtocol):
     def acceptConnection(self):
         versions = ('7', '8', '13')
         if self.request.headers['Sec-WebSocket-Version'] not in versions:
-            return self.loseConnection("Unsupported WebSocket Protocol Version")
+            return self.handler.forbidConnection("Unsupported WebSocket Protocol Version")
 
         log.msg('Using ws spec (draft 17)')
         if 'Origin' in self.request.headers:
@@ -196,6 +200,10 @@ class WebSocketProtocol76(WebSocketProtocol):
 
         self._k1 = None
         self._k2 = None
+        self._nonce = None
+
+        self._postheader = False
+        self._protocol = None
 
     def acceptConnection(self):
         log.msg('accept connection!')
@@ -210,13 +218,42 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
                 "WebSocket-Location: ws://" + self.request.host +
                 self.request.path + "\r\n\r\n")
+            self._protocol = 75
         else:
             log.msg('Using ws draft 76 header exchange')
             self._k1 = self.request.headers["Sec-WebSocket-Key1"]
             self._k2 = self.request.headers["Sec-WebSocket-Key2"]
+            self._protocol = 76
+        self._postheader = True
 
     def rawDataReceived(self, data):
         log.msg('raw data!')
+        if self._postheader == True and self._protocol >= 76 and len(data) == 8:
+            self._nonce = data.strip()
+            token = self._calculate_token(self._k1, self._k2, self._nonce)
+            self.transport.write(
+                "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+                "Upgrade: WebSocket\r\n"
+                "Connection: Upgrade\r\n"
+                "Server: cyclone/"+__version__+"\r\n"
+                "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
+                "Sec-WebSocket-Location: ws://" + self.request.host +
+                self.request.path + "\r\n\r\n"+token+"\r\n")
+            self._postheader = False
+            self.flush()
+            return
+
+        try:
+            idx = data.find("\xff")
+            message = data[1:idx]
+        except:
+            log.err("Invalid WebSocket Message: %s" % repr(data))
+            return
+
+        try:
+            self.handler.messageReceived(message)
+        except Exception, e:
+            self._handle_request_exception(e)
 
     def sendMessage(self, message):
         if isinstance(message, dict):
@@ -260,44 +297,8 @@ class WebSocketHandler(cyclone.web.RequestHandler):
     def sendMessage(self, message):
         self.ws_protocol.sendMessage(message)
 
-    def _handle_request_exception(self, e):
-        if isinstance(e, HTTPError):
-            self.transport.loseConnection()
-        else:
-            log.err(e)
-            log.err("Uncaught exception %s :: %r" % (self._request_summary(), self.request))
-            self.transport.loseConnection()
-
     def _rawDataReceived(self, data):
         self.ws_protocol.handleRawData(data)
-        """
-        if len(data) == 8 and self._postheader == True and self._protocol >= 76:
-            self.nonce = data.strip()
-            token = self._calculate_token(self.k1, self.k2, self.nonce)
-            self.transport.write(
-                "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                "Upgrade: WebSocket\r\n"
-                "Connection: Upgrade\r\n"
-                "Server: cyclone/"+__version__+"\r\n"
-                "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
-                "Sec-WebSocket-Location: ws://" + self.request.host +
-                self.request.path + "\r\n\r\n"+token+"\r\n")
-            self._postheader = False
-            self.flush()
-            return
-
-        try:
-            idx = data.find("\xff")
-            message = data[1:idx]
-            self._wsbuffer = data[idx+1:]
-        except:
-            log.err("Invalid WebSocket Message: %s" % repr(data))
-        else:
-            try:
-                self.messageReceived(message)
-            except Exception, e:
-                self._handle_request_exception(e)
-        """
 
     def _execute(self, transforms, *args, **kwargs):
         self.request.connection.setRawMode()
@@ -306,10 +307,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
             assert self.request.headers["Upgrade"].lower() == "websocket"
             assert self.request.headers["Connection"].lower() == "upgrade"
         except:
-            message = "Expected WebSocket Headers"
-            self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
-                str(len(message)) + "\r\n\r\n" + message)
-            return self.transport.loseConnection()
+            return self.forbidConnection("Expected WebSocket Headers")
 
         # The difference between version 8 and 13 is that in 8 the
         # client sends a "Sec-Websocket-Origin" header and in 13 it's
@@ -339,4 +337,9 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self._postheader = True
         self.connectionMade(*args, **kwargs)
         """
+    def forbidConnection(self, message):
+        self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
+            str(len(message)) + "\r\n\r\n" + message)
+        return self.transport.loseConnection()
+
 
