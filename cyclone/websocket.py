@@ -145,7 +145,6 @@ class WebSocketProtocol17(WebSocketProtocol):
 
     def rawDataReceived(self, data):
         self._raw_data_len = len(data)
-        log.msg('raw data length %d' % self._raw_data_len)
 
         if self._partial_data:
             data = self._partial_data + data
@@ -154,12 +153,10 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._processFrameHeader(data)
 
         if (self._raw_data_len - self._header_index) < self._frame_payload_len:
-            log.msg('not enough data')
             self._partial_data = data
             return
 
         self._message_buffer += self._extractMessageFromFrame(data)
-        log.msg('message buffer %s' % self._message_buffer)
         if self._frame_fin:
             self.handler.messageReceived(self._message_buffer)
             self._message_buffer = ""
@@ -175,7 +172,6 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._frame_fin = (b & 0x80) != 0
         self._frame_rsv = (b & 0x70) >> 4
         self._frame_ops = b & 0x0f
-        log.msg('fin %d rsv %d ops %d' % (self._frame_fin, self._frame_rsv, self._frame_ops))
 
         # second byte contains mask and payload length
         b = ord(data[1])
@@ -204,10 +200,6 @@ class WebSocketProtocol17(WebSocketProtocol):
             i += 8
 
         self._header_index = i
-        log.msg('masked  %d payload length %d header length %d header_index %d' % (self._frame_mask,
-                                                                                   self._frame_payload_len, 
-                                                                                   self._frame_header_len,
-                                                                                   self._header_index))
 
     def _extractMessageFromFrame(self, data):
         i = self._header_index
@@ -221,8 +213,6 @@ class WebSocketProtocol17(WebSocketProtocol):
                 frame_mask_array.append(ord(frame_mask[j]))
             i += 4
             payload = bytearray(data[i:i+self._frame_payload_len])
-            log.msg('len(payload) %d' % len(payload))
-            log.msg('self._frame_payload_len %d' % self._frame_payload_len)
             for k in xrange(0, self._frame_payload_len):
                 payload[k] ^= frame_mask_array[k % 4]
 
@@ -244,7 +234,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             newFrame += struct.pack('!Q', length)
 
         newFrame += message.encode('utf-8')
-        self.handler.transport.write(str(newFrame))
+        self.transport.write(str(newFrame))
 
 
 class WebSocketProtocol76(WebSocketProtocol):
@@ -259,7 +249,6 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._protocol = None
 
     def acceptConnection(self):
-        log.msg('accept connection!')
         if self.request.headers.has_key('Sec-Websocket-Key1') == False or \
             self.request.headers.has_key('Sec-Websocket-Key2') == False:
             log.msg('Using old ws spec (draft 75)')
@@ -280,7 +269,6 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._postheader = True
 
     def rawDataReceived(self, data):
-        log.msg('raw data!')
         if self._postheader == True and self._protocol >= 76 and len(data) == 8:
             self._nonce = data.strip()
             token = self._calculate_token(self._k1, self._k2, self._nonce)
@@ -291,21 +279,17 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "Server: cyclone/"+__version__+"\r\n"
                 "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
                 "Sec-WebSocket-Location: ws://" + self.request.host +
-                self.request.path + "\r\n\r\n"+token+"\r\n")
+                self.request.path + "\r\n\r\n"+token+"\r\n\r\n")
             self._postheader = False
-            self.flush()
+            self.handler.flush()
             return
 
         try:
-            idx = data.find("\xff")
-            message = data[1:idx]
-        except:
-            log.err("Invalid WebSocket Message: %s" % repr(data))
-            return
-
-        try:
-            self.handler.messageReceived(message)
+            messages = data.split('\xff')
+            for message in messages[:-1]:
+                self.handler.messageReceived(message[1:])
         except Exception, e:
+            log.err("Invalid WebSocket Message: %s" % repr(data))
             self._handle_request_exception(e)
 
     def sendMessage(self, message):
