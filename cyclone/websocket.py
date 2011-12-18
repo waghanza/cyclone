@@ -301,7 +301,7 @@ class WebSocketProtocol76(WebSocketProtocol):
         self.transport.write("\x00" + message + "\xff")
 
     def _calculate_token(self, k1, k2, k3):
-        token = struct.pack('>ii8s', self._filterella(k1), self._filterella(k2), k3)
+        token = struct.pack('>II8s', self._filterella(k1), self._filterella(k2), k3)
         return hashlib.md5(token).digest()
 
     def _filterella(self, w):
