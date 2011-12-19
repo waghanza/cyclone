@@ -31,7 +31,6 @@ class MainHandler(cyclone.web.RequestHandler):
         self.render("echo.html")
 
 class EchoSocketHandler(cyclone.websocket.WebSocketHandler):
-# class EchoSocketHandler(cyclone.web.WebSocketHandler):
 
     def connectionMade(self, *args, **kwargs):
         log.msg("ws opened")
