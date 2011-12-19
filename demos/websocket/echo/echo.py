@@ -30,18 +30,17 @@ class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.render("echo.html")
 
-#class EchoSocketHandler(cyclone.websocket.WebSocketHandler):
-class EchoSocketHandler(cyclone.web.WebSocketHandler):
+class EchoSocketHandler(cyclone.websocket.WebSocketHandler):
 
-    def open(self):
+    def connectionMade(self, *args, **kwargs):
         log.msg("ws opened")
 
-    def on_close(self):
+    def connectionLost(self, reason):
         log.msg("ws closed")
 
-    def on_message(self, message):
-        log.msg("got message %r", message)
-        self.write_message(message)
+    def messageReceived(self, message):
+        log.msg("got message %s" % message)
+        self.sendMessage(message)
 
 def main():
     reactor.listenTCP(8888, Application())
