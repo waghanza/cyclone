@@ -38,6 +38,9 @@ class WebSocketHandler(cyclone.web.RequestHandler):
     def connectionMade(self, *args, **kwargs):
         pass
 
+    def connectionLost(self, reason):
+        pass
+
     def messageReceived(self, message):
         pass
 
