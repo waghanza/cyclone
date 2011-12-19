@@ -19,6 +19,7 @@ import base64
 import hashlib
 import struct
 import cyclone.web
+import cyclone.escape
 from twisted.python import log
 from cyclone import __version__
 
@@ -37,10 +38,18 @@ class WebSocketHandler(cyclone.web.RequestHandler):
     def connectionMade(self, *args, **kwargs):
         pass
 
+    def connectionLost(self, reason):
+        pass
+
     def messageReceived(self, message):
         pass
 
     def sendMessage(self, message):
+        if isinstance(message, dict):
+            message = cyclone.escape.json_encode(message)
+        if isinstance(message, unicode):
+            message = message.encode("utf-8")
+        assert isinstance(message, str)
         self.ws_protocol.sendMessage(message)
 
     def _rawDataReceived(self, data):
@@ -293,11 +302,6 @@ class WebSocketProtocol76(WebSocketProtocol):
             self._handle_request_exception(e)
 
     def sendMessage(self, message):
-        if isinstance(message, dict):
-            message = escape.json_encode(message)
-        if isinstance(message, unicode):
-            message = message.encode("utf-8")
-        assert isinstance(message, str)
         self.transport.write("\x00" + message + "\xff")
 
     def _calculate_token(self, k1, k2, k3):

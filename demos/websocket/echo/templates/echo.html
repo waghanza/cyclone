@@ -27,16 +27,18 @@ if ("WebSocket" in window) {
     };
 
     ws.onmessage = function (evt) {
-        var data = evt.data;
+        var data, d;
+        data = evt.data;
+        d = new Date();
         console.log(data);
-        var i = data.indexOf("!");
-        var tag = data.slice(0,i);
-        var val = data.slice(i+1);
-        $("#" + tag).html(val);
+        $('#out').append('<div>' + data + '</div>');
+        $('#clock').html('<span>' + d.toString() + '</span>');
     };
+
     ws.onerror = function(e) {
       console.log(e);
-    }
+    };
+
     ws.onclose = function() {
         debug(" socket closed");
     };

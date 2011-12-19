@@ -51,10 +51,10 @@ class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
     cache = []
     cache_size = 200
 
-    def open(self):
+    def connectionMade(self):
         ChatSocketHandler.waiters.add(self)
 
-    def on_close(self):
+    def connectionLost(self, reason):
         ChatSocketHandler.waiters.remove(self)
 
     @classmethod
@@ -65,15 +65,15 @@ class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
 
     @classmethod
     def send_updates(cls, chat):
-        log.msg("sending message to %d waiters", len(cls.waiters))
+        log.msg("sending message to %d waiters" % len(cls.waiters))
         for waiter in cls.waiters:
             try:
-                waiter.write_message(chat)
-            except:
-                log.err("Error sending message", exc_info=True)
+                waiter.sendMessage(chat)
+            except Exception, e:
+                log.err("Error sending message. %s" % str(e))
 
-    def on_message(self, message):
-        log.msg("got message %r", message)
+    def messageReceived(self, message):
+        log.msg("got message %s" % message)
         parsed = cyclone.escape.json_decode(message)
         chat = {
             "id": str(uuid.uuid4()),
