@@ -36,7 +36,8 @@ class Application(cyclone.web.Application):
     def __init__(self):
         # load locales
         cwd = os.path.dirname(__file__)
-        cyclone.locale.load_translations(os.path.join(cwd, "locale"), "mytest")
+        cyclone.locale.load_gettext_translations(os.path.join(cwd, "locale"),
+						 "mytest")
 
         # uri handlers
         handlers = [

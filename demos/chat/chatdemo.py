@@ -41,6 +41,7 @@ class Application(cyclone.web.Application):
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
             xsrf_cookies=True,
+            autoescape=None,
         )
         cyclone.web.Application.__init__(self, handlers, **settings)
 

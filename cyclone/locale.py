@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010 Alexandre Fiori
+# Copyright 2010-2012 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -17,14 +17,14 @@
 
 """Translation methods for generating localized strings.
 
-To load a locale and generate a translated string:
+To load a locale and generate a translated string::
 
     user_locale = locale.get("es_LA")
     print user_locale.translate("Sign out")
 
 locale.get() returns the closest matching locale, not necessarily the
 specific locale you requested. You can support pluralization with
-additional arguments to translate(), e.g.:
+additional arguments to translate(), e.g.::
 
     people = [...]
     message = user_locale.translate(
@@ -33,22 +33,26 @@ additional arguments to translate(), e.g.:
 
 The first string is chosen if len(people) == 1, otherwise the second
 string is chosen.
+
+Applications should call one of load_translations (which uses a simple
+CSV format) or load_gettext_translations (which uses the .mo format
+supported by gettext and related tools).  If neither method is called,
+the locale.translate method will simply return the original string.
 """
 
-try:
-    import gettext
-except ImportError:
-    raise Exception("The gettext module is required, download at "
-                    "http://pypi.python.org/pypi/python-gettext")
+from __future__ import absolute_import, division, with_statement
 
-import os
-import os.path
+import csv
 import datetime
+import os
+import re
+
 from twisted.python import log
 
 _default_locale = "en_US"
 _translations = {}
 _supported_locales = frozenset([_default_locale])
+_use_gettext = False
 
 
 def get(*locale_codes):
@@ -79,7 +83,66 @@ def set_default_locale(code):
     _supported_locales = frozenset(_translations.keys() + [_default_locale])
 
 
-def load_translations(directory, domain="cyclone"):
+def load_translations(directory):
+    u"""Loads translations from CSV files in a directory.
+
+    Translations are strings with optional Python-style named placeholders
+    (e.g., "My name is %(name)s") and their associated translations.
+
+    The directory should have translation files of the form LOCALE.csv,
+    e.g. es_GT.csv. The CSV files should have two or three columns: string,
+    translation, and an optional plural indicator. Plural indicators should
+    be one of "plural" or "singular". A given string can have both singular
+    and plural forms. For example "%(name)s liked this" may have a
+    different verb conjugation depending on whether %(name)s is one
+    name or a list of names. There should be two rows in the CSV file for
+    that string, one with plural indicator "singular", and one "plural".
+    For strings with no verbs that would change on translation, simply
+    use "unknown" or the empty string (or don't include the column at all).
+
+    The file is read using the csv module in the default "excel" dialect.
+    In this format there should not be spaces after the commas.
+
+    Example translation es_LA.csv:
+
+        "I love you","Te amo"
+        "%(name)s liked this","A %(name)s les gust\u00f3 esto","plural"
+        "%(name)s liked this","A %(name)s le gust\u00f3 esto","singular"
+
+    """
+    global _translations
+    global _supported_locales
+    _translations = {}
+    for path in os.listdir(directory):
+        if not path.endswith(".csv"):
+            continue
+        locale, extension = path.split(".")
+        if not re.match("[a-z]+(_[A-Z]+)?$", locale):
+            log.err("Unrecognized locale %r (path: %s)" % \
+                    (locale, os.path.join(directory, path)))
+            continue
+        f = open(os.path.join(directory, path), "r")
+        _translations[locale] = {}
+        for i, row in enumerate(csv.reader(f)):
+            if not row or len(row) < 2:
+                continue
+            row = [c.decode("utf-8").strip() for c in row]
+            english, translation = row[:2]
+            if len(row) > 2:
+                plural = row[2] or "unknown"
+            else:
+                plural = "unknown"
+            if plural not in ("plural", "singular", "unknown"):
+                log.err("Unrecognized plural indicator %r in %s line %d" % \
+                        (plural, path, i + 1))
+                continue
+            _translations[locale].setdefault(plural, {})[english] = translation
+        f.close()
+    _supported_locales = frozenset(_translations.keys() + [_default_locale])
+    log.msg("Supported locales: %s" % sorted(_supported_locales))
+
+
+def load_gettext_translations(directory, domain):
     """Loads translations from gettext's locale tree
 
     Locale tree is similar to system's /usr/share/locale, like:
@@ -96,21 +159,26 @@ def load_translations(directory, domain="cyclone"):
 
     3. Compile:
         msgfmt cyclone.po -o {directory}/pt_BR/LC_MESSAGES/cyclone.mo
-
     """
+    import gettext
     global _translations
     global _supported_locales
+    global _use_gettext
     _translations = {}
-
     for lang in os.listdir(directory):
+        if lang.startswith('.'):
+            continue  # skip .svn, etc
+        if os.path.isfile(os.path.join(directory, lang)):
+            continue
         try:
-            os.stat(os.path.join(directory, lang, "LC_MESSAGES", domain+".mo"))
-            _translations[lang] = gettext.translation(domain, directory, languages=[lang])
+            os.stat(os.path.join(directory, lang, "LC_MESSAGES", domain + ".mo"))
+            _translations[lang] = gettext.translation(domain, directory,
+                                                      languages=[lang])
         except Exception, e:
             log.err("Cannot load translation for '%s': %s" % (lang, str(e)))
             continue
-
     _supported_locales = frozenset(_translations.keys() + [_default_locale])
+    _use_gettext = True
     log.msg("Supported locales: %s" % sorted(_supported_locales))
 
 
@@ -120,26 +188,27 @@ def get_supported_locales():
 
 
 class Locale(object):
+    """Object representing a locale.
+
+    After calling one of `load_translations` or `load_gettext_translations`,
+    call `get` or `get_closest` to get a Locale object.
+    """
     @classmethod
     def get_closest(cls, *locale_codes):
         """Returns the closest match for the given locale code."""
         for code in locale_codes:
             if not code:
                 continue
-
             code = code.replace("-", "_")
             parts = code.split("_")
             if len(parts) > 2:
                 continue
             elif len(parts) == 2:
                 code = parts[0].lower() + "_" + parts[1].upper()
-
             if code in _supported_locales:
                 return cls.get(code)
-
             if parts[0].lower() in _supported_locales:
                 return cls.get(parts[0].lower())
-
         return cls.get(_default_locale)
 
     @classmethod
@@ -148,12 +217,21 @@ class Locale(object):
 
         If it is not supported, we raise an exception.
         """
-        translator = _translations.get(code, None)
-        if translator is None:
-            translator = gettext.NullTranslations()
-        return Locale(code, translator)
+        if not hasattr(cls, "_cache"):
+            cls._cache = {}
+        if code not in cls._cache:
+            assert code in _supported_locales
+            translations = _translations.get(code, None)
+            if translations is None:
+                locale = CSVLocale(code, {})
+            elif _use_gettext:
+                locale = GettextLocale(code, translations)
+            else:
+                locale = CSVLocale(code, translations)
+            cls._cache[code] = locale
+        return cls._cache[code]
 
-    def __init__(self, code, translator):
+    def __init__(self, code, translations):
         self.code = code
         self.name = LOCALE_NAMES.get(code, {}).get("name", u"Unknown")
         self.rtl = False
@@ -161,8 +239,7 @@ class Locale(object):
             if self.code.startswith(prefix):
                 self.rtl = True
                 break
-
-        self.translator = translator
+        self.translations = translations
 
         # Initialize strings for date formatting
         _ = self.translate
@@ -181,10 +258,7 @@ class Locale(object):
         plural_message when count != 1, and we return the singular form
         for the given message when count == 1.
         """
-        if plural_message is None or count is None:
-            return self.translator.gettext(message)
-        else:
-            return self.translator.ngettext(message, plural_message, count)
+        raise NotImplementedError()
 
     def format_date(self, date, gmt_offset=0, relative=True, shorter=False,
                     full_format=False):
@@ -226,16 +300,16 @@ class Locale(object):
             if relative and days == 0:
                 if seconds < 50:
                     return _("1 second ago", "%(seconds)d seconds ago",
-                             seconds) % { "seconds": seconds }
+                             seconds) % {"seconds": seconds}
 
                 if seconds < 50 * 60:
                     minutes = round(seconds / 60.0)
                     return _("1 minute ago", "%(minutes)d minutes ago",
-                             minutes) % { "minutes": minutes }
+                             minutes) % {"minutes": minutes}
 
                 hours = round(seconds / (60.0 * 60))
                 return _("1 hour ago", "%(hours)d hours ago",
-                         hours) % { "hours": hours }
+                         hours) % {"hours": hours}
 
             if days == 0:
                 format = _("%(time)s")
@@ -322,6 +396,30 @@ class Locale(object):
             value = value[:-3]
         return ",".join(reversed(parts))
 
+
+class CSVLocale(Locale):
+    """Locale implementation using tornado's CSV translation format."""
+    def translate(self, message, plural_message=None, count=None):
+        if plural_message is not None:
+            assert count is not None
+            if count != 1:
+                message = plural_message
+                message_dict = self.translations.get("plural", {})
+            else:
+                message_dict = self.translations.get("singular", {})
+        else:
+            message_dict = self.translations.get("unknown", {})
+        return message_dict.get(message, message)
+
+
+class GettextLocale(Locale):
+    """Locale implementation using the gettext module."""
+    def translate(self, message, plural_message=None, count=None):
+        if plural_message is not None:
+            assert count is not None
+            return self.translations.ungettext(message, plural_message, count)
+        else:
+            return self.translations.ugettext(message)
 
 LOCALE_NAMES = {
     "af_ZA": {"name_en": u"Afrikaans", "name": u"Afrikaans"},

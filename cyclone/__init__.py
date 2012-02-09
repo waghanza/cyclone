@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010 Alexandre Fiori
+# Copyright 2010-2012 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -16,4 +16,4 @@
 # under the License.
 
 __author__ = "Alexandre Fiori"
-__version__ = "0.7"
+__version__ = version = "0.8"

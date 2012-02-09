@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010 Alexandre Fiori
+# Copyright 2010-2012 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,11 +20,11 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
 from zope.interface import implements
 from twisted.internet import defer
+from cyclone import escape
 from cyclone.tw.client import Agent
 from cyclone.tw.http_headers import Headers
 from cyclone.tw.iweb import IBodyProducer
-from cyclone.web import _utf8, HTTPError
-from cyclone import escape
+from cyclone.web import HTTPError
 
 agent = Agent(reactor)
 
@@ -111,7 +111,7 @@ class HTTPClient(object):
 
 
 def fetch(url, *args, **kwargs):
-    return HTTPClient(_utf8(url), *args, **kwargs).fetch()
+    return HTTPClient(escape.utf8(url), *args, **kwargs).fetch()
 
 
 class JsonRPC:
