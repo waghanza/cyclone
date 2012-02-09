@@ -11,5 +11,5 @@ Package: python-cyclone
 Architecture: any
 Depends: python-twisted
 Description: Twisted toolkit based on tornado
- Cyclone is a low-level network toolkit, which provides support for HTTP 1.1 in an API very similar 
+ Cyclone is a low-level network toolkit, which provides support for HTTP 1.1 in an API very similar
  to the one implemented by the Tornado web server. Cyclone is a Twisted Protocol.
