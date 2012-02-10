@@ -32,6 +32,7 @@ class Application(cyclone.web.Application):
             (r"/sendmail", SendmailHandler),
         ]
         settings = dict(
+            debug=True,
             static_path="./static",
             template_path="./template",
             email_settings=dict(
