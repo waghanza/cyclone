@@ -164,7 +164,7 @@ Following is a step-by-step guide to implement localization in any cyclone appli
                 "template_path": "./template",
             }
 
-            cyclone.locale.load_translations("./locale", "foobar")
+            cyclone.locale.load_gettext_translations("./locale", "foobar")
             cyclone.web.Application.__init__(self, handlers, **settings)
 
     application = service.Application("foobar")
