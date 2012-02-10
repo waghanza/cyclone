@@ -993,7 +993,8 @@ class RequestHandler(object):
             else:
                 self.send_error(e.status_code, exception=e)
         else:
-            log.err(e)
+            if self.settings.get("debug") is True:
+                log.err(e)
             log.err("Uncaught exception %s :: %r" % \
                     (self._request_summary(), self.request))
             self.send_error(500, exception=e)
