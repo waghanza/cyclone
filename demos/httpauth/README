@@ -25,4 +25,15 @@ httpauthdemo_redis.py:
 
   Then point your browser to http://localhost:8888 and authenticate as root/123.
 
+httpauthdemo_mongo.py:
+  Same as the above, but for the MongoDB database.
+  Make sure you have txredis installed, otherwise go grab it from GitHub:
+    https://github.com/fiorix/mongo-async-python-driver
+
+  Create a new user:
+    curl -D - -d "username=root&password=123" http://localhost:8888/createuser
+
+  Then point your browser to http://localhost:8888 and authenticate as root/123.
+
+
 Have fun!
