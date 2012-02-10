@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -295,7 +295,7 @@ class WebSocketProtocol76(WebSocketProtocol):
             for message in messages[:-1]:
                 self.handler.messageReceived(message[1:])
         except Exception, e:
-            log.err("Invalid WebSocket Message: %s" % repr(data))
+            log.msg("Invalid WebSocket Message: %s" % repr(data))
             self._handle_request_exception(e)
 
     def sendMessage(self, message):

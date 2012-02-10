@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -223,9 +223,9 @@ class Template(object):
                 "%s.generated.py" % self.name.replace('.', '_'), "exec")
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
-            log.err("%s code:" % self.name)
+            log.msg("%s code:" % self.name)
             for line in formatted_code.split("\n"):
-                log.err(line)
+                log.msg(line)
             raise
 
     def generate(self, **kwargs):
@@ -257,9 +257,9 @@ class Template(object):
             return execute()
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
-            log.err("%s code:" % self.name)
+            log.msg("%s code:" % self.name)
             for line in formatted_code.split("\n"):
-                log.err(line)
+                log.msg(line)
             raise
 
     def _generate_python(self, loader, compress_whitespace):

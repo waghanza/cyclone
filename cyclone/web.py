@@ -642,7 +642,7 @@ class RequestHandler(object):
         Additional keyword arguments are passed through to `write_error`.
         """
         if self._headers_written:
-            log.err("Cannot send error response after headers written")
+            log.msg("Cannot send error response after headers written")
             if not self._finished:
                 self.finish()
             return
@@ -657,7 +657,7 @@ class RequestHandler(object):
         try:
             self.write_error(status_code, **kwargs)
         except:
-            log.err("Uncaught exception in write_error")
+            log.msg("Uncaught exception in write_error")
         if not self._finished:
             self.finish()
 
@@ -894,7 +894,7 @@ class RequestHandler(object):
                 return callback(*args, **kwargs)
             except Exception, e:
                 if self._headers_written:
-                    log.err("Exception after headers written")
+                    log.msg("Exception after headers written")
                 else:
                     self._handle_request_exception(e)
         return wrapper
@@ -982,20 +982,20 @@ class RequestHandler(object):
             pass
 
         if isinstance(e, (HTTPError, HTTPAuthenticationRequired)):
-            if e.log_message:
+            if self.settings.get("debug") is True and e.log_message:
                 format = "%d %s: " + e.log_message
                 args = [e.status_code, self._request_summary()] + list(e.args)
                 msg = lambda *args: format % args
-                log.err(msg(*args))
+                log.msg(msg(*args))
             if e.status_code not in httplib.responses:
-                log.err("Bad HTTP status code: %d" % e.status_code)
+                log.msg("Bad HTTP status code: %d" % e.status_code)
                 self.send_error(500, exception=e)
             else:
                 self.send_error(e.status_code, exception=e)
         else:
             if self.settings.get("debug") is True:
-                log.err(e)
-            log.err("Uncaught exception %s :: %r" % \
+                log.msg(e)
+            log.msg("Uncaught exception %s :: %r" % \
                     (self._request_summary(), self.request))
             self.send_error(500, exception=e)
 
@@ -1331,13 +1331,10 @@ class Application(protocol.ServerFactory):
         if "log_function" in self.settings:
             self.settings["log_function"](handler)
             return
-        if handler.get_status() < 500:
-            log_method = log.msg
-        else:
-            log_method = log.err
+
         request_time = 1000.0 * handler.request.request_time()
-        log_method("%d %s %.2fms" % (handler.get_status(),
-                   handler._request_summary(), request_time))
+        log.msg("%d %s %.2fms" % (handler.get_status(),
+                handler._request_summary(), request_time))
 
 
 class HTTPError(Exception):
@@ -1541,7 +1538,7 @@ class StaticFileHandler(RequestHandler):
                     hashes[abs_path] = hashlib.md5(f.read()).hexdigest()
                     f.close()
                 except Exception:
-                    log.err("Could not open static file %r" % path)
+                    log.msg("Could not open static file %r" % path)
                     hashes[abs_path] = None
             hsh = hashes.get(abs_path)
             if hsh:

@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -118,7 +118,7 @@ def load_translations(directory):
             continue
         locale, extension = path.split(".")
         if not re.match("[a-z]+(_[A-Z]+)?$", locale):
-            log.err("Unrecognized locale %r (path: %s)" % \
+            log.msg("Unrecognized locale %r (path: %s)" % \
                     (locale, os.path.join(directory, path)))
             continue
         f = open(os.path.join(directory, path), "r")
@@ -133,7 +133,7 @@ def load_translations(directory):
             else:
                 plural = "unknown"
             if plural not in ("plural", "singular", "unknown"):
-                log.err("Unrecognized plural indicator %r in %s line %d" % \
+                log.msg("Unrecognized plural indicator %r in %s line %d" % \
                         (plural, path, i + 1))
                 continue
             _translations[locale].setdefault(plural, {})[english] = translation
@@ -175,7 +175,7 @@ def load_gettext_translations(directory, domain):
             _translations[lang] = gettext.translation(domain, directory,
                                                       languages=[lang])
         except Exception, e:
-            log.err("Cannot load translation for '%s': %s" % (lang, str(e)))
+            log.msg("Cannot load translation for '%s': %s" % (lang, str(e)))
             continue
     _supported_locales = frozenset(_translations.keys() + [_default_locale])
     _use_gettext = True

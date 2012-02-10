@@ -35,7 +35,7 @@ class JsonrpcRequestHandler(RequestHandler):
             jsonid = req["id"]
             assert isinstance(jsonid, types.IntType), type(jsonid)
         except Exception, e:
-            log.err("Bad Request: %s" % str(e))
+            log.msg("Bad Request: %s" % str(e))
             raise HTTPError(400)
 
         function = getattr(self, "jsonrpc_%s" % method, None)
