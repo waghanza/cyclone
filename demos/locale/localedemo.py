@@ -23,7 +23,7 @@ import cyclone.locale
 import cyclone.web
 
 from twisted.python import log
-from twisted.internet import defer, reactor
+from twisted.internet import reactor
 
 class Application(cyclone.web.Application):
     def __init__(self):
