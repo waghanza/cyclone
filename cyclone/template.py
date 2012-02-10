@@ -220,8 +220,7 @@ class Template(object):
             # the module name used in __name__ below.
             self.compiled = compile(
                 escape.to_unicode(self.code),
-                "%s.generated.py" % self.name.replace('.', '_'),
-                "exec")
+                "%s.generated.py" % self.name.replace('.', '_'), "exec")
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
             log.err("%s code:" % self.name)
@@ -258,7 +257,9 @@ class Template(object):
             return execute()
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
-            log.err("%s code:\n%s" % (self.name, formatted_code))
+            log.err("%s code:" % self.name)
+            for line in formatted_code.split("\n"):
+                log.err(line)
             raise
 
     def _generate_python(self, loader, compress_whitespace):

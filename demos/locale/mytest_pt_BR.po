@@ -18,24 +18,24 @@ msgstr ""
 "Plural-Forms: nplurals=INTEGER; plural=n != 1;\n"
 
 #: templates/index.html:8
-msgid "locale demo"
-msgstr "demonstração de internacionalização"
+msgid "cyclone locale demo"
+msgstr "demonstração de internacionalização do cyclone"
 
 #: templates/index.html:9
-msgid "please select your language:"
-msgstr "por favor, selecione sua língua:"
+msgid "Please select your language:"
+msgstr "Por favor, selecione sua língua:"
 
 #: templates/index.html:16
-msgid "how many apples?"
-msgstr "quantas maçãs?"
+msgid "How many apples?"
+msgstr "Quantas maçãs?"
 
 #: templates/index.html:20
-msgid "change"
-msgstr "mudar"
+msgid "Submit"
+msgstr "Enviar"
 
 #: templates/index.html:19
 #, python-format
-msgid "one apple"
+msgid "One apple"
 msgid_plural "%(count)d apples"
-msgstr[0] "uma maçã"
+msgstr[0] "Uma maçã"
 msgstr[1] "%(count)d maçãs"
