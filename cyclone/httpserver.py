@@ -31,6 +31,11 @@ from cyclone import httputil
 from cyclone.util import b, bytes_type
 
 
+class _BadRequestException(Exception):
+    """Exception class for malformed HTTP requests."""
+    pass
+
+
 class HTTPConnection(basic.LineReceiver):
     """Handles a connection to an HTTP client, executing HTTP requests.
 

@@ -1354,9 +1354,10 @@ class HTTPError(Exception):
 
 class HTTPAuthenticationRequired(HTTPError):
     """An exception that will turn into an HTTP Authentication Required response"""
-    def __init__(self, auth_type="Basic", realm="Restricted Access", **kwargs):
+    def __init__(self, log_message=None,
+                 auth_type="Basic", realm="Restricted Access", **kwargs):
         self.status_code = 401
-        self.log_message = None
+        self.log_message = log_message
         self.auth_type = auth_type
         self.kwargs = kwargs
         self.kwargs["realm"] = realm

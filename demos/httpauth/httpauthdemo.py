@@ -16,43 +16,55 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import cyclone.web
-
 import base64
 import functools
-from twisted.application import service, internet
+import sys
 
-def BasicAuth(method):
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        try:
-            auth_type, auth_data = self.request.headers["Authorization"].split()
-            assert auth_type == "Basic"
-            usr, pwd = base64.b64decode(auth_data).split(":", 1)
-            assert usr == "user@domain"
-            assert pwd == "password"
-        except:
-            raise cyclone.web.HTTPAuthenticationRequired
-        else:
-            return method(self, *args, **kwargs)
-    return wrapper
+import cyclone.web
 
-
-class IndexHandler(cyclone.web.RequestHandler):
-    @BasicAuth
-    def get(self):
-        self.finish("ok\r\n")
-
+from twisted.python import log
+from twisted.internet import reactor
 
 class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
             (r"/", IndexHandler),
         ]
+        cyclone.web.Application.__init__(self, handlers, debug=True)
 
-        cyclone.web.Application.__init__(self, handlers)
+
+def HTTPBasic(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        try:
+            auth_type, auth_data = self.request.headers["Authorization"].split()
+            assert auth_type == "Basic"
+            usr, pwd = base64.b64decode(auth_data).split(":", 1)
+            assert usr == "root@localhost"
+            assert pwd == "123"
+        except:
+            # All arguments are optional. Defaults are:
+            # log_message=None, auth_type="Basic", realm="Restricted Access"
+            raise cyclone.web.HTTPAuthenticationRequired(
+                                log_message="Authentication failed!",
+                                auth_type="Basic", realm="DEMO")
+        else:
+            self._current_user = usr
+            return method(self, *args, **kwargs)
+    return wrapper
 
 
-application = service.Application("auth-basic")
-internet.TCPServer(8888, Application(),
-    interface="127.0.0.1").setServiceParent(application)
+class IndexHandler(cyclone.web.RequestHandler):
+    @HTTPBasic
+    def get(self):
+        self.write("Hi, %s." % self._current_user)
+
+
+def main():
+    log.startLogging(sys.stdout)
+    reactor.listenTCP(8888, Application(), interface="127.0.0.1")
+    reactor.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,19 +1,28 @@
-HTTP Basic Auth
+HTTP Basic Authentication
 
-The code in auth-basic.tac is very simple, used to show the basic auth working.
-Run twistd -ny auth-basic.tac to test.
+httpauthdemo.py:
+  A very simple, pretty much useless example.
+  The idea is to show how to build a decorator to request valid credentials,
+  and send HTTP "401 Unauthorized" when necessary.
 
-For a real world example, check out the redis-basic.tac.
 
-Create new users using the standard redis client:
-$ redis-cli set cyclone:username password
-$ redis-cli set cyclone:foo bar
+httpauthdemo_redis.py:
+  This is more of a real-world example, authenticating against a database,
+  in this case, redis. You can easily port it to standard RDBMs such as
+  MySQL, PostgreSQL and others, using twisted.enterprise.adbapi.
 
-Or the web service:
-$ curl -D - -d "p=bar" http://localhost:8888/u/foo
+  Again, it does so via the decorator, which extract credentials from Redis
+  and compare them against what people typed on their browser.
 
-Run the server:
-$ twistd -ny redis-basic.tac
+  If you run this example without a redis-server, it will always return HTTP
+  503 "Service Unavailable" due to lack of communication with the database
+  backend. Once you start redis, it will automatically connect to it.
 
-Go to the browser and authenticate yourself, or use curl:
-$ curl -D - -u "foo:bar" http://localhost:8888
+  Make sure you create a user in redis to test the authentication system.
+  From the command line, run:
+
+    $ redis-cli set cyclone:root 123
+
+  Then point your browser to http://localhost:8888 and authenticate as root/123.
+
+Have fun!
