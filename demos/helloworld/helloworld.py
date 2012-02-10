@@ -16,12 +16,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 import cyclone.web
-
-from twisted.python import log
+import sys
 from twisted.internet import reactor
+from twisted.python import log
 
 
 class MainHandler(cyclone.web.RequestHandler):
