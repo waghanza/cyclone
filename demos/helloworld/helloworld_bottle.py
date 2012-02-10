@@ -23,15 +23,6 @@ from cyclone.bottle import run, route
 
 @route("/")
 def index(web):
-    web.write('try <a href="/sqlite">/sqlite</a>\r\n')
+    web.write("Hello, world")
 
-@route("/sqlite")
-def sqlite_get(web):
-    v = web.settings.sqlite.runQuery("select strftime('%Y-%m-%d')")
-    web.write("today is " + repr(v) + "\r\n")
-
-run(host="127.0.0.1", port=8888,
-    log=sys.stdout, # or any file descriptor
-    static_path="static", template_path="template",
-    sqlite=cyclone.sqlite.InlineSQLite(":memory:"))
-
+run(host="127.0.0.1", port=8888, log=sys.stdout)

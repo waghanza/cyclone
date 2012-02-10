@@ -1,6 +1,8 @@
 #!/usr/bin/env twistd -ny
+# coding: utf-8
 #
-# Copyright 2009 Facebook
+# Copyright 2010 Alexandre Fiori
+# based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -21,10 +23,10 @@ class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.write("Hello, world")
 
-
 webapp = cyclone.web.Application([
-    (r"/", MainHandler),
+    (r"/", MainHandler)
 ])
-application = service.Application("cyclone")
-cycloneService = internet.TCPServer(8888, webapp)
-cycloneService.setServiceParent(application)
+
+application = service.Application("helloworld_twistd")
+server = internet.TCPServer(8888, webapp, interface="127.0.0.1")
+server.setServiceParent(application)
