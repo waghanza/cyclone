@@ -35,6 +35,7 @@ class Application(cyclone.web.Application):
         ]
         settings = dict(
             cookie_secret="32oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
+            debug=True,
             login_url="/auth/login",
         )
         cyclone.web.Application.__init__(self, handlers, **settings)
