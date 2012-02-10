@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,6 +19,7 @@
 
 import types
 import os.path
+
 from cStringIO import StringIO
 from OpenSSL.SSL import SSLv3_METHOD
 
@@ -34,10 +35,15 @@ from twisted.internet.ssl import ClientContextFactory
 from twisted.mail.smtp import ESMTPSenderFactory
 
 class Message(object):
-    def __init__(self, from_addr, to_addrs, subject, message, mime="text/plain", charset="utf-8"):
+    def __init__(self, from_addr, to_addrs, subject, message,
+                 mime="text/plain", charset="utf-8"):
         self.subject = subject
         self.from_addr = from_addr
-        self.to_addrs = isinstance(to_addrs, types.StringType) and [to_addrs] or to_addrs
+
+        if isinstance(to_addrs, types.StringType):
+            self.to_addrs = [to_addrs]
+        else:
+            self.to_addrs = to_addrs
 
         self.msg = None
         self.__cache = None
@@ -51,15 +57,16 @@ class Message(object):
             fd = open(filename)
             content = fd.read()
             fd.close()
+        elif not isinstance(content, types.StringType):
+            raise TypeError("Don't know how to attach content: %s" % \
+                            repr(content))
 
-        if not isinstance(content, types.StringType):
-            raise TypeError("don't know how to handle content: %s" % type(content))
-        
         part = MIMEBase("application", "octet-stream")
         part.set_payload(content)
         Encoders.encode_base64(part)
-        part.add_header("Content-Disposition", "attachment; filename=\"%s\"" % base)
-        
+        part.add_header("Content-Disposition",
+                        'attachment; filename="%s"' % base)
+
         if mime is not None:
             part.set_type(mime)
 
@@ -73,7 +80,7 @@ class Message(object):
         self.msg.attach(part)
 
     def __str__(self):
-        return self.__cache or "nuswit mail message: not rendered yet"
+        return self.__cache or "cyclone email message: not rendered yet"
 
     def render(self):
         if self.msg is None:
@@ -103,7 +110,7 @@ def sendmail(mailconf, message):
         raise TypeError("mailconf must be a regular python dictionary")
 
     if not isinstance(message, Message):
-        raise TypeError("message must be an instance of nuswit.mail.Message")
+        raise TypeError("message must be an instance of cyclone.mail.Message")
 
     host = mailconf.get("host")
     if not isinstance(host, types.StringType):
