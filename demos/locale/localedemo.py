@@ -31,7 +31,6 @@ class Application(cyclone.web.Application):
             (r"/", IndexHandler),
         ]
         settings = dict(
-            static_path="./frontend/static",
             template_path="./frontend/template",
         )
         cyclone.locale.load_gettext_translations("./frontend/locale", "mytest")
