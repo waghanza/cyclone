@@ -17,16 +17,16 @@
 # under the License.
 
 import sys
-import cyclone.web
+
 import cyclone.httpclient
+import cyclone.jsonrpc
+import cyclone.xmlrpc
+
 from twisted.python import log
 from twisted.internet import defer, reactor
 
-class MainHandler(cyclone.web.RequestHandler):
-    def get(self):
-        self.write("hello world!")
 
-class XmlrpcHandler(cyclone.web.XmlrpcRequestHandler):
+class XmlrpcHandler(cyclone.xmlrpc.XmlrpcRequestHandler):
     allowNone = True
 
     def xmlrpc_echo(self, text):
@@ -40,10 +40,12 @@ class XmlrpcHandler(cyclone.web.XmlrpcRequestHandler):
 
     @defer.inlineCallbacks
     def xmlrpc_geoip_lookup(self, address):
-        result = yield cyclone.httpclient.fetch("http://freegeoip.net/xml/%s" % address)
+        result = yield cyclone.httpclient.fetch(
+            "http://freegeoip.net/xml/%s" % address)
         defer.returnValue(result.body)
 
-class JsonrpcHandler(cyclone.web.JsonrpcRequestHandler):
+
+class JsonrpcHandler(cyclone.jsonrpc.JsonrpcRequestHandler):
     def jsonrpc_echo(self, text):
         return text
 
@@ -55,13 +57,14 @@ class JsonrpcHandler(cyclone.web.JsonrpcRequestHandler):
 
     @defer.inlineCallbacks
     def jsonrpc_geoip_lookup(self, address):
-        result = yield cyclone.httpclient.fetch("http://freegeoip.net/json/%s" % address.encode("utf-8"))
+        result = yield cyclone.httpclient.fetch(
+            "http://freegeoip.net/json/%s" % address.encode("utf-8"))
         defer.returnValue(result.body)
 
 
 def main():
+    log.startLogging(sys.stdout)
     application = cyclone.web.Application([
-        (r"/", MainHandler),
         (r"/xmlrpc", XmlrpcHandler),
         (r"/jsonrpc", JsonrpcHandler),
     ])
@@ -70,5 +73,4 @@ def main():
     reactor.run()
 
 if __name__ == "__main__":
-    log.startLogging(sys.stdout)
     main()

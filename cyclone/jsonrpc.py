@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,17 +15,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import types
+
 import cyclone.escape
-from cyclone.web import RequestHandler
+from cyclone.web import HTTPError, RequestHandler
 
 from twisted.internet import defer
-from twisted.python import log
+from twisted.python import log, failure
 
 class JsonrpcRequestHandler(RequestHandler):
     def post(self, *args):
         self._auto_finish = False
         try:
-            req = escape.json_decode(self.request.body)
+            req = cyclone.escape.json_decode(self.request.body)
             method = req["method"]
             assert isinstance(method, types.StringTypes), type(method)
             params = req["params"]
@@ -50,5 +52,6 @@ class JsonrpcRequestHandler(RequestHandler):
             result = None
         else:
             error = None
-        json_data = escape.json_encode({"result":result, "error":error, "id":jsonid})
+        json_data = cyclone.escape.json_encode(
+                            {"result":result, "error":error, "id":jsonid})
         self.finish(json_data)
