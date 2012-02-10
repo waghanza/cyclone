@@ -44,7 +44,7 @@ def route(path=None, method="GET", callback=None, **kwargs):
         path, callback = None, path
 
     def decorator(callback):
-        _handlers.append((path, method, callback, kwargs))
+        _handlers.append((path, method.lower(), callback, kwargs))
         return callback
 
     return decorator

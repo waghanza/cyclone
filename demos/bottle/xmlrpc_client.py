@@ -18,5 +18,5 @@
 
 import xmlrpclib
 
-srv = xmlrpclib.Server("http://localhost:8080/xmlrpc")
+srv = xmlrpclib.Server("http://localhost:8888/xmlrpc")
 print "echo:", srv.echo("hello world!")
