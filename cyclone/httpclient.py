@@ -15,16 +15,21 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import types, functools
+import functools
+import types
+
+from cyclone import escape
+from cyclone.web import HTTPError
+
+from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
+
+from twisted.web.client import Agent
+from twisted.web.http_headers import Headers
+from twisted.web.iweb import IBodyProducer
+
 from zope.interface import implements
-from twisted.internet import defer
-from cyclone import escape
-from cyclone.tw.client import Agent
-from cyclone.tw.http_headers import Headers
-from cyclone.tw.iweb import IBodyProducer
-from cyclone.web import HTTPError
 
 agent = Agent(reactor)
 
