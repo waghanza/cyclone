@@ -1,2 +1,0 @@
-simple upload demo
-run: twistd -ny uploaddemo.tac
