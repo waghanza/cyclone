@@ -17,24 +17,27 @@
 # under the License.
 
 import sys
+
 import cyclone.web
+
 from twisted.python import log
 from twisted.internet import reactor
 
+
 class MainHandler(cyclone.web.RequestHandler):
-    no_keep_alive = False
     def get(self):
         self.write("Hello, world")
 
 
 def main():
+    log.startLogging(sys.stdout)
     application = cyclone.web.Application([
-        (r"/", MainHandler),
-    ], xheaders=True)
+        (r"/", MainHandler)
+    ])
 
-    reactor.listenTCP(8888, application)
+    reactor.listenTCP(8888, application, interface="127.0.0.1")
     reactor.run()
 
+
 if __name__ == "__main__":
-    log.startLogging(sys.stdout)
     main()
