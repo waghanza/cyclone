@@ -30,7 +30,8 @@ def test():
     print("length and body:", response.length, response.body)
 
     print("\nget http://google.com followRecirect=1")
-    response = yield cyclone.httpclient.fetch("http://google.com/", followRedirect=1, maxRedirects=2)
+    response = yield cyclone.httpclient.fetch("http://google.com/",
+                                              followRedirect=1, maxRedirects=2)
     print("headers:", response.headers)
     print("code and phrase:", response.code, response.phrase)
     print("length and body:", response.length, response.body)
@@ -38,8 +39,8 @@ def test():
     #print("\npost")
     #json = cyclone.escape.json_encode({"user":"foo", "pass":"bar"})
     #response = yield cyclone.httpclient.fetch("http://localhost:8888/",
-    #    followRedirect=1, maxRedirects=2,
-    #    postdata=json, headers={"Content-Type":"application/json"})
+    #                        followRedirect=1, maxRedirects=2, postdata=json,
+    #                        headers={"Content-Type":["application/json"]})
     #print("headers:", response.headers)
     #print("code and phrase:", response.code, response.phrase)
     #print("length and body:", response.length, response.body)
@@ -48,4 +49,3 @@ def test():
 if __name__ == "__main__":
     test().addCallback(lambda ign: reactor.stop())
     reactor.run()
-
