@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2010-2012 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -49,7 +49,7 @@ from cyclone import template
 from cyclone.escape import utf8, _unicode
 from cyclone.util import b, bytes_type, import_object, ObjectDict
 
-from twisted.python import log, failure
+from twisted.python import log
 from twisted.internet import defer, protocol
 
 try:
