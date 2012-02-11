@@ -16,6 +16,7 @@
 # under the License.
 
 from cyclone.web import RequestHandler
+from twisted.python import log
 
 class SSEHandler(RequestHandler):
     def __init__(self, application, request):
@@ -43,16 +44,28 @@ class SSEHandler(RequestHandler):
             self.transport.write("event: %s\n" % event)
         if retry:
             self.transport.write("retry: %s\n" % retry)
+
         self.transport.write("data: %s\n\n" % message)
 
     def _execute(self, transforms, *args, **kwargs):
-        log.msg('SSE new connection from %s' % self.request.remote_ip)
+        self._transforms = [] # transforms
+        if self.settings.get("debug"):
+            log.msg("SSE connection from %s" % self.request.remote_ip)
         self.set_header("Content-Type", "text/event-stream")
         self.set_header("Cache-Control", "no-cache")
         self.set_header("Connection", "keep-alive")
         self.flush()
         self.request.connection.setRawMode()
+        self.notifyFinish().addCallback(self.on_connection_closed)
         self.bind()
 
+    def on_connection_closed(self, *args, **kwargs):
+        if self.settings.get("debug"):
+            log.msg("SSE client disconnected %s" % self.request.remote_ip)
+        self.unbind()
+
     def bind(self):
+        pass
+
+    def unbind(self):
         pass
