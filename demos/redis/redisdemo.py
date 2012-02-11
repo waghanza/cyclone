@@ -17,6 +17,7 @@
 # under the License.
 
 import collections
+import functools
 import os.path
 import sys
 
@@ -30,36 +31,89 @@ from twisted.internet import defer, reactor
 
 class Application(cyclone.web.Application):
     def __init__(self):
-        redis_host = "127.0.0.1"
-        redis_port = 6379
-
-        # PubSub connection
-        queue = QueueFactory()
-        reactor.connectTCP(redis_host, redis_port, queue)
-
-        # Normal client connection
-        redisdb = cyclone.redis.lazyRedisConnectionPool(redis_host, redis_port,
-                                                        pool_size=10, db=0)
+        RedisMixin().makeItFunk("127.0.0.1", 6379, 0, 10)
 
         handlers = [
-            (r"/text/(.+)", TextHandler, dict(redisdb=redisdb)),
-            (r"/queue/(.+)", QueueHandler, dict(queue=queue, redisdb=redisdb)),
+            (r"/text/(.+)", TextHandler),
+            (r"/queue/(.+)", QueueHandler),
         ]
         settings = dict(
+            debug=True,
             static_path="./frontend/static",
             template_path="./frontend/template",
         )
         cyclone.web.Application.__init__(self, handlers, **settings)
 
 
-class TextHandler(cyclone.web.RequestHandler):
-    def initialize(self, redisdb):
-        self.redisdb = redisdb
+class RedisMixin(object):
+    dbconn = None
+    psconn = None
+    channels = collections.defaultdict(lambda: [])
 
+    def makeItFunk(self, host, port, dbid, pool_size):
+        cls = RedisMixin
+
+        # PubSub client connection
+        qf = cyclone.redis.SubscriberFactory()
+        qf.maxDelay = 20
+        qf.continueTrying = True # Auto-reconnect
+        qf.protocol = QueueProtocol
+        reactor.connectTCP(host, port, qf)
+
+        # Normal client connection
+        cls.dbconn = cyclone.redis.lazyRedisConnectionPool(host, port, db=dbid,
+                                                           pool_size=pool_size)
+
+    def subscribe(self, channel):
+        if RedisMixin.psconn is None:
+            raise cyclone.web.HTTPError(503) # Service Unavailable
+
+        if channel not in RedisMixin.channels:
+            log.msg("Subscribing entire server to %s" % channel)
+            if "*" in channel:
+                RedisMixin.psconn.psubscribe(channel)
+            else:
+                RedisMixin.psconn.subscribe(channel)
+
+        RedisMixin.channels[channel].append(self)
+        log.msg("Client %s subscribed to %s" % \
+                (self.request.remote_ip, channel))
+
+    def unsubscribe_all(self, ign):
+        # Unsubscribe peer from all channels
+        for channel, peers in RedisMixin.channels.iteritems():
+            try:
+                peers.pop(peers.index(self))
+            except:
+                continue
+
+            log.msg("Client %s unsubscribed from %s" % \
+                    (self.request.remote_ip, channel))
+
+            # Unsubscribe from channel if no peers are listening
+            if not len(peers) and RedisMixin.psconn is not None:
+                log.msg("Unsubscribing entire server from %s" % channel)
+                if "*" in channel:
+                    RedisMixin.psconn.punsubscribe(channel)
+                else:
+                    RedisMixin.psconn.unsubscribe(channel)
+
+    def broadcast(self, pattern, channel, message):
+        peers = RedisMixin.channels.get(pattern or channel)
+
+        # Broadcast the message to all peers in channel
+        for peer in peers:
+            # peer is an HTTP client, RequestHandler
+            peer.write("%s: %s\r\n" % (channel, message))
+            peer.flush()
+
+
+# Provide GET, SET and DELETE redis operations via HTTP
+class TextHandler(cyclone.web.RequestHandler, RedisMixin):
     @defer.inlineCallbacks
     def get(self, key):
         try:
-            value = yield self.redisdb.get(key)
+            value = yield RedisMixin.dbconn.get(key)
         except Exception, e:
             log.err("Redis failed to get('%s'): %s" % (key, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -71,7 +125,7 @@ class TextHandler(cyclone.web.RequestHandler):
     def post(self, key):
         value = self.get_argument("value")
         try:
-            yield self.redisdb.set(key, value)
+            yield RedisMixin.dbconn.set(key, value)
         except Exception, e:
             log.err("Redis failed to set('%s', '%s'): %s" % (key, value, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -82,7 +136,7 @@ class TextHandler(cyclone.web.RequestHandler):
     @defer.inlineCallbacks
     def delete(self, key):
         try:
-            n = yield self.redisdb.delete(key)
+            n = yield RedisMixin.dbconn.delete(key)
         except Exception, e:
             log.err("Redis failed to del('%s'): %s" % (key, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -91,11 +145,9 @@ class TextHandler(cyclone.web.RequestHandler):
         self.finish("DEL %s=%d\r\n" % (key, n))
 
 
-class QueueHandler(cyclone.web.RequestHandler):
-    def initialize(self, queue, redisdb):
-        self.queue = queue
-        self.redisdb = redisdb
-
+# GET will subscribe to channels or patterns
+# POST will (obviously) post messages to channels
+class QueueHandler(cyclone.web.RequestHandler, RedisMixin):
     @cyclone.web.asynchronous
     def get(self, channels):
         try:
@@ -105,84 +157,50 @@ class QueueHandler(cyclone.web.RequestHandler):
             raise cyclone.web.HTTPError(400, str(e))
 
         self.set_header("Content-Type", "text/plain")
-        self.notifyFinish().addCallback(self._unsubscribe_all)
+        self.notifyFinish().addCallback(
+            functools.partial(RedisMixin.unsubscribe_all, self))
 
         for channel in channels:
-            self._subscribe(channel)
+            RedisMixin.subscribe(self, channel)
+            self.write("subscribed to %s\r\n" % channel)
+        self.flush()
 
     @defer.inlineCallbacks
     def post(self, channel):
         message = self.get_argument("message")
-        if self.queue.current_connection is None:
-            raise cyclone.web.HTTPError(503)
 
         try:
-            n = yield self.redisdb.publish(channel, message.encode("utf-8"))
+            n = yield RedisMixin.dbconn.publish(channel,
+                                                message.encode("utf-8"))
         except Exception, e:
-            log.err("Redis failed to publish('%', '%s'): %s" % \
+            log.msg("Redis failed to publish('%s', '%s'): %s" % \
                     (channel, repr(message), str(e)))
             raise cyclone.web.HTTPError(503)
 
         self.set_header("Content-Type", "text/plain")
         self.finish("OK %d\r\n" % n)
 
-    def _subscribe(self, channel):
-        if "*" in channel:
-            self.queue.current_connection.psubscribe(channel)
-        else:
-            self.queue.current_connection.subscribe(channel)
 
-        self.queue.peers[channel].append(self)
-        self.write("subscribed to %s\r\n" % channel)
-        self.flush()
-
-    def _unsubscribe_all(self, ign):
-        for chan, peers in self.queue.peers.iteritems():
-            try:
-                peers.pop(peers.index(self))
-            except:
-                pass
-            else:
-                if self.queue.current_connection is not None:
-                    if "*" in chan:
-                        self.queue.current_connection.punsubscribe(chan)
-                    else:
-                        self.queue.current_connection.unsubscribe(chan)
-
-
-class QueueProtocol(SubscriberProtocol):
+class QueueProtocol(SubscriberProtocol, RedisMixin):
     def messageReceived(self, pattern, channel, message):
-        if pattern:
-            peers = self.factory.peers.get(pattern)
-        else:
-            peers = self.factory.peers.get(channel)
-
-        # Broadcast the message to all peers in channel
-        for peer in peers:
-            # peer is an HTTP client, RequestHandler
-            peer.write("%s: %s\r\n" % (channel, message))
-            peer.flush()
+        # When new messages are published to Redis channels or patterns,
+        # they are broadcasted to all HTTP clients subscribed to those
+        # channels.
+        RedisMixin.broadcast(self, pattern, channel, message)
 
     def connectionMade(self):
+        RedisMixin.psconn = self
+
         # If we lost connection with Redis during operation, we
-        # re-subscribe all peers once the connection is re-established.
-        self.factory.current_connection = self
-        for chan in self.factory.peers:
-            if "*" in chan:
-                self.psubscribe(chan)
+        # re-subscribe to all channels once the connection is re-established.
+        for channel in RedisMixin.channels:
+            if "*" in channel:
+                self.psubscribe(channel)
             else:
-                self.subscribe(chan)
+                self.subscribe(channel)
 
-    def connectionLost(self, reason):
-        self.factory.current_connection = None
-
-
-class QueueFactory(cyclone.redis.SubscriberFactory):
-    maxDelay = 20
-    continueTrying = True # Auto-reconnect
-    protocol = QueueProtocol
-    peers = collections.defaultdict(lambda: [])
-    current_connection = None
+    def connectionLost(self, why):
+        RedisMixin.psconn = None
 
 
 def main():
