@@ -16,7 +16,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import xmlrpclib
+import sys
 
-srv = xmlrpclib.Server("http://localhost:8888/xmlrpc")
-print "echo:", srv.echo("hello world!")
+import cyclone.sqlite
+from cyclone.bottle import run, route
+
+@route("/")
+def index(web):
+    web.write("Hello, world")
+
+run(host="127.0.0.1", port=8888, log=sys.stdout)

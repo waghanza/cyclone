@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2011 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -44,7 +44,7 @@ def route(path=None, method="GET", callback=None, **kwargs):
         path, callback = None, path
 
     def decorator(callback):
-        _handlers.append((path, method, callback, kwargs))
+        _handlers.append((path, method.lower(), callback, kwargs))
         return callback
 
     return decorator

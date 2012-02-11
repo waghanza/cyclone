@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env twistd -ny
 # coding: utf-8
 #
 # Copyright 2010 Alexandre Fiori
@@ -16,7 +16,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import xmlrpclib
+import cyclone.web
+from twisted.application import service, internet
 
-srv = xmlrpclib.Server("http://localhost:8888/xmlrpc")
-print "echo:", srv.echo("hello world!")
+class MainHandler(cyclone.web.RequestHandler):
+    def get(self):
+        self.write("Hello, world")
+
+webapp = cyclone.web.Application([
+    (r"/", MainHandler)
+])
+
+application = service.Application("helloworld_twistd")
+server = internet.TCPServer(8888, webapp, interface="127.0.0.1")
+server.setServiceParent(application)

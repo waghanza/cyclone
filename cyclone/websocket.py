@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2011 Alexandre Fiori
+# Copyright 2010 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,10 +18,10 @@
 import base64
 import hashlib
 import struct
+import cyclone
 import cyclone.web
 import cyclone.escape
 from twisted.python import log
-from cyclone import __version__
 
 
 class WebSocketHandler(cyclone.web.RequestHandler):
@@ -80,8 +80,9 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.connectionMade(*args, **kwargs)
 
     def forbidConnection(self, message):
-        self.transport.write("HTTP/1.1 403 Forbidden\r\nContent-Length: " +
-            str(len(message)) + "\r\n\r\n" + message)
+        self.transport.write(
+            "HTTP/1.1 403 Forbidden\r\nContent-Length: %s\r\n\r\n%s" % \
+            (str(len(message)), message))
         return self.transport.loseConnection()
 
 
@@ -99,14 +100,6 @@ class WebSocketProtocol(object):
 
     def sendMessage(self, message):
         pass
-
-    def _handle_request_exception(self, e):
-        if isinstance(e, HTTPError):
-            self.transport.loseConnection()
-        else:
-            log.err(e)
-            log.err("Uncaught exception %s :: %r" % (self._request_summary(), self.request))
-            self.transport.loseConnection()
 
 
 class WebSocketProtocol17(WebSocketProtocol):
@@ -140,17 +133,19 @@ class WebSocketProtocol17(WebSocketProtocol):
             origin = self.request.headers['Sec-Websocket-Origin']
 
         key = self.request.headers['Sec-Websocket-Key']
-        accept = base64.b64encode(hashlib.sha1(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest())
+        accept = base64.b64encode(hashlib.sha1("%s%s" % \
+            (key, '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')).digest())
 
         self.transport.write(
             "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
             "Upgrade: WebSocket\r\n"
             "Connection: Upgrade\r\n"
-            "Sec-WebSocket-Accept: " + accept + "\r\n"
-            "Server: cyclone/" +__version__+ "\r\n"
-            "WebSocket-Origin: " + origin + "\r\n"
-            "WebSocket-Location: ws://" + self.request.host +
-            self.request.path + "\r\n\r\n")
+            "Sec-WebSocket-Accept: %s\r\n"
+            "Server: cyclone/%s\r\n"
+            "WebSocket-Origin: %s\r\n"
+            "WebSocket-Location: ws://%s%s\r\n\r\n" % \
+            (accept, cyclone.version, origin,
+             self.request.host, self.request.path))
 
     def rawDataReceived(self, data):
         self._raw_data_len = len(data)
@@ -265,10 +260,11 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
                 "Upgrade: WebSocket\r\n"
                 "Connection: Upgrade\r\n"
-                "Server: cyclone/"+__version__+"\r\n"
-                "WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
-                "WebSocket-Location: ws://" + self.request.host +
-                self.request.path + "\r\n\r\n")
+                "Server: cyclone/%s\r\n"
+                "WebSocket-Origin: %s\r\n"
+                "WebSocket-Location: ws://%s%s\r\n\r\n" % \
+                (cyclone.version, self.request.headers["Origin"],
+                 self.request.host, self.request.path))
             self._protocol = 75
         else:
             log.msg('Using ws draft 76 header exchange')
@@ -285,10 +281,11 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
                 "Upgrade: WebSocket\r\n"
                 "Connection: Upgrade\r\n"
-                "Server: cyclone/"+__version__+"\r\n"
-                "Sec-WebSocket-Origin: " + self.request.headers["Origin"] + "\r\n"
-                "Sec-WebSocket-Location: ws://" + self.request.host +
-                self.request.path + "\r\n\r\n"+token+"\r\n\r\n")
+                "Server: cyclone/%s\r\n"
+                "Sec-WebSocket-Origin: %s\r\n"
+                "Sec-WebSocket-Location: ws://%s%s\r\n\r\n%s\r\n\r\n" % \
+                (cyclone.version, self.request.headers["Origin"],
+                 self.request.host, self.request.path, token))
             self._postheader = False
             self.handler.flush()
             return
@@ -298,7 +295,7 @@ class WebSocketProtocol76(WebSocketProtocol):
             for message in messages[:-1]:
                 self.handler.messageReceived(message[1:])
         except Exception, e:
-            log.err("Invalid WebSocket Message: %s" % repr(data))
+            log.msg("Invalid WebSocket Message: %s" % repr(data))
             self._handle_request_exception(e)
 
     def sendMessage(self, message):
@@ -316,4 +313,3 @@ class WebSocketProtocol76(WebSocketProtocol):
             if l.isspace(): spaces = spaces + 1
         x = int(''.join(nums))/spaces
         return x
-

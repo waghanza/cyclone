@@ -15,21 +15,39 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import, division, with_statement
+
+import Cookie
+import socket
+import time
+import urlparse
+
 from twisted.python import log
 from twisted.protocols import basic
 from twisted.internet import defer, protocol
-import errno
-import functools
-import time
-import urlparse
+
+from cyclone.escape import utf8, native_str, parse_qs_bytes
+from cyclone import httputil
+from cyclone.util import b, bytes_type
+
+
+class _BadRequestException(Exception):
+    """Exception class for malformed HTTP requests."""
+    pass
+
 
 class HTTPConnection(basic.LineReceiver):
     """Handles a connection to an HTTP client, executing HTTP requests.
 
     We parse HTTP headers and bodies, and execute the request callback
     until the HTTP conection is closed.
+
+    If ``xheaders`` is ``True``, we support the ``X-Real-Ip`` and ``X-Scheme``
+    headers, which override the remote IP and HTTP scheme for all requests.
+    These headers are useful when running Tornado behind a reverse proxy or
+    load balancer.
     """
-    delimiter = "\r\n"
+    delimiter = b("\r\n")
 
     def connectionMade(self):
         self._headersbuffer = []
@@ -46,7 +64,7 @@ class HTTPConnection(basic.LineReceiver):
         if self._finish_callback:
             self._finish_callback.callback(reason.getErrorMessage())
             self._finish_callback = None
-    
+
     def notifyFinish(self):
         if self._finish_callback is None:
             self._finish_callback = defer.Deferred()
@@ -59,14 +77,14 @@ class HTTPConnection(basic.LineReceiver):
             buff = "".join(self._headersbuffer)
             self._headersbuffer = []
             self._on_headers(buff)
-    
+
     def rawDataReceived(self, data):
         if self.content_length is not None:
             data, rest = data[:self.content_length], data[self.content_length:]
             self.content_length -= len(data)
         else:
             rest = ''
-	
+
         self._contentbuffer.append(data)
         if self.content_length == 0:
             buff = "".join(self._contentbuffer)
@@ -74,7 +92,7 @@ class HTTPConnection(basic.LineReceiver):
             self.content_length = None
             self._on_request_body(buff)
             self.setLineMode(rest)
-	    
+
     def write(self, chunk):
         assert self._request, "Request closed"
         self.transport.write(chunk)
@@ -110,105 +128,133 @@ class HTTPConnection(basic.LineReceiver):
             self.transport.loseConnection()
 
     def _on_headers(self, data):
-        eol = data.find("\r\n")
-        start_line = data[:eol]
         try:
-            method, uri, version = start_line.split(" ")
-        except:
-            log.err("Malformed HTTP request: %s" % repr(start_line)[:100])
-            return self.transport.loseConnection()
-        if not version.startswith("HTTP/"):
-            #raise Exception("Malformed HTTP version in HTTP Request-Line")
-            log.err("Malformed HTTP version in HTTP Request-Line: %s" % repr(start_line)[:100])
-            return self.transport.loseConnection()
-        try:
-            headers = HTTPHeaders.parse(data[eol:])
-        except:
-            log.err("Malformed HTTP headers: %s" % repr(data[eol:][:100]))
-            return self.transport.loseConnection()
-        self._request = HTTPRequest(
-            connection=self, method=method, uri=uri, version=version,
-            headers=headers, remote_ip=self.transport.getPeer().host)
+            data = native_str(data.decode("latin1"))
+            eol = data.find("\r\n")
+            start_line = data[:eol]
+            try:
+                method, uri, version = start_line.split(" ")
+            except ValueError:
+                raise _BadRequestException("Malformed HTTP request line")
+            if not version.startswith("HTTP/"):
+                raise _BadRequestException("Malformed HTTP version in HTTP Request-Line")
+            headers = httputil.HTTPHeaders.parse(data[eol:])
+            self._request = HTTPRequest(
+                connection=self, method=method, uri=uri, version=version,
+                headers=headers, remote_ip=self.transport.getPeer().host)
 
-        content_length = int(headers.get("Content-Length", 0))
-        if content_length:
-            if headers.get("Expect") == "100-continue":
-                self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
-            self.content_length = content_length
-            self.setRawMode()
-            return
+            content_length = headers.get("Content-Length")
+            if content_length:
+                content_length = int(content_length)
+                if headers.get("Expect") == "100-continue":
+                    self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
+                self.content_length = content_length
+                self.setRawMode()
+                return
 
-        self.request_callback(self._request)
+            self.request_callback(self._request)
+        except _BadRequestException, e:
+            log.msg("Malformed HTTP request from %s: %s",
+                    self.transport.getPeer().host, e)
+            self.transport.loseConnection()
 
     def _on_request_body(self, data):
         self._request.body = data
         content_type = self._request.headers.get("Content-Type", "")
-        if self._request.method == "POST":
+        if self._request.method in ("POST", "PUT"):
             if content_type.startswith("application/x-www-form-urlencoded"):
-                arguments = urlparse.parse_qs(self._request.body)
+                arguments = parse_qs_bytes(native_str(self._request.body))
                 for name, values in arguments.iteritems():
                     values = [v for v in values if v]
                     if values:
-                        self._request.arguments.setdefault(name, []).extend(values)
+                        self._request.arguments.setdefault(name,
+                                                           []).extend(values)
             elif content_type.startswith("multipart/form-data"):
-                boundary = content_type[30:]
-                if boundary:
-                    self._parse_mime_body(boundary, data)
+                fields = content_type.split(";")
+                for field in fields:
+                    k, sep, v, = field.strip().partition("=")
+                    if k == "boundary" and v:
+                        httputil.parse_multipart_form_data(
+                            utf8(v), data,
+                            self._request.arguments,
+                            self._request.files)
+                        break
+                else:
+                    log.msg("Invalid multipart/form-data")
         self.request_callback(self._request)
-
-    def _parse_mime_body(self, boundary, data):
-        if data.endswith("\r\n"):
-            footer_length = len(boundary) + 6
-        else:
-            footer_length = len(boundary) + 4
-        parts = data[:-footer_length].split("--" + boundary + "\r\n")
-        for part in parts:
-            if not part: continue
-            eoh = part.find("\r\n\r\n")
-            if eoh == -1:
-                log.err("multipart/form-data missing headers")
-                continue
-            headers = HTTPHeaders.parse(part[:eoh])
-            name_header = headers.get("Content-Disposition", "")
-            if not name_header.startswith("form-data;") or \
-               not part.endswith("\r\n"):
-                log.err("Invalid multipart/form-data")
-                continue
-            value = part[eoh + 4:-2]
-            name_values = {}
-            for name_part in name_header[10:].split(";"):
-                name, name_value = name_part.strip().split("=", 1)
-                name_values[name] = name_value.strip('"').decode("utf-8")
-            if not name_values.get("name"):
-                log.err("multipart/form-data value missing name")
-                continue
-            name = name_values["name"]
-            if name_values.get("filename"):
-                ctype = headers.get("Content-Type", "application/unknown")
-                self._request.files.setdefault(name, []).append(dict(
-                    filename=name_values["filename"], body=value,
-                    content_type=ctype))
-            else:
-                self._request.arguments.setdefault(name, []).append(value)
 
 
 class HTTPRequest(object):
     """A single HTTP request.
 
-    GET/POST arguments are available in the arguments property, which
-    maps arguments names to lists of values (to support multiple values
-    for individual names). Names and values are both unicode always.
+    All attributes are type `str` unless otherwise noted.
 
-    File uploads are available in the files property, which maps file
-    names to list of files. Each file is a dictionary of the form
-    {"filename":..., "content_type":..., "body":...}. The content_type
-    comes from the provided HTTP header and should not be trusted
-    outright given that it can be easily forged.
+    .. attribute:: method
 
-    An HTTP request is attached to a single HTTP connection, which can
-    be accessed through the "connection" attribute. Since connections
-    are typically kept open in HTTP/1.1, multiple requests can be handled
-    sequentially on a single connection.
+       HTTP request method, e.g. "GET" or "POST"
+
+    .. attribute:: uri
+
+       The requested uri.
+
+    .. attribute:: path
+
+       The path portion of `uri`
+
+    .. attribute:: query
+
+       The query portion of `uri`
+
+    .. attribute:: version
+
+       HTTP version specified in request, e.g. "HTTP/1.1"
+
+    .. attribute:: headers
+
+       `HTTPHeader` dictionary-like object for request headers.  Acts like
+       a case-insensitive dictionary with additional methods for repeated
+       headers.
+
+    .. attribute:: body
+
+       Request body, if present, as a byte string.
+
+    .. attribute:: remote_ip
+
+       Client's IP address as a string.  If `HTTPServer.xheaders` is set,
+       will pass along the real IP address provided by a load balancer
+       in the ``X-Real-Ip`` header
+
+    .. attribute:: protocol
+
+       The protocol used, either "http" or "https".  If `HTTPServer.xheaders`
+       is set, will pass along the protocol used by a load balancer if
+       reported via an ``X-Scheme`` header.
+
+    .. attribute:: host
+
+       The requested hostname, usually taken from the ``Host`` header.
+
+    .. attribute:: arguments
+
+       GET/POST arguments are available in the arguments property, which
+       maps arguments names to lists of values (to support multiple values
+       for individual names). Names are of type `str`, while arguments
+       are byte strings.  Note that this is different from
+       `RequestHandler.get_argument`, which returns argument values as
+       unicode strings.
+
+    .. attribute:: files
+
+       File uploads are available in the files property, which maps file
+       names to lists of :class:`HTTPFile`.
+
+    .. attribute:: connection
+
+       An HTTP request is attached to a single HTTP connection, which can
+       be accessed through the "connection" attribute. Since connections
+       are typically kept open in HTTP/1.1, multiple requests can be handled
+       sequentially on a single connection.
     """
     def __init__(self, method, uri, version="HTTP/1.0", headers=None,
                  body=None, remote_ip=None, protocol=None, host=None,
@@ -216,26 +262,32 @@ class HTTPRequest(object):
         self.method = method
         self.uri = uri
         self.version = version
-        self.headers = headers or HTTPHeaders()
+        self.headers = headers or httputil.HTTPHeaders()
         self.body = body or ""
         if connection and connection.xheaders:
             # Squid uses X-Forwarded-For, others use X-Real-Ip
-            self.remote_ip = self.headers.get("X-Real-Ip",
-                self.headers.get("X-Forwarded-For", remote_ip))
-            self.protocol = self.headers.get("X-Scheme", protocol) or "http"
+            self.remote_ip = self.headers.get(
+                "X-Real-Ip", self.headers.get("X-Forwarded-For", remote_ip))
+            if not self._valid_ip(self.remote_ip):
+                self.remote_ip = remote_ip
+            # AWS uses X-Forwarded-Proto
+            #self.protocol = self.headers.get(
+            #    "X-Scheme", self.headers.get("X-Forwarded-Proto", protocol))
+            #if self.protocol != "http":
+            self.protocol = "http"
         else:
             self.remote_ip = remote_ip
-            self.protocol = protocol or "http"
+            self.protocol = "http"
         self.host = host or self.headers.get("Host") or "127.0.0.1"
         self.files = files or {}
         self.connection = connection
         self._start_time = time.time()
         self._finish_time = None
 
-        scheme, netloc, path, query, fragment = urlparse.urlsplit(uri)
+        scheme, netloc, path, query, fragment = urlparse.urlsplit(native_str(uri))
         self.path = path
         self.query = query
-        arguments = urlparse.parse_qs(query)
+        arguments = parse_qs_bytes(query)
         self.arguments = {}
         for name, values in arguments.iteritems():
             values = [v for v in values if v]
@@ -246,9 +298,22 @@ class HTTPRequest(object):
         """Returns True if this request supports HTTP/1.1 semantics"""
         return self.version == "HTTP/1.1"
 
+    @property
+    def cookies(self):
+        """A dictionary of Cookie.Morsel objects."""
+        if not hasattr(self, "_cookies"):
+            self._cookies = Cookie.SimpleCookie()
+            if "Cookie" in self.headers:
+                try:
+                    self._cookies.load(
+                        native_str(self.headers["Cookie"]))
+                except Exception:
+                    self._cookies = {}
+        return self._cookies
+
     def write(self, chunk):
         """Writes the given chunk to the response stream."""
-        assert isinstance(chunk, str)
+        assert isinstance(chunk, bytes_type)
         self.connection.write(chunk)
 
     def finish(self):
@@ -272,28 +337,19 @@ class HTTPRequest(object):
 
     def __repr__(self):
         attrs = ("protocol", "host", "method", "uri", "version", "remote_ip",
-                 "remote_ip", "body")
+                 "body")
         args = ", ".join(["%s=%r" % (n, getattr(self, n)) for n in attrs])
         return "%s(%s, headers=%s)" % (
             self.__class__.__name__, args, dict(self.headers))
 
-
-class HTTPHeaders(dict):
-    """A dictionary that maintains Http-Header-Case for all keys."""
-    def __setitem__(self, name, value):
-        dict.__setitem__(self, self._normalize_name(name), value)
-
-    def __getitem__(self, name):
-        return dict.__getitem__(self, self._normalize_name(name))
-
-    def _normalize_name(self, name):
-        return "-".join([w.capitalize() for w in name.split("-")])
-
-    @classmethod
-    def parse(cls, headers_string):
-        headers = cls()
-        for line in headers_string.splitlines():
-            if line:
-                name, value = line.split(":", 1)
-                headers[name] = value[1:] if value[0] == " " else value
-        return headers
+    def _valid_ip(self, ip):
+        try:
+            res = socket.getaddrinfo(ip, 0, socket.AF_UNSPEC,
+                                     socket.SOCK_STREAM,
+                                     0, socket.AI_NUMERICHOST)
+            return bool(res)
+        except socket.gaierror, e:
+            if e.args[0] == socket.EAI_NONAME:
+                return False
+            raise
+        return True

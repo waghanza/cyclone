@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# Copyright 2009 Facebook
+# Copyright 2010 Alexandre Fiori
+# based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,8 +20,8 @@ import setuptools
 
 setuptools.setup(
     name="cyclone",
-    version="0.7",
-    packages=["cyclone", "cyclone.tw", "cyclone.redis"],
+    version="1.0-rc1",
+    packages=["cyclone", "cyclone.redis"],
     #install_requires=["twisted"],
     author="fiorix",
     author_email="fiorix@gmail.com",

@@ -145,7 +145,7 @@ class OpenIdMixin(object):
 
     def _on_authentication_verified(self, callback, response):
         if response.error or "is_valid:true" not in repr(response.body):
-            log.err("Invalid OpenID response: %s" % (response.error or response.body))
+            log.msg("Invalid OpenID response: %s" % (response.error or response.body))
             callback(None)
             return
 
@@ -232,13 +232,13 @@ class OAuthMixin(object):
         request_key = self.get_argument("oauth_token")
         request_cookie = self.get_cookie("_oauth_request_token")
         if not request_cookie:
-            log.err("Missing OAuth request token cookie")
+            log.msg("Missing OAuth request token cookie")
             callback(None)
             return
 
         cookie_key, cookie_secret = request_cookie.split("|")
         if cookie_key != request_key:
-            log.err("Request token does not match cookie")
+            log.msg("Request token does not match cookie")
             callback(None)
             return
         token = dict(key=cookie_key, secret=cookie_secret)
@@ -289,7 +289,7 @@ class OAuthMixin(object):
 
     def _on_access_token(self, callback, response):
         if response.error:
-            log.err("Could not fetch access token")
+            log.msg("Could not fetch access token")
             callback(None)
             return
         access_token = _oauth_parse_response(response.body)
@@ -440,7 +440,7 @@ class TwitterMixin(OAuthMixin):
     
     def _on_twitter_request(self, callback, response):
         if response.error:
-            log.err("Error response %s fetching %s" % (response.error,
+            log.msg("Error response %s fetching %s" % (response.error,
                             response.request.url))
             callback(None)
             return
@@ -559,7 +559,7 @@ class FriendFeedMixin(OAuthMixin):
     
     def _on_friendfeed_request(self, callback, response):
         if response.error:
-            log.err("Error response %s fetching %s" % (response.error,
+            log.msg("Error response %s fetching %s" % (response.error,
                             response.request.url))
             callback(None)
             return
@@ -815,17 +815,17 @@ class FacebookMixin(object):
 
     def _parse_response(self, callback, response):
         if response.error:
-            log.err("HTTP error from Facebook: %s" % response.error)
+            log.msg("HTTP error from Facebook: %s" % response.error)
             callback(None)
             return
         try:
             json = escape.json_decode(response.body)
         except:
-            log.err("Invalid JSON from Facebook: %r" % response.body)
+            log.msg("Invalid JSON from Facebook: %r" % response.body)
             callback(None)
             return
         if isinstance(json, dict) and json.get("error_code"):
-            log.err("Facebook error: %d: %r" % \
+            log.msg("Facebook error: %d: %r" % \
 		        (json["error_code"], json.get("error_msg")))
             callback(None)
             return
