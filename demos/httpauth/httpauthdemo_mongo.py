@@ -36,7 +36,6 @@ except ImportError:
 
 class Application(cyclone.web.Application):
     def __init__(self):
-        # Defaults to localhost:6379, dbid=0
         mongodb = txmongo.lazyMongoConnectionPool()
 
         handlers = [
