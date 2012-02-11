@@ -21,13 +21,13 @@ import functools
 import os.path
 import sys
 
-
 import cyclone.web
 import cyclone.redis
 from cyclone.redis.protocol import SubscriberProtocol
 
 from twisted.python import log
 from twisted.internet import defer, reactor
+
 
 class Application(cyclone.web.Application):
     def __init__(self):
