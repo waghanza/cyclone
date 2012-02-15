@@ -7,20 +7,21 @@ cyclone
 About
 =====
 
-cyclone is a low-level network toolkit, which provides support for HTTP 1.1 in an API very similar to the one implemented by the `Tornado <http://tornadoweb.org>`_ web server - which was developed by `FriendFeed <http://friendfeed.com>`_ and later released as open source / free software by `Facebook <http://facebook.com>`_.
+cyclone is a low-level network toolkit, which provides support for HTTP 1.1 in an API very similar to the one implemented by the `Tornado <http://tornadoweb.org>`_ web server.
 
 Key differences between cyclone and tornado
 -------------------------------------------
 
-- cyclone is `Twisted <http://twistedmatrix.com>`_ protocol, therefore it may be used in conjunction with any other protocol implemented in Twisted.
-- Localization is based on the standard `Gettext <http://www.gnu.org/software/gettext/>`_ instead of the CSV implementation in the original tornado. The gettext support has been merged back into tornado.
-- It ships with an asynchronous HTTP client based on `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_. It's not compatible with with one provided by tornado - which is based on `PyCurl <http://pycurl.sourceforge.net/>`_. (The HTTP server code is NOT based on TwistedWeb, for several reasons)
-- Native support for XMLRPC and JsonRPC. (see the `rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_)
+- cyclone is a `Twisted <http://twistedmatrix.com>`_ protocol, therefore it may be used in conjunction with any other protocol implemented in Twisted.
+- Localization is based on the standard `Gettext <http://www.gnu.org/software/gettext/>`_ instead of the CSV implementation in the original tornado. The gettext support has been merged back into Tornado.
+- It ships with an asynchronous HTTP client based on `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_. It's not compatible with with one provided by Tornado - which is based on `PyCurl <http://pycurl.sourceforge.net/>`_. (The HTTP server code is NOT based on TwistedWeb, for several reasons)
+- Native support for XMLRPC and JsonRPC. (see the `rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_ for details.)
+- Native support for Server Sent Events. (see the `sse demo <https://github.com/fiorix/cyclone/tree/master/demos/sse>`_ for details.)
 - WebSocket protocol class is just like any other Twisted Protocol (i.e.: LineReceiver; see the `websocket demo <http://github.com/fiorix/cyclone/tree/master/demos/websocket/>`_)
 - Support for sending e-mail based on `Twisted Mail <http://twistedmatrix.com/trac/wiki/TwistedMail>`_, with authentication and TLS, plus an easy way to create plain text or HTML messages, and attachments. (see the `e-mail demo <http://github.com/fiorix/cyclone/tree/master/demos/email>`_)
-- Built-in support for `Redis <http://code.google.com/p/redis/>`_, based on `txredisapi <http://github.com/fiorix/txredisapi>`_. We usually need an in-memory caching server like memcache for web applications. However, we prefer redis over memcache because it supports more operations like pubsub, various data types like sets, hashes (python dict), and persistent storage. See the `redis demo <http://github.com/fiorix/cyclone/tree/master/demos/redis/>`_ for details.
-- Support for HTTP Authentication. See the `authentication demo <http://github.com/fiorix/cyclone/tree/master/demos/httpauth/>`_ for details.
-- Support for Bottle-like API, Twistd application and Twistd plugin.
+- Built-in support for `Redis <http://code.google.com/p/redis/>`_, based on `txredisapi <http://github.com/fiorix/txredisapi>`_. We usually need an in-memory caching server like memcache for web applications. However, we prefer redis over memcache because it supports more operations like pubsub, various data types like sets, hashes (python dict), and persistent storage. (see the `redis demo <http://github.com/fiorix/cyclone/tree/master/demos/redis/>`_ for details.)
+- Support for HTTP Authentication. (see the `authentication demo <http://github.com/fiorix/cyclone/tree/master/demos/httpauth/>`_ for details.)
+- Support for Bottle-like API, Twistd application and Twistd plugin. (see the `hello world demos <https://github.com/fiorix/cyclone/tree/master/demos/helloworld>`_ for details.)
 
 Advantages of being a Twisted Protocol
 --------------------------------------
@@ -34,6 +35,36 @@ Benchmarks
 ----------
 
 Check out the `benchmarks <http://wiki.github.com/fiorix/cyclone/benchmarks>`_ page.
+
+
+Development and Deployment
+==========================
+
+Twisted Plugin is the recommended way to go for production. Create new projects
+right away off of the generic application skeleton shipped with cyclone::
+
+    $ python -m cyclone.app --help
+
+    use: cyclone/app.py [options]
+    Options:
+    -h --help              Show this help.
+    -g --git               Use git's name and email settings, and create a git repo on target
+    -p --project=NAME      Create new cyclone project.
+    -m --modname=NAME      Use another name for the module [default: project_name]
+    -v --version=VERSION   Set project version [default: 0.1]
+    -s --set-pkg-version   Set version on package name [default: False]
+    -t --target=PATH       Set path where project is created [default: ./]
+
+Example::
+
+    python -m cyclone.app -p foobar
+    cd foobar
+    twistd -n foobar
+
+Check out the README.rst in the new project's directory for detailed information.
+It ships with debian init scripts for single or multiple instances (one per cpu core)
+to help make deployment as simple as possible.
+
 
 Tips and Tricks
 ===============
@@ -107,12 +138,56 @@ Following is the *Hello World* as a twisted application::
     internet.TCPServer(8888, foobar(),
         interface="127.0.0.1").setServiceParent(application)
 
-Twisted Plugin is the recommended way to go for production. Create new projects
-right away off of the generic application skeleton shipped with cyclone::
 
-    python -m cyclone.app --help
+Authenticated and Asynchronous decorators
+-----------------------------------------
 
-Check out the README.rst within the new project and have fun.
+Tornado provides decorator functions for asynchronous and authenticated
+methods. Obviously, they're also implemented in cyclone, and yet more
+powerful when combined with a famous Twisted decorator: ``defer.inlineCallbacks``.
+
+The ``cyclone.web.authenticated`` decorator may be combined with ``defer.inlineCallbacks``,
+however, there's a basic rule to use them together. Considering that the authenticated
+decorator will check user credentials, and, depending on the result, it will
+continue processing the request OR redirect the request to the login page,
+it has to be used *before* the ``defer.inlineCallbacks`` to function properly::
+
+    class IndexHandler(cyclone.web.RequestHandler):
+        @cyclone.web.authenticated
+        @defer.inlineCallbacks
+        def get(self):
+            result = yield something()
+            self.write(result)
+
+On the other hand, the ``cyclone.web.asynchronous`` decorator will keep the request open
+until you explicitly call ``self.finish()`` later on. Of course, it may also be combined
+with ``defer.inlineCallbacks``, but it MUST be placed *after* to function properly::
+
+    class Indexhandler(cyclone.web.RequestHandler):
+        @defer.inlineCallbacks
+        @cyclone.web.asynchronous
+        def get(self):
+            result = yield something()
+            self.finish(result)
+
+Yes, you may combine the three decorators to have the most powerful and simple code
+in cyclone, like this::
+
+    class Indexhandler(cyclone.web.RequestHandler):
+        @cyclone.web.authenticated
+        @defer.inlineCallbacks
+        @cyclone.web.asynchronous
+        def get(self):
+            try:
+                result = yield self.redisdb.get("foo")
+            except Exception, e:
+                log.msg("Redis query failed: %s" % str(e))
+                raise cyclone.web.HTTPError(503) # Service Unavailable
+
+            if not result:
+                raise cyclone.web.HTTPError(404)
+
+            self.finish({"result":result})
 
 Localization
 ------------
@@ -239,56 +314,6 @@ Following is a step-by-step guide to implement localization in any cyclone appli
 
 There is also a complete example with pluralization in `demos/locale <http://github.com/fiorix/cyclone/tree/master/demos/locale>`_.
 
-Authenticated and Asynchronous decorators
------------------------------------------
-
-Tornado provides decorator functions for asynchronous and authenticated
-methods. Obviously, they're also implemented in cyclone, and yet more
-powerful when combined with a famous Twisted decorator: ``defer.inlineCallbacks``.
-
-The ``cyclone.web.authenticated`` decorator may be combined with ``defer.inlineCallbacks``,
-however, there's a basic rule to use them together. Considering that the authenticated
-decorator will check user credentials, and, depending on the result, it will
-continue processing the request OR redirect the request to the login page,
-it has to be used *before* the ``defer.inlineCallbacks`` to function properly::
-
-    class IndexHandler(cyclone.web.RequestHandler):
-        @cyclone.web.authenticated
-        @defer.inlineCallbacks
-        def get(self):
-            result = yield something()
-            self.write(result)
-
-On the other hand, the ``cyclone.web.asynchronous`` decorator will keep the request open
-until you explicitly call ``self.finish()`` later on. Of course, it may also be combined
-with ``defer.inlineCallbacks``, but it MUST be placed *after* to function properly::
-
-    class Indexhandler(cyclone.web.RequestHandler):
-        @defer.inlineCallbacks
-        @cyclone.web.asynchronous
-        def get(self):
-            result = yield something()
-            self.finish(result)
-
-Yes, you may combine the three decorators to have the most powerful and simple code
-in cyclone, like this::
-
-    class Indexhandler(cyclone.web.RequestHandler):
-        @cyclone.web.authenticated
-        @defer.inlineCallbacks
-        @cyclone.web.asynchronous
-        def get(self):
-            try:
-                result = yield self.redisdb.get("foo")
-            except Exception, e:
-                log.msg("Redis query failed: %s" % str(e))
-                raise cyclone.web.HTTPError(503) # Service Unavailable
-
-            if not result:
-                raise cyclone.web.HTTPError(404)
-
-            self.finish({"result":result})
-
 More options and tricks
 -----------------------
 
@@ -319,7 +344,7 @@ More options and tricks
 
 - HTTP X-Headers
 
-    When running a cyclone-based application behind `Nginx <http://nginx.org/en/>`_, 
+    When running a cyclone-based application behind `Nginx <http://nginx.org/en/>`_,
     it's very important to make it automatically use X-Real-Ip and X-Scheme HTTP
     headers. In order to make cyclone recognize those headers, the option ``xheaders=True``
     must be set in the Application settings::
