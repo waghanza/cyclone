@@ -58,7 +58,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
     def _execute(self, transforms, *args, **kwargs):
         try:
             assert self.request.headers["Upgrade"].lower() == "websocket"
-            assert self.request.headers["Connection"].lower() == "upgrade"
+            #assert self.request.headers["Connection"].lower() == "upgrade"
         except:
             return self.forbidConnection("Expected WebSocket Headers")
 
@@ -162,7 +162,10 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         self._message_buffer += self._extractMessageFromFrame(data)
         if self._frame_fin:
-            self.handler.messageReceived(self._message_buffer)
+            if self._frame_ops == 9:
+                self.sendMessage(self._message_buffer, code=0x8A) 
+            else:
+                self.handler.messageReceived(self._message_buffer)
             self._message_buffer = ""
 
         # if there is still data after this frame, process again
@@ -222,11 +225,11 @@ class WebSocketProtocol17(WebSocketProtocol):
 
             return str(payload)
 
-    def sendMessage(self, message):
+    def sendMessage(self, message, code=0x81):
         message = unicode(message, "utf-8")
         length = len(message)
         newFrame = []
-        newFrame.append(0x81)
+        newFrame.append(code)
         newFrame = bytearray(newFrame)
         if length <= 125:
             newFrame.append(length)
