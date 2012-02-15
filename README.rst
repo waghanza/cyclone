@@ -14,20 +14,19 @@ Key differences between cyclone and tornado
 
 - cyclone is a `Twisted <http://twistedmatrix.com>`_ protocol, therefore it may be used in conjunction with any other protocol implemented in Twisted.
 - Localization is based on the standard `Gettext <http://www.gnu.org/software/gettext/>`_ instead of the CSV implementation in the original tornado. The gettext support has been merged back into Tornado.
-- It ships with an asynchronous HTTP client based on `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_. It's not compatible with with one provided by Tornado - which is based on `PyCurl <http://pycurl.sourceforge.net/>`_. (The HTTP server code is NOT based on TwistedWeb, for several reasons)
-- Native support for XMLRPC and JsonRPC. (see the `rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_ for details.)
-- Native support for Server Sent Events. (see the `sse demo <https://github.com/fiorix/cyclone/tree/master/demos/sse>`_ for details.)
-- WebSocket protocol class is just like any other Twisted Protocol (i.e.: LineReceiver; see the `websocket demo <http://github.com/fiorix/cyclone/tree/master/demos/websocket/>`_)
-- Support for sending e-mail based on `Twisted Mail <http://twistedmatrix.com/trac/wiki/TwistedMail>`_, with authentication and TLS, plus an easy way to create plain text or HTML messages, and attachments. (see the `e-mail demo <http://github.com/fiorix/cyclone/tree/master/demos/email>`_)
+- Asynchronous HTTP client based on `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_. It's not compatible with with one provided by Tornado - which is based on `PyCurl <http://pycurl.sourceforge.net/>`_. (The HTTP server code is NOT based on TwistedWeb, for several reasons)
+- Support for sending e-mails based on `Twisted Mail <http://twistedmatrix.com/trac/wiki/TwistedMail>`_, with authentication and TLS, plus an easy way to create plain text or HTML messages, and attachments. (see the `e-mail demo <http://github.com/fiorix/cyclone/tree/master/demos/email>`_)
+- Support for HTTP Authentication. (see the `authentication demo <http://github.com/fiorix/cyclone/tree/master/demos/httpauth/>`_)
+- Support for Bottle-like API, Twistd application and Twistd plugin. (see the `hello world demos <https://github.com/fiorix/cyclone/tree/master/demos/helloworld>`_)
+- Built-in support for XMLRPC and JsonRPC (`rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_), Server Sent Events (`sse demo <https://github.com/fiorix/cyclone/tree/master/demos/sse>`_) and WebSocket (`websocket demo <http://github.com/fiorix/cyclone/tree/master/demos/websocket/>`_).
 - Built-in support for `Redis <http://code.google.com/p/redis/>`_, based on `txredisapi <http://github.com/fiorix/txredisapi>`_. We usually need an in-memory caching server like memcache for web applications. However, we prefer redis over memcache because it supports more operations like pubsub, various data types like sets, hashes (python dict), and persistent storage. (see the `redis demo <http://github.com/fiorix/cyclone/tree/master/demos/redis/>`_ for details.)
-- Support for HTTP Authentication. (see the `authentication demo <http://github.com/fiorix/cyclone/tree/master/demos/httpauth/>`_ for details.)
-- Support for Bottle-like API, Twistd application and Twistd plugin. (see the `hello world demos <https://github.com/fiorix/cyclone/tree/master/demos/helloworld>`_ for details.)
+- Built-in support for inline SQLite in an API similar to the ``twisted.enterprise.adbapi``.
 
 Advantages of being a Twisted Protocol
 --------------------------------------
 
 - Easy deployment of applications, using `twistd <http://twistedmatrix.com/documents/current/core/howto/basics.html>`_.
-- RDBM support via: `twisted.enterprise.adbapi <http://twistedmatrix.com/documents/current/core/howto/rdbms.html>`_.
+- RDBM (MySQL, PostgreSQL, etc) support via: `twisted.enterprise.adbapi <http://twistedmatrix.com/documents/current/core/howto/rdbms.html>`_.
 - NoSQL support for MongoDB (`TxMongo <http://github.com/fiorix/mongo-async-python-driver>`_) and Redis (`TxRedisAPI <http://github.com/fiorix/txredisapi>`_).
 - May combine many more functionality within the webserver: sending emails, communicating with message brokers, etc...
 
