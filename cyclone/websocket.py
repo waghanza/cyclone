@@ -162,7 +162,10 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         self._message_buffer += self._extractMessageFromFrame(data)
         if self._frame_fin:
-            if self._frame_ops == 9:
+            if self._frame_ops == 8:
+                self.sendMessage(self._message_buffer, code=0x88) 
+                self.handler.connectionLost(self._message_buffer)
+            elif self._frame_ops == 9:
                 self.sendMessage(self._message_buffer, code=0x8A) 
             else:
                 self.handler.messageReceived(self._message_buffer)
