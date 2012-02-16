@@ -143,9 +143,8 @@ class HTTPConnection(basic.LineReceiver):
                 connection=self, method=method, uri=uri, version=version,
                 headers=headers, remote_ip=self.transport.getPeer().host)
 
-            content_length = headers.get("Content-Length")
+            content_length = int(headers.get("Content-Length", 0))
             if content_length:
-                content_length = int(content_length)
                 if headers.get("Expect") == "100-continue":
                     self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
                 self.content_length = content_length
