@@ -472,3 +472,7 @@ Thanks to (in no particular order):
 - `Dan Griffin <https://github.com/dgriff1>`_
 
   - WebSocket Keep-Alive for OpDemand
+
+- `Toby Padilla <https://github.com/tobypadilla>`_
+
+  - WebSocket server
