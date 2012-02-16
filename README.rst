@@ -468,3 +468,7 @@ Thanks to (in no particular order):
 - `Twitter Bootstrap <https://github.com/twitter/bootstrap>`_
 
   - For making our demo applications look good
+
+- `Dan Griffin <https://github.com/dgriff1>`_
+
+  - WebSocket Keep-Alive for OpDemand
