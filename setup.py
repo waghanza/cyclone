@@ -21,7 +21,7 @@ import setuptools
 setuptools.setup(
     name="cyclone",
     version="1.0-rc3",
-    packages=["cyclone", "cyclone.redis"],
+    packages=["cyclone"],
     #install_requires=["twisted"],
     author="fiorix",
     author_email="fiorix@gmail.com",
