@@ -1062,7 +1062,7 @@ class SubscriberProtocol(RedisProtocol):
         pass
 
     def replyReceived(self, reply):
-        if type(reply) is types.ListType:
+        if isinstance(reply, list):
             if reply[-3] == u"message":
                 self.messageReceived(None, *reply[-2:])
             else:
@@ -1087,6 +1087,11 @@ class SubscriberProtocol(RedisProtocol):
         if isinstance(patterns, (str, unicode)):
             patterns = [patterns]
         return self.execute_command("PUNSUBSCRIBE", *patterns)
+
+class SubscriberFactory(protocol.ReconnectingClientFactory):
+    maxDelay = 120
+    continueTrying = True
+    protocol = SubscriberProtocol
 
 
 class ConnectionHandler(object):

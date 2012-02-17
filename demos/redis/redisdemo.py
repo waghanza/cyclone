@@ -23,7 +23,6 @@ import sys
 
 import cyclone.web
 import cyclone.redis
-from cyclone.redis.protocol import SubscriberProtocol
 
 from twisted.python import log
 from twisted.internet import defer, reactor
@@ -31,8 +30,6 @@ from twisted.internet import defer, reactor
 
 class Application(cyclone.web.Application):
     def __init__(self):
-        RedisMixin().makeItFunk("127.0.0.1", 6379, 0, 10)
-
         handlers = [
             (r"/text/(.+)", TextHandler),
             (r"/queue/(.+)", QueueHandler),
@@ -42,6 +39,7 @@ class Application(cyclone.web.Application):
             static_path="./frontend/static",
             template_path="./frontend/template",
         )
+        RedisMixin.setup("127.0.0.1", 6379, 0, 10)
         cyclone.web.Application.__init__(self, handlers, **settings)
 
 
@@ -50,19 +48,17 @@ class RedisMixin(object):
     psconn = None
     channels = collections.defaultdict(lambda: [])
 
-    def makeItFunk(self, host, port, dbid, pool_size):
-        cls = RedisMixin
-
+    @classmethod
+    def setup(self, host, port, dbid, poolsize):
         # PubSub client connection
         qf = cyclone.redis.SubscriberFactory()
         qf.maxDelay = 20
-        qf.continueTrying = True # Auto-reconnect
         qf.protocol = QueueProtocol
         reactor.connectTCP(host, port, qf)
 
         # Normal client connection
-        cls.dbconn = cyclone.redis.lazyRedisConnectionPool(host, port, db=dbid,
-                                                           pool_size=pool_size)
+        RedisMixin.dbconn = cyclone.redis.lazyConnectionPool(host, port,
+                                                             dbid, poolsize)
 
     def subscribe(self, channel):
         if RedisMixin.psconn is None:
@@ -99,7 +95,9 @@ class RedisMixin(object):
                     RedisMixin.psconn.unsubscribe(channel)
 
     def broadcast(self, pattern, channel, message):
-        peers = RedisMixin.channels.get(pattern or channel)
+        peers = self.channels.get(pattern or channel)
+        if not peers:
+            return
 
         # Broadcast the message to all peers in channel
         for peer in peers:
@@ -113,7 +111,7 @@ class TextHandler(cyclone.web.RequestHandler, RedisMixin):
     @defer.inlineCallbacks
     def get(self, key):
         try:
-            value = yield RedisMixin.dbconn.get(key)
+            value = yield self.dbconn.get(key)
         except Exception, e:
             log.err("Redis failed to get('%s'): %s" % (key, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -125,7 +123,7 @@ class TextHandler(cyclone.web.RequestHandler, RedisMixin):
     def post(self, key):
         value = self.get_argument("value")
         try:
-            yield RedisMixin.dbconn.set(key, value)
+            yield self.dbconn.set(key, value)
         except Exception, e:
             log.err("Redis failed to set('%s', '%s'): %s" % (key, value, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -136,7 +134,7 @@ class TextHandler(cyclone.web.RequestHandler, RedisMixin):
     @defer.inlineCallbacks
     def delete(self, key):
         try:
-            n = yield RedisMixin.dbconn.delete(key)
+            n = yield self.dbconn.delete(key)
         except Exception, e:
             log.err("Redis failed to del('%s'): %s" % (key, str(e)))
             raise cyclone.web.HTTPError(503)
@@ -161,7 +159,7 @@ class QueueHandler(cyclone.web.RequestHandler, RedisMixin):
             functools.partial(RedisMixin.unsubscribe_all, self))
 
         for channel in channels:
-            RedisMixin.subscribe(self, channel)
+            self.subscribe(channel)
             self.write("subscribed to %s\r\n" % channel)
         self.flush()
 
@@ -170,8 +168,7 @@ class QueueHandler(cyclone.web.RequestHandler, RedisMixin):
         message = self.get_argument("message")
 
         try:
-            n = yield RedisMixin.dbconn.publish(channel,
-                                                message.encode("utf-8"))
+            n = yield self.dbconn.publish(channel, message.encode("utf-8"))
         except Exception, e:
             log.msg("Redis failed to publish('%s', '%s'): %s" % \
                     (channel, repr(message), str(e)))
@@ -181,7 +178,7 @@ class QueueHandler(cyclone.web.RequestHandler, RedisMixin):
         self.finish("OK %d\r\n" % n)
 
 
-class QueueProtocol(SubscriberProtocol, RedisMixin):
+class QueueProtocol(cyclone.redis.SubscriberProtocol, RedisMixin):
     def messageReceived(self, pattern, channel, message):
         # When new messages are published to Redis channels or patterns,
         # they are broadcasted to all HTTP clients subscribed to those
@@ -193,7 +190,7 @@ class QueueProtocol(SubscriberProtocol, RedisMixin):
 
         # If we lost connection with Redis during operation, we
         # re-subscribe to all channels once the connection is re-established.
-        for channel in RedisMixin.channels:
+        for channel in self.channels:
             if "*" in channel:
                 self.psubscribe(channel)
             else:
