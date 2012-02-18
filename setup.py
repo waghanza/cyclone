@@ -20,7 +20,7 @@ import setuptools
 
 setuptools.setup(
     name="cyclone",
-    version="1.0-rc3",
+    version="1.0-rc4",
     packages=["cyclone"],
     #install_requires=["twisted"],
     author="fiorix",
