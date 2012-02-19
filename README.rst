@@ -21,6 +21,7 @@ Key differences between cyclone and tornado
 - Built-in support for XMLRPC and JsonRPC (`rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_), Server Sent Events (`sse demo <https://github.com/fiorix/cyclone/tree/master/demos/sse>`_) and WebSocket (`websocket demo <http://github.com/fiorix/cyclone/tree/master/demos/websocket/>`_).
 - Built-in support for `Redis <http://code.google.com/p/redis/>`_, based on `txredisapi <http://github.com/fiorix/txredisapi>`_. We usually need an in-memory caching server like memcache for web applications. However, we prefer redis over memcache because it supports more operations like pubsub, various data types like sets, hashes (python dict), and persistent storage. (see the `redis demo <http://github.com/fiorix/cyclone/tree/master/demos/redis/>`_ for details.)
 - Built-in support for inline SQLite in an API similar to the ``twisted.enterprise.adbapi``.
+- XSRF control per RequestHandler. Basically, adding ``no_xsrf = True`` in a RequestHandler cause it ignore the ``_xsrf`` cookie. This is useful when exposing handlers to HTTP clients other than browsers in the same server that is serving normal HTML content with the ``_xsrf`` cookie and form element.
 
 Advantages of being a Twisted Protocol
 --------------------------------------

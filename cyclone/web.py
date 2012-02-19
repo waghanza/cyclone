@@ -929,7 +929,8 @@ class RequestHandler(object):
             # the proper cookie
             if self.request.method not in ("GET", "HEAD", "OPTIONS") and \
                self.application.settings.get("xsrf_cookies"):
-                self.check_xsrf_cookie()
+                if not getattr(self, "no_xsrf", False):
+                    self.check_xsrf_cookie()
             self.prepare()
             if not self._finished:
                 args = [self.decode_argument(arg) for arg in args]
