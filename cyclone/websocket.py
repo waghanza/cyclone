@@ -56,6 +56,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.ws_protocol.handleRawData(data)
 
     def _execute(self, transforms, *args, **kwargs):
+        self._transforms = transforms or list()
         try:
             assert self.request.headers["Upgrade"].lower() == "websocket"
             #assert self.request.headers["Connection"].lower() == "upgrade"
