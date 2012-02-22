@@ -23,6 +23,9 @@ import cyclone.web
 import cyclone.escape
 from twisted.python import log
 
+class _NotEnoughFrame(Exception):
+    pass
+
 
 class WebSocketHandler(cyclone.web.RequestHandler):
     def __init__(self, application, request):
@@ -56,9 +59,9 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.ws_protocol.handleRawData(data)
 
     def _execute(self, transforms, *args, **kwargs):
+        self._transforms = transforms or list()
         try:
             assert self.request.headers["Upgrade"].lower() == "websocket"
-            #assert self.request.headers["Connection"].lower() == "upgrade"
         except:
             return self.forbidConnection("Expected WebSocket Headers")
 
@@ -115,7 +118,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._frame_payload_length = None
         self._frame_header_length = None
 
-        self._raw_data_length = None
+        self._data_len = None
         self._header_index = None
 
         self._message_buffer = ""
@@ -148,19 +151,19 @@ class WebSocketProtocol17(WebSocketProtocol):
              self.request.host, self.request.path))
 
     def rawDataReceived(self, data):
-        self._raw_data_len = len(data)
 
         if self._partial_data:
             data = self._partial_data + data
             self._partial_data = None
 
-        self._processFrameHeader(data)
-
-        if (self._raw_data_len - self._header_index) < self._frame_payload_len:
+        try: 
+            self._processFrameHeader(data)
+        except _NotEnoughFrame:
             self._partial_data = data
             return
 
         self._message_buffer += self._extractMessageFromFrame(data)
+
         if self._frame_fin:
             if self._frame_ops == 8:
                 self.sendMessage(self._message_buffer, code=0x88) 
@@ -173,10 +176,17 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         # if there is still data after this frame, process again
         current_len = self._frame_header_len + self._frame_payload_len
-        if current_len < self._raw_data_len:
+        if current_len < self._data_len:
             self.rawDataReceived(data[current_len:])
 
     def _processFrameHeader(self, data):
+
+        self._data_len = len(data)
+
+        # we need at least 2 bytes to start processing a frame
+        if self._data_len < 2:
+            raise _NotEnoughFrame()
+
         # first byte contains fin, rsv and ops
         b = ord(data[0])
         self._frame_fin = (b & 0x80) != 0
@@ -188,40 +198,40 @@ class WebSocketProtocol17(WebSocketProtocol):
         self._frame_mask = (b & 0x80) != 0
         frame_payload_len1 = b & 0x7f
 
-        if (self._frame_mask):
-            mask_len = 4
-        else:
-            mask_len = 0
-
-        # i is frame index. It's at 2 here because we've already processed the
-        # first 2 bytes of the frame.
+        # accumulating for self._frame_header_len
         i = 2
 
         if frame_payload_len1 <  126:
-            self._frame_header_len = i + mask_len
             self._frame_payload_len = frame_payload_len1
         elif frame_payload_len1 == 126:
-            self._frame_header_len = i + 2 + mask_len
-            self._frame_payload_len = struct.unpack("!H", data[i:i+2])[0]
             i += 2
+            if self._data_len < i:
+                raise _NotEnoughFrame()
+            self._frame_payload_len = struct.unpack("!H", data[i-2:i])[0]
         elif frame_payload_len1 == 127:
-            self._frame_header_len = i + 8 + mask_len
-            self._frame_payload_len = struct.unpack("!Q", data[i:i+8])[0]
             i += 8
+            if self._data_len < i:
+                raise _NotEnoughFrame()
+            self._frame_payload_len = struct.unpack("!Q", data[i-8:i])[0]
 
-        self._header_index = i
+        if (self._frame_mask):
+            i += 4
+
+        if (self._data_len - i) < self._frame_payload_len:
+            raise _NotEnoughFrame()
+
+        self._frame_header_len = i
 
     def _extractMessageFromFrame(self, data):
-        i = self._header_index
+        i = self._frame_header_len
 
         # when payload is masked, extract frame mask
         frame_mask = None
         frame_mask_array = []
         if self._frame_mask:
-            frame_mask = data[i:i+4]
+            frame_mask = data[i-4:i]
             for j in range(0, 4):
                 frame_mask_array.append(ord(frame_mask[j]))
-            i += 4
             payload = bytearray(data[i:i+self._frame_payload_len])
             for k in xrange(0, self._frame_payload_len):
                 payload[k] ^= frame_mask_array[k % 4]
