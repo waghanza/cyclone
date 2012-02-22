@@ -175,11 +175,15 @@ def load_gettext_translations(directory, domain):
             _translations[lang] = gettext.translation(domain, directory,
                                                       languages=[lang])
         except Exception, e:
-            log.msg("Cannot load translation for '%s': %s" % (lang, str(e)))
+            # These messages are not printed in twistd, because it's
+            # before the log is open.
+            print("Cannot load translation for '%s': %s" % (lang, str(e)))
+            #log.msg("Cannot load translation for '%s': %s" % (lang, str(e)))
             continue
     _supported_locales = frozenset(_translations.keys() + [_default_locale])
     _use_gettext = True
-    log.msg("Supported locales: %s" % sorted(_supported_locales))
+    print("Supported locales: %s" % sorted(_supported_locales))
+    #log.msg("Supported locales: %s" % sorted(_supported_locales))
 
 
 def get_supported_locales():
