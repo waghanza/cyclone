@@ -58,10 +58,11 @@ class StarWarsMixin(object):
         for chunk in chunks:
             chunksize = len(chunk)
             if len(chunk) == 985:
+                chunk = chunk.replace("\r\n", "<br>")
                 log.msg("Sending new message to %r listeners" % len(cls.waiters))
                 for client in cls.waiters:
                     try:
-                        client.sendEvent(chunk.replace("\r\n", "<br>"))
+                        client.sendEvent(chunk)
                     except:
                         log.err()
             else:
