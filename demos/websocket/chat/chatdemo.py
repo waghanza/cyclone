@@ -22,9 +22,11 @@ import cyclone.escape
 import cyclone.web
 import cyclone.websocket
 import os.path
-import uuid, sys
+import uuid
+import sys
 from twisted.python import log
 from twisted.internet import reactor
+
 
 class Application(cyclone.web.Application):
     def __init__(self):
@@ -45,6 +47,7 @@ class Application(cyclone.web.Application):
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.render("index.html", messages=ChatSocketHandler.cache)
+
 
 class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
     waiters = set()

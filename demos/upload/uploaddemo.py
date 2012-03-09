@@ -26,10 +26,10 @@ from twisted.internet import reactor
 
 
 # Helper function to convert bytes to human readable strings
-humanreadable = lambda s:[(s%1024**i and "%.1f"%(s/1024.0**i) or \
-                          str(s/1024**i))+x.strip()+"B" \
-                          for i,x in enumerate(' KMGTPEZY') \
-                          if s<1024**(i+1) or i==8][0]
+humanreadable = lambda s: [(s % 1024 ** i and "%.1f" % (s / 1024.0 ** i) or \
+                          str(s / 1024 ** i)) + x.strip() + "B" \
+                          for i, x in enumerate(' KMGTPEZY') \
+                          if s < 1024 ** (i + 1) or i == 8][0]
 
 
 class Application(cyclone.web.Application):
@@ -73,7 +73,7 @@ class IndexHandler(cyclone.web.RequestHandler):
         # File properties
         filename = picture["filename"]
         content_type = picture["content_type"]
-        body = picture["body"] # bytes!
+        body = picture["body"]  # bytes!
 
         try:
             fn = os.path.join(self.settings.repository_path, filename)
@@ -85,8 +85,8 @@ class IndexHandler(cyclone.web.RequestHandler):
             raise cyclone.web.HTTPError(500)
 
         self.render("index.html", missing=[], info={
-                    "name":name,
-                    "file":"%s, type=%s, size=%s" % \
+                    "name": name,
+                    "file": "%s, type=%s, size=%s" % \
                     (filename, content_type, humanreadable(len(body)))})
 
 

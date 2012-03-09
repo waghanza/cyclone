@@ -16,10 +16,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import sys
 import cyclone.escape
 import cyclone.httpclient
 from twisted.internet import defer, reactor
+
 
 @defer.inlineCallbacks
 def test():

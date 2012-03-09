@@ -16,15 +16,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import os.path
 import sys
 
 import cyclone.sse
 import cyclone.web
 
-from twisted.internet import defer, protocol, reactor
+from twisted.internet import protocol
+from twisted.internet import reactor
 from twisted.protocols import telnet
 from twisted.python import log
+
 
 class Application(cyclone.web.Application):
     def __init__(self):
@@ -56,10 +57,10 @@ class StarWarsMixin(object):
         chunks = (self.mbuffer + message.replace("\x1b[J", "")).split("\x1b[H")
         self.mbuffer = ""
         for chunk in chunks:
-            chunksize = len(chunk)
             if len(chunk) == 985:
                 chunk = chunk.replace("\r\n", "<br>")
-                log.msg("Sending new message to %r listeners" % len(cls.waiters))
+                log.msg("Sending new message to %r listeners" % \
+                        len(cls.waiters))
                 for client in cls.waiters:
                     try:
                         client.sendEvent(chunk)

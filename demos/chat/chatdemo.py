@@ -26,6 +26,7 @@ from twisted.internet import reactor
 import os.path
 import uuid
 
+
 class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
@@ -49,7 +50,8 @@ class Application(cyclone.web.Application):
 class BaseHandler(cyclone.web.RequestHandler):
     def get_current_user(self):
         user_json = self.get_secure_cookie("user")
-        if not user_json: return None
+        if not user_json:
+            return None
         return cyclone.escape.json_decode(user_json)
 
 
@@ -70,7 +72,8 @@ class MessageMixin(object):
             index = 0
             for i in xrange(len(cls.cache)):
                 index = len(cls.cache) - i - 1
-                if cls.cache[index]["id"] == cursor: break
+                if cls.cache[index]["id"] == cursor:
+                    break
             recent = cls.cache[index + 1:]
             if recent:
                 callback(recent)
@@ -128,7 +131,7 @@ class AuthLoginHandler(BaseHandler, cyclone.auth.GoogleMixin):
             self.get_authenticated_user(self._on_auth)
             return
         self.authenticate_redirect(ax_attrs=["name"])
-    
+
     def _on_auth(self, user):
         if not user:
             raise cyclone.web.HTTPError(500, "Google auth failed")

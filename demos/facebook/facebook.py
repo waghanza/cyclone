@@ -21,9 +21,9 @@ import os.path
 import cyclone.auth
 import cyclone.escape
 import cyclone.web
-import uimodules
 from twisted.python import log
 from twisted.internet import reactor
+
 
 class Application(cyclone.web.Application):
     def __init__(self):
@@ -40,7 +40,7 @@ class Application(cyclone.web.Application):
             xsrf_cookies=True,
             facebook_api_key="9e2ada1b462142c4dfcc8e894ea1e37c",
             facebook_secret="32fc6114554e3c53d5952594510021e2",
-            ui_modules= {"Post": PostModule},
+            ui_modules={"Post": PostModule},
             debug=True,
         )
         cyclone.web.Application.__init__(self, handlers, **settings)
@@ -49,7 +49,8 @@ class Application(cyclone.web.Application):
 class BaseHandler(cyclone.web.RequestHandler):
     def get_current_user(self):
         user_json = self.get_secure_cookie("user")
-        if not user_json: return None
+        if not user_json:
+            return None
         return cyclone.escape.json_decode(user_json)
 
 
@@ -79,7 +80,7 @@ class AuthLoginHandler(BaseHandler, cyclone.auth.FacebookMixin):
             self.get_authenticated_user(self._on_auth)
             return
         self.authorize_redirect("read_stream")
-    
+
     def _on_auth(self, user):
         if not user:
             raise cyclone.web.HTTPError(500, "Facebook auth failed")

@@ -23,6 +23,7 @@ import cyclone.web
 import cyclone.escape
 from twisted.python import log
 
+
 class _NotEnoughFrame(Exception):
     pass
 
@@ -33,7 +34,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.application = application
         self.request = request
         self.transport = request.connection.transport
-        self.ws_protocol = None;
+        self.ws_protocol = None
 
     def headersReceived(self):
         pass
@@ -65,10 +66,10 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         except:
             return self.forbidConnection("Expected WebSocket Headers")
 
-        if self.request.headers.has_key('Sec-Websocket-Version') and \
-        self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
-            self.ws_protocol  = WebSocketProtocol17(self)
-        elif self.request.headers.has_key("Sec-WebSocket-Version"):
+        if "Sec-Websocket-Version" in self.request.headers and \
+            self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
+            self.ws_protocol = WebSocketProtocol17(self)
+        elif "Sec-WebSocket-Version" in self.request.headers:
             self.transport.write(cyclone.escape.utf8(
                 "HTTP/1.1 426 Upgrade Required\r\n"
                 "Sec-WebSocket-Version: 8\r\n\r\n"))
@@ -77,7 +78,8 @@ class WebSocketHandler(cyclone.web.RequestHandler):
             self.ws_protocol = WebSocketProtocol76(self)
 
         self.request.connection.setRawMode()
-        self.request.connection.rawDataReceived = self.ws_protocol.rawDataReceived
+        self.request.connection.rawDataReceived = \
+            self.ws_protocol.rawDataReceived
         self.ws_protocol.acceptConnection()
 
         self.connectionMade(*args, **kwargs)
@@ -123,7 +125,6 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         self._message_buffer = ""
 
-
     def acceptConnection(self):
         log.msg('Using ws spec (draft 17)')
 
@@ -156,7 +157,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             data = self._partial_data + data
             self._partial_data = None
 
-        try: 
+        try:
             self._processFrameHeader(data)
         except _NotEnoughFrame:
             self._partial_data = data
@@ -166,10 +167,10 @@ class WebSocketProtocol17(WebSocketProtocol):
 
         if self._frame_fin:
             if self._frame_ops == 8:
-                self.sendMessage(self._message_buffer, code=0x88) 
+                self.sendMessage(self._message_buffer, code=0x88)
                 self.handler.connectionLost(self._message_buffer)
             elif self._frame_ops == 9:
-                self.sendMessage(self._message_buffer, code=0x8A) 
+                self.sendMessage(self._message_buffer, code=0x8A)
             else:
                 self.handler.messageReceived(self._message_buffer)
             self._message_buffer = ""
@@ -201,18 +202,18 @@ class WebSocketProtocol17(WebSocketProtocol):
         # accumulating for self._frame_header_len
         i = 2
 
-        if frame_payload_len1 <  126:
+        if frame_payload_len1 < 126:
             self._frame_payload_len = frame_payload_len1
         elif frame_payload_len1 == 126:
             i += 2
             if self._data_len < i:
                 raise _NotEnoughFrame()
-            self._frame_payload_len = struct.unpack("!H", data[i-2:i])[0]
+            self._frame_payload_len = struct.unpack("!H", data[i - 2:i])[0]
         elif frame_payload_len1 == 127:
             i += 8
             if self._data_len < i:
                 raise _NotEnoughFrame()
-            self._frame_payload_len = struct.unpack("!Q", data[i-8:i])[0]
+            self._frame_payload_len = struct.unpack("!Q", data[i - 8:i])[0]
 
         if (self._frame_mask):
             i += 4
@@ -229,10 +230,10 @@ class WebSocketProtocol17(WebSocketProtocol):
         frame_mask = None
         frame_mask_array = []
         if self._frame_mask:
-            frame_mask = data[i-4:i]
+            frame_mask = data[i - 4:i]
             for j in range(0, 4):
                 frame_mask_array.append(ord(frame_mask[j]))
-            payload = bytearray(data[i:i+self._frame_payload_len])
+            payload = bytearray(data[i:i + self._frame_payload_len])
             for k in xrange(0, self._frame_payload_len):
                 payload[k] ^= frame_mask_array[k % 4]
 
@@ -269,8 +270,8 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._protocol = None
 
     def acceptConnection(self):
-        if self.request.headers.has_key('Sec-Websocket-Key1') == False or \
-            self.request.headers.has_key('Sec-Websocket-Key2') == False:
+        if "Sec-Websocket-Key1" not in self.request.headers or \
+            "Sec-Websocket-Key2" not in self.request.headers:
             log.msg('Using old ws spec (draft 75)')
             self.transport.write(
                 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
@@ -290,7 +291,8 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._postheader = True
 
     def rawDataReceived(self, data):
-        if self._postheader == True and self._protocol >= 76 and len(data) == 8:
+        if self._postheader == True and \
+           self._protocol >= 76 and len(data) == 8:
             self._nonce = data.strip()
             token = self._calculate_token(self._k1, self._k2, self._nonce)
             self.transport.write(
@@ -318,14 +320,17 @@ class WebSocketProtocol76(WebSocketProtocol):
         self.transport.write("\x00" + message + "\xff")
 
     def _calculate_token(self, k1, k2, k3):
-        token = struct.pack('>II8s', self._filterella(k1), self._filterella(k2), k3)
+        token = struct.pack('>II8s', self._filterella(k1),
+                            self._filterella(k2), k3)
         return hashlib.md5(token).digest()
 
     def _filterella(self, w):
         nums = []
         spaces = 0
         for l in w:
-            if l.isdigit(): nums.append(l)
-            if l.isspace(): spaces = spaces + 1
-        x = int(''.join(nums))/spaces
+            if l.isdigit():
+                nums.append(l)
+            if l.isspace():
+                spaces = spaces + 1
+        x = int(''.join(nums)) / spaces
         return x

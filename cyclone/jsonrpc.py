@@ -23,17 +23,21 @@ from cyclone.web import HTTPError, RequestHandler
 from twisted.internet import defer
 from twisted.python import log, failure
 
+
 class JsonrpcRequestHandler(RequestHandler):
     def post(self, *args):
         self._auto_finish = False
         try:
             req = cyclone.escape.json_decode(self.request.body)
-            method = req["method"]
-            assert isinstance(method, types.StringTypes), type(method)
-            params = req["params"]
-            assert isinstance(params, (types.ListType, types.TupleType)), type(params)
             jsonid = req["id"]
-            assert isinstance(jsonid, types.IntType), type(jsonid)
+            assert isinstance(jsonid, types.IntType), \
+                              "Invalid id type: %s" % type(jsonid)
+            method = req["method"]
+            assert isinstance(method, types.StringTypes), \
+                              "Invalid method type: %s" % type(method)
+            params = req["params"]
+            assert isinstance(params, (types.ListType, types.TupleType)), \
+                              "Invalid params type: %s" % type(params)
         except Exception, e:
             log.msg("Bad Request: %s" % str(e))
             raise HTTPError(400)
@@ -44,7 +48,8 @@ class JsonrpcRequestHandler(RequestHandler):
             d = defer.maybeDeferred(function, *args)
             d.addBoth(self._cbResult, jsonid)
         else:
-            self._cbResult(AttributeError("method not found: %s" % method), jsonid)
+            self._cbResult(AttributeError("method not found: %s" % method),
+                           jsonid)
 
     def _cbResult(self, result, jsonid):
         if isinstance(result, failure.Failure):
@@ -52,6 +57,5 @@ class JsonrpcRequestHandler(RequestHandler):
             result = None
         else:
             error = None
-        json_data = cyclone.escape.json_encode(
-                            {"result":result, "error":error, "id":jsonid})
-        self.finish(json_data)
+        data = {"result": result, "error": error, "id": jsonid}
+        self.finish(cyclone.escape.json_encode(data))

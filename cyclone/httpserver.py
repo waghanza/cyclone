@@ -24,7 +24,7 @@ import urlparse
 
 from twisted.python import log
 from twisted.protocols import basic
-from twisted.internet import defer, protocol
+from twisted.internet import defer
 
 from cyclone.escape import utf8, native_str, parse_qs_bytes
 from cyclone import httputil
@@ -72,7 +72,7 @@ class HTTPConnection(basic.LineReceiver):
 
     def lineReceived(self, line):
         if line:
-            self._headersbuffer.append(line+self.delimiter)
+            self._headersbuffer.append(line + self.delimiter)
         else:
             buff = "".join(self._headersbuffer)
             self._headersbuffer = []
@@ -137,7 +137,8 @@ class HTTPConnection(basic.LineReceiver):
             except ValueError:
                 raise _BadRequestException("Malformed HTTP request line")
             if not version.startswith("HTTP/"):
-                raise _BadRequestException("Malformed HTTP version in HTTP Request-Line")
+                raise _BadRequestException(
+                        "Malformed HTTP version in HTTP Request-Line")
             headers = httputil.HTTPHeaders.parse(data[eol:])
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
@@ -283,7 +284,8 @@ class HTTPRequest(object):
         self._start_time = time.time()
         self._finish_time = None
 
-        scheme, netloc, path, query, fragment = urlparse.urlsplit(native_str(uri))
+        scheme, netloc, path, query, fragment = \
+            urlparse.urlsplit(native_str(uri))
         self.path = path
         self.query = query
         arguments = parse_qs_bytes(query)

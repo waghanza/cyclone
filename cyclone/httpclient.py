@@ -33,6 +33,7 @@ from zope.interface import implements
 
 agent = Agent(reactor)
 
+
 class StringProducer(object):
     implements(IBodyProducer)
 
@@ -44,8 +45,11 @@ class StringProducer(object):
         consumer.write(self.body)
         return defer.succeed(None)
 
-    def pauseProducing(self): pass
-    def stopProducing(self): pass
+    def pauseProducing(self):
+        pass
+
+    def stopProducing(self):
+        pass
 
 
 class Receiver(Protocol):
@@ -97,7 +101,7 @@ class HTTPClient(object):
 
                     #print("redirecting to:", location)
                     response = yield agent.request(
-                        "GET", #self.method,
+                        "GET",  # self.method,
                         location,
                         request_headers,
                         self.body_producer)
@@ -128,7 +132,8 @@ class JsonRPC:
         return functools.partial(self.__rpcRequest, attr)
 
     def __rpcRequest(self, method, *args):
-        q = escape.json_encode({"method":method, "params":args, "id":self.__rpcId})
+        q = escape.json_encode({"method": method, "params": args,
+                                "id": self.__rpcId})
         self.__rpcId += 1
         r = defer.Deferred()
         d = fetch(self.__rpcUrl, method="POST", postdata=q)

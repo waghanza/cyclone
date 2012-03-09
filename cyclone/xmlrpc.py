@@ -20,6 +20,7 @@ import xmlrpclib
 from twisted.internet import defer
 from cyclone.web import RequestHandler
 
+
 class XmlrpcRequestHandler(RequestHandler):
     FAILURE = 8002
     NOT_FOUND = 8001
@@ -32,7 +33,8 @@ class XmlrpcRequestHandler(RequestHandler):
         try:
             args, functionPath = xmlrpclib.loads(self.request.body)
         except Exception, e:
-            f = xmlrpclib.Fault(self.FAILURE, "can't deserialize input: %s" % e)
+            f = xmlrpclib.Fault(self.FAILURE,
+                                "Can't deserialize input: %s" % e)
             self._cbRender(f)
         else:
             try:
@@ -84,4 +86,3 @@ class XmlrpcRequestHandler(RequestHandler):
             s = xmlrpclib.Fault(self.FAILURE, "error")
 
         self.finish(xmlrpclib.dumps(s, methodresponse=True))
-

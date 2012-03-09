@@ -50,7 +50,8 @@ def HTTPBasic(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         try:
-            auth_type, auth_data = self.request.headers["Authorization"].split()
+            auth_type, auth_data = \
+                self.request.headers["Authorization"].split()
             assert auth_type == "Basic"
             usr, pwd = base64.b64decode(auth_data).split(":", 1)
         except:
@@ -59,11 +60,11 @@ def HTTPBasic(method):
         try:
             # search for user under the "cyclonedb.users" collection
             response = yield self.mongodb.cyclonedb.users.find_one(
-                                        {"usr":usr, "pwd":pwd}, fields=["usr"])
+                             {"usr": usr, "pwd": pwd}, fields=["usr"])
             mongo_usr = response.get("usr")
         except Exception, e:
             log.msg("MongoDB failed to find(): %s" % str(e))
-            raise cyclone.web.HTTPError(503) # Service Unavailable
+            raise cyclone.web.HTTPError(503)  # Service Unavailable
 
         if usr != mongo_usr:
             raise cyclone.web.HTTPAuthenticationRequired
@@ -94,10 +95,11 @@ class CreateUserHandler(cyclone.web.RequestHandler):
         try:
             # create user under the "cyclonedb.users" collection
             ObjId = yield self.mongodb.cyclonedb.users.update(
-                    {"usr":usr}, {"usr":usr, "pwd":pwd}, upsert=True, safe=True)
+                          {"usr": usr}, {"usr": usr, "pwd": pwd},
+                          upsert=True, safe=True)
         except Exception, e:
             log.msg("MongoDB failed to upsert(): %s" % str(e))
-            raise cyclone.web.HTTPError(503) # Service Unavailable
+            raise cyclone.web.HTTPError(503)  # Service Unavailable
 
         self.write("User created. ObjId=%s\r\n" % ObjId)
 

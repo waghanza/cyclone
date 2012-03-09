@@ -272,7 +272,8 @@ class Template(object):
             for ancestor in ancestors:
                 ancestor.find_named_blocks(loader, named_blocks)
             self.file.find_named_blocks(loader, named_blocks)
-            writer = _CodeWriter(buffer, named_blocks, loader, ancestors[0].template,
+            writer = _CodeWriter(buffer, named_blocks, loader,
+                                 ancestors[0].template,
                                  compress_whitespace)
             ancestors[0].generate(writer)
             return buffer.getvalue()
@@ -507,7 +508,8 @@ class _IntermediateControlBlock(_Node):
         self.line = line
 
     def generate(self, writer):
-        writer.write_line("%s:" % self.statement, self.line, writer.indent_size() - 1)
+        writer.write_line("%s:" % self.statement, self.line,
+                          writer.indent_size() - 1)
 
 
 class _Statement(_Node):
@@ -773,7 +775,8 @@ def _parse(reader, template, in_block=None):
                 raise ParseError("%s outside %s block" %
                             (operator, allowed_parents))
             if in_block not in allowed_parents:
-                raise ParseError("%s block cannot be attached to %s block" % (operator, in_block))
+                raise ParseError("%s block cannot be attached to %s block" % \
+                                 (operator, in_block))
             body.chunks.append(_IntermediateControlBlock(contents, line))
             continue
 
@@ -790,16 +793,19 @@ def _parse(reader, template, in_block=None):
             if operator == "extends":
                 suffix = suffix.strip('"').strip("'")
                 if not suffix:
-                    raise ParseError("extends missing file path on line %d" % line)
+                    raise ParseError("extends missing file path on line %d" % \
+                                     line)
                 block = _ExtendsBlock(suffix)
             elif operator in ("import", "from"):
                 if not suffix:
-                    raise ParseError("import missing statement on line %d" % line)
+                    raise ParseError("import missing statement on line %d" % \
+                                     line)
                 block = _Statement(contents, line)
             elif operator == "include":
                 suffix = suffix.strip('"').strip("'")
                 if not suffix:
-                    raise ParseError("include missing file path on line %d" % line)
+                    raise ParseError("include missing file path on line %d" % \
+                                     line)
                 block = _IncludeBlock(suffix, reader, line)
             elif operator == "set":
                 if not suffix:
@@ -823,7 +829,8 @@ def _parse(reader, template, in_block=None):
             block_body = _parse(reader, template, operator)
             if operator == "apply":
                 if not suffix:
-                    raise ParseError("apply missing method name on line %d" % line)
+                    raise ParseError("apply missing method name on line %d" % \
+                                     line)
                 block = _ApplyBlock(suffix, line, block_body)
             elif operator == "block":
                 if not suffix:

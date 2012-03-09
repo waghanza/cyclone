@@ -15,8 +15,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from cyclone import escape
 from cyclone.web import RequestHandler
 from twisted.python import log
+
 
 class SSEHandler(RequestHandler):
     def __init__(self, application, request):
@@ -24,12 +26,13 @@ class SSEHandler(RequestHandler):
         self.transport = request.connection.transport
         self._auto_finish = False
 
-    def sendEvent(self, message, event=None, eid=None, retry = None):
+    def sendEvent(self, message, event=None, eid=None, retry=None):
         """
         sendEvent is the single method to send events to clients.
         message: the event itself
         event: optional event name
-        eid: optional event id to be used as Last-Event-ID header or e.lastEventId property
+        eid: optional event id to be used as Last-Event-ID header or
+             e.lastEventId property
         retry: set the retry timeout in ms. default 3 secs.
         """
         if isinstance(message, dict):
@@ -48,7 +51,7 @@ class SSEHandler(RequestHandler):
         self.transport.write("data: %s\n\n" % message)
 
     def _execute(self, transforms, *args, **kwargs):
-        self._transforms = [] # transforms
+        self._transforms = []  # transforms
         if self.settings.get("debug"):
             log.msg("SSE connection from %s" % self.request.remote_ip)
         self.set_header("Content-Type", "text/event-stream")

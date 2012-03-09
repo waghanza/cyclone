@@ -25,6 +25,7 @@ import cyclone.web
 from twisted.python import log
 from twisted.internet import reactor
 
+
 class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
@@ -37,7 +38,8 @@ def HTTPBasic(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         try:
-            auth_type, auth_data = self.request.headers["Authorization"].split()
+            auth_type, auth_data = \
+                self.request.headers["Authorization"].split()
             assert auth_type == "Basic"
             usr, pwd = base64.b64decode(auth_data).split(":", 1)
             assert usr == "root@localhost"

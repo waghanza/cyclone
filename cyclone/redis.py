@@ -39,21 +39,31 @@ from twisted.protocols import basic
 from twisted.protocols import policies
 from twisted.python import log
 
+
 class RedisError(Exception):
     pass
+
+
 class ConnectionError(RedisError):
     pass
+
+
 class ResponseError(RedisError):
     pass
+
+
 class InvalidResponse(RedisError):
     pass
+
+
 class InvalidData(RedisError):
     pass
+
 
 def list_or_args(command, keys, args):
     oldapi = bool(args)
     try:
-        i = iter(keys)
+        iter(keys)
         if isinstance(keys, (str, unicode)):
             raise TypeError
     except TypeError:
@@ -66,6 +76,7 @@ def list_or_args(command, keys, args):
             "Pass an iterable to ``keys`` instead" % command))
         keys.extend(args)
     return keys
+
 
 class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
     """
@@ -132,7 +143,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
             return
 
         self.resetTimeout()
-        token = line[0] # first byte indicates reply type
+        token = line[0]  # first byte indicates reply type
         data = line[1:]
         if token == self.ERROR:
             self.errorReceived(data)
@@ -151,14 +162,15 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
                 self.bulkDataReceived(None)
                 return
             else:
-                self.bulk_length += 2 # \r\n
+                self.bulk_length += 2  # \r\n
                 self.setRawMode()
         elif token == self.MULTI_BULK:
             try:
                 self.multi_bulk_length = long(data)
             except (TypeError, ValueError):
                 self.replyReceived(InvalidResponse(
-                 "Cannot convert multi-response header '%s' to integer" % data))
+                 "Cannot convert multi-response header "
+                 "'%s' to integer" % data))
                 self.multi_bulk_length = 0
                 return
             if self.multi_bulk_length == -1:
@@ -682,7 +694,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
 
     def sinter(self, keys, *args):
         """
-        Return the intersection between the Sets stored at key1, key2, ..., keyN
+        Return the intersection between the Sets stored at key1, ..., keyN
         """
         keys = list_or_args("sinter", keys, args)
         return self.execute_command("SINTER", *keys)
@@ -1090,6 +1102,7 @@ class SubscriberProtocol(RedisProtocol):
             patterns = [patterns]
         return self.execute_command("PUNSUBSCRIBE", *patterns)
 
+
 class SubscriberFactory(protocol.ReconnectingClientFactory):
     maxDelay = 120
     continueTrying = True
@@ -1188,13 +1201,14 @@ ShardedMethods = [
 
 _findhash = re.compile('.+\{(.*)\}.*', re.I)
 
+
 class HashRing(object):
     """Consistent hash for redis API"""
     def __init__(self, nodes=[], replicas=160):
-        self.nodes=[]
-        self.replicas=replicas
-        self.ring={}
-        self.sorted_keys=[]
+        self.nodes = []
+        self.replicas = replicas
+        self.ring = {}
+        self.sorted_keys = []
 
         for n in nodes:
             self.add_node(n)
@@ -1225,17 +1239,19 @@ class HashRing(object):
             return [None, None]
         crc = zlib.crc32(key)
         idx = bisect.bisect(self.sorted_keys, crc)
-        idx = min(idx, (self.replicas * len(self.nodes))-1) # prevents out of range index
+        idx = min(idx, (self.replicas * len(self.nodes)) - 1)
         return [self.ring[self.sorted_keys[idx]], idx]
 
     def iter_nodes(self, key):
-        if len(self.ring) == 0: yield None, None
+        if len(self.ring) == 0:
+            yield None, None
         node, pos = self.get_node_pos(key)
         for k in self.sorted_keys[pos:]:
             yield k, self.ring[k]
 
     def __call__(self, key):
         return self.get_node(key)
+
 
 class ShardedConnectionHandler(object):
     def __init__(self, connections):
@@ -1295,7 +1311,7 @@ class ShardedConnectionHandler(object):
 
         deferreds = []
         for node, keys in group.items():
-            nd=node.mget(keys)
+            nd = node.mget(keys)
             deferreds.append(nd)
 
         result = []
@@ -1390,6 +1406,7 @@ def makeConnection(host, port, dbid, poolsize, reconnect, isLazy):
     else:
         return factory.deferred
 
+
 def makeShardedConnection(hosts, dbid, poolsize, reconnect, isLazy):
     err = "Please use a list or tuple of host:port for sharded connections"
     if not isinstance(hosts, (list, tuple)):
@@ -1413,28 +1430,36 @@ def makeShardedConnection(hosts, dbid, poolsize, reconnect, isLazy):
         ShardedConnectionHandler(deferred)
         return deferred
 
+
 def Connection(host="localhost", port=6379, dbid=0, reconnect=True):
     return makeConnection(host, port, dbid, 1, reconnect, False)
 
+
 def lazyConnection(host="localhost", port=6379, dbid=0, reconnect=True):
     return makeConnection(host, port, dbid, 1, reconnect, True)
+
 
 def ConnectionPool(host="localhost", port=6379, dbid=0,
                    poolsize=10, reconnect=True):
     return makeConnection(host, port, dbid, poolsize, reconnect, False)
 
+
 def lazyConnectionPool(host="localhost", port=6379, dbid=0,
                        poolsize=10, reconnect=True):
     return makeConnection(host, port, dbid, poolsize, reconnect, True)
 
+
 def ShardedConnection(hosts, dbid=0, reconnect=True):
     return makeShardedConnection(hosts, dbid, 1, reconnect, False)
+
 
 def lazyShardedConnection(hosts, dbid=0, reconnect=True):
     return makeShardedConnection(hosts, dbid, 1, reconnect, True)
 
+
 def ShardedConnectionPool(hosts, dbid=0, poolsize=10, reconnect=True):
     return makeShardedConnection(hosts, dbid, poolsize, reconnect, False)
+
 
 def lazyShardedConnectionPool(hosts, dbid=0, poolsize=10, reconnect=True):
     return makeShardedConnection(hosts, dbid, poolsize, reconnect, True)
@@ -1449,20 +1474,37 @@ __all__ = [
 __version__ = version = "0.3-cyclone"
 __author__ = "Alexandre Fiori"
 
+
 # backward compatible connection methods
 def RedisConnection(host="localhost", port=6379, reconnect=True, db=0):
     return Connection(host, port, db, reconnect)
+
+
 def lazyRedisConnection(host="localhost", port=6379, reconnect=True, db=0):
     return lazyConnection(host, port, db, reconnect)
-def RedisConnectionPool(host="localhost", port=6379, reconnect=True, pool_size=5, db=0):
+
+
+def RedisConnectionPool(host="localhost", port=6379, reconnect=True,
+                        pool_size=5, db=0):
     return ConnectionPool(host, port, db, pool_size, reconnect)
-def lazyRedisConnectionPool(host="localhost", port=6379, reconnect=True, pool_size=5, db=0):
+
+
+def lazyRedisConnectionPool(host="localhost", port=6379, reconnect=True,
+                            pool_size=5, db=0):
     return lazyConnectionPool(host, port, db, pool_size, reconnect)
+
+
 def RedisShardingConnection(hosts, reconnect=True, db=0):
     return ShardedConnection(hosts, db, reconnect)
+
+
 def RedisShardingConnectionPool(hosts, reconnect=True, pool_size=5, db=0):
     return ShardedConnectionPool(hosts, db, pool_size, reconnect)
+
+
 def lazyRedisShardingConnection(hosts, reconnect=True, db=0):
     return lazyShardedConnection(hosts, db, reconnect)
+
+
 def lazyRedisShardingConnectionPool(hosts, reconnect=True, pool_size=5, db=0):
     return lazyShardedConnectionPool(hosts, db, pool_size, reconnect)

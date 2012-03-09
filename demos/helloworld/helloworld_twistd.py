@@ -19,6 +19,7 @@
 import cyclone.web
 from twisted.application import service, internet
 
+
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.write("Hello, world")

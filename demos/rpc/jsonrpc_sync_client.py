@@ -16,10 +16,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import json, urllib
+import json
+import urllib
+
 
 def request(url, func, *args):
-    req = json.dumps({"method":func, "params":args, "id":1})
+    req = json.dumps({"method": func, "params": args, "id": 1})
     result = urllib.urlopen(url, req).read()
     try:
         response = json.loads(result)

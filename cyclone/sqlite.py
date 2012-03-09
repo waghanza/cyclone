@@ -17,6 +17,7 @@
 
 import sqlite3
 
+
 class InlineSQLite:
     def __init__(self, dbname, autoCommit=True):
         self.autoCommit = autoCommit

@@ -111,7 +111,8 @@ class HTTPHeaders(dict):
     def parse(cls, headers):
         """Returns a dictionary from HTTP header text.
 
-        >>> h = HTTPHeaders.parse("Content-Type: text/html\\r\\nContent-Length: 42\\r\\n")
+        >>> h = HTTPHeaders.parse(
+            "Content-Type: text/html\\r\\nContent-Length: 42\\r\\n")
         >>> sorted(h.iteritems())
         [('Content-Length', '42'), ('Content-Type', 'text/html')]
         """
@@ -148,7 +149,8 @@ class HTTPHeaders(dict):
         for k, v in dict(*args, **kwargs).iteritems():
             self[k] = v
 
-    _NORMALIZED_HEADER_RE = re.compile(r'^[A-Z0-9][a-z0-9]*(-[A-Z0-9][a-z0-9]*)*$')
+    _NORMALIZED_HEADER_RE = \
+        re.compile(r'^[A-Z0-9][a-z0-9]*(-[A-Z0-9][a-z0-9]*)*$')
     _normalized_headers = {}
 
     @staticmethod
@@ -164,7 +166,8 @@ class HTTPHeaders(dict):
             if HTTPHeaders._NORMALIZED_HEADER_RE.match(name):
                 normalized = name
             else:
-                normalized = "-".join([w.capitalize() for w in name.split("-")])
+                normalized = "-".join(
+                    [w.capitalize() for w in name.split("-")])
             HTTPHeaders._normalized_headers[name] = normalized
             return normalized
 

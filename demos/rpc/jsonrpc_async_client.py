@@ -19,6 +19,7 @@
 import cyclone.httpclient
 from twisted.internet import defer, reactor
 
+
 @defer.inlineCallbacks
 def main():
     cli = cyclone.httpclient.JsonRPC("http://localhost:8888/jsonrpc")

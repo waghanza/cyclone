@@ -26,6 +26,8 @@ import cyclone.xmlrpc
 from cyclone.bottle import run, route
 
 from twisted.internet import defer
+from twisted.python import log
+
 
 class BaseHandler(cyclone.web.RequestHandler):
     @property
@@ -63,7 +65,7 @@ def auth_login(cli):
         redis_pwd = yield cli.redisdb.get("cyclone:%s" % usr)
     except Exception, e:
         log.msg("Redis failed to get('cyclone:%s'): %s" % (usr, str(e)))
-        raise cyclone.web.HTTPError(503) # Service Unavailable
+        raise cyclone.web.HTTPError(503)  # Service Unavailable
 
     if pwd != str(redis_pwd):
         cli.write("Invalid user or password.<br>"
@@ -100,12 +102,13 @@ class WebSocketHandler(cyclone.websocket.WebSocketHandler):
 
 class XmlrpcHandler(cyclone.xmlrpc.XmlrpcRequestHandler):
     allowNone = True
+
     def xmlrpc_echo(self, text):
         return text
 
 
 try:
-    raise COMMENT_THIS_LINE_AND_LOG_TO_DAILY_FILE
+    raise Exception("COMMENT_THIS_LINE_AND_LOG_TO_DAILY_FILE")
     from twisted.python.logfile import DailyLogFile
     logFile = DailyLogFile.fromFullPath("server.log")
     print("Logging to daily log file: server.log")
@@ -130,4 +133,3 @@ run(host="127.0.0.1", port=8888,
         (r"/websocket", WebSocketHandler),
         (r"/xmlrpc",    XmlrpcHandler),
     ])
-

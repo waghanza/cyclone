@@ -152,7 +152,7 @@ def load_gettext_translations(directory, domain):
     Three steps are required to have you app translated:
 
     1. Generate POT translation file
-        xgettext --language=Python --keyword=_:1,2 -d cyclone file1.py file2.html etc
+        xgettext --language=Python --keyword=_:1,2 -d cyclone file1.py fileN..
 
     2. Merge against existing POT file:
         msgmerge old.po cyclone.po > new.po
@@ -171,7 +171,8 @@ def load_gettext_translations(directory, domain):
         if os.path.isfile(os.path.join(directory, lang)):
             continue
         try:
-            os.stat(os.path.join(directory, lang, "LC_MESSAGES", domain + ".mo"))
+            os.stat(os.path.join(directory, lang,
+                    "LC_MESSAGES", domain + ".mo"))
             _translations[lang] = gettext.translation(domain, directory,
                                                       languages=[lang])
         except Exception, e:

@@ -25,6 +25,7 @@ from twisted.internet import reactor
 _handlers = []
 _BaseHandler = None
 
+
 class Router:
     def __init__(self):
         self.items = []
@@ -38,6 +39,7 @@ class Router:
             callback = functools.partial(callback, obj)
             setattr(obj, method.lower(), callback)
         return obj
+
 
 def route(path=None, method="GET", callback=None, **kwargs):
     if callable(path):

@@ -14,7 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-# port to cyclone: took out ioloop initialization, fixed imports and created a .tac file
+# port to cyclone: took out ioloop initialization, fixed imports and created
+# a .tac file.
 # gleicon 04/10
 
 """Implementation of an S3-like storage server based on local files.
@@ -36,7 +37,6 @@ S3 client with this module:
 
 from cyclone import escape
 from cyclone import web
-from cyclone import httpserver
 from twisted.python import log
 import datetime
 import bisect
@@ -44,7 +44,7 @@ import hashlib
 import os
 import os.path
 import urllib
-import sys
+
 
 class S3Application(web.Application):
     """Implementation of an S3-like storage server based on local files.

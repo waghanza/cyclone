@@ -18,8 +18,8 @@
 
 import sys
 
-import cyclone.sqlite
 from cyclone.bottle import run, route
+
 
 @route("/")
 def index(web):

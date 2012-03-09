@@ -4,9 +4,10 @@ import cyclone.escape
 import cyclone.web
 import cyclone.websocket
 import os.path
-import uuid, sys
+import sys
 from twisted.python import log
 from twisted.internet import reactor
+
 
 class Application(cyclone.web.Application):
     def __init__(self):
@@ -17,7 +18,7 @@ class Application(cyclone.web.Application):
             xsrf_cookies=True,
             autoescape=None,
         )
-        
+
         handlers = [
             (r"/", MainHandler),
             (r"/echo", EchoSocketHandler),
@@ -26,9 +27,11 @@ class Application(cyclone.web.Application):
         ]
         cyclone.web.Application.__init__(self, handlers, **settings)
 
+
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.render("echo.html")
+
 
 class EchoSocketHandler(cyclone.websocket.WebSocketHandler):
 
@@ -41,6 +44,7 @@ class EchoSocketHandler(cyclone.websocket.WebSocketHandler):
     def messageReceived(self, message):
         log.msg("got message %s" % message)
         self.sendMessage(message)
+
 
 def main():
     reactor.listenTCP(8888, Application())

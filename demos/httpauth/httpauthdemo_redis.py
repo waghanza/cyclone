@@ -26,6 +26,7 @@ import cyclone.web
 from twisted.python import log
 from twisted.internet import defer, reactor
 
+
 class Application(cyclone.web.Application):
     def __init__(self):
         # Defaults to localhost:6379, dbid=0
@@ -42,7 +43,8 @@ def HTTPBasic(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         try:
-            auth_type, auth_data = self.request.headers["Authorization"].split()
+            auth_type, auth_data = \
+                self.request.headers["Authorization"].split()
             assert auth_type == "Basic"
             usr, pwd = base64.b64decode(auth_data).split(":", 1)
         except:
@@ -52,7 +54,7 @@ def HTTPBasic(method):
             redis_pwd = yield self.redisdb.get("cyclone:%s" % usr)
         except Exception, e:
             log.msg("Redis failed to get('cyclone:%s'): %s" % (usr, str(e)))
-            raise cyclone.web.HTTPError(503) # Service Unavailable
+            raise cyclone.web.HTTPError(503)  # Service Unavailable
 
         if pwd != str(redis_pwd):
             raise cyclone.web.HTTPAuthenticationRequired
@@ -73,7 +75,8 @@ class IndexHandler(cyclone.web.RequestHandler):
 
 def main():
     log.startLogging(sys.stdout)
-    log.msg(">>>> Set the password from command line: redis-cli set cyclone:root 123")
+    log.msg(">>>> Set the password from command line: "
+            "redis-cli set cyclone:root 123")
     log.msg(">>>> Then authenticate as root/123 from the browser")
     reactor.listenTCP(8888, Application(), interface="127.0.0.1")
     reactor.run()

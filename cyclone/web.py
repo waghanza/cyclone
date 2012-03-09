@@ -36,6 +36,7 @@ import stat
 import sys
 import threading
 import time
+import traceback
 import types
 import urllib
 import urlparse
@@ -956,7 +957,8 @@ class RequestHandler(object):
                       str(self._status_code) +
                       " " + httplib.responses[self._status_code])]
         lines.extend([(utf8(n) + b(": ") + utf8(v)) for n, v in
-                      itertools.chain(self._headers.iteritems(), self._list_headers)])
+                      itertools.chain(self._headers.iteritems(),
+                      self._list_headers)])
         for cookie_dict in getattr(self, "_new_cookies", []):
             for cookie in cookie_dict.values():
                 lines.append(utf8("Set-Cookie: " + cookie.OutputString(None)))
@@ -1353,8 +1355,10 @@ class HTTPError(Exception):
         else:
             return message
 
+
 class HTTPAuthenticationRequired(HTTPError):
-    """An exception that will turn into an HTTP Authentication Required response"""
+    """An exception that will turn into an
+       HTTP Authentication Required response"""
     def __init__(self, log_message=None,
                  auth_type="Basic", realm="Restricted Access", **kwargs):
         self.status_code = 401
@@ -1362,6 +1366,7 @@ class HTTPAuthenticationRequired(HTTPError):
         self.auth_type = auth_type
         self.kwargs = kwargs
         self.kwargs["realm"] = realm
+
 
 class ErrorHandler(RequestHandler):
     """Generates an error response with status_code for all requests."""
@@ -1604,8 +1609,9 @@ class GZipContentEncoding(OutputTransform):
     See http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.11
     """
     CONTENT_TYPES = set([
-        "text/plain", "text/html", "text/css", "text/xml", "application/javascript",
-        "application/x-javascript", "application/xml", "application/atom+xml",
+        "text/plain", "text/html", "text/css", "text/xml",
+        "application/javascript", "application/x-javascript",
+        "application/xml", "application/atom+xml",
         "text/javascript", "application/json", "application/xhtml+xml"])
     MIN_LENGTH = 5
 

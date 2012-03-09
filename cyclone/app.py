@@ -54,8 +54,8 @@ def usage(version, target):
 use: %s [options]
 Options:
  -h --help              Show this help.
- -g --git               Use git's name and email settings, and create a git repo on target
  -p --project=NAME      Create new cyclone project.
+ -g --git               Use in conjunction with -p to make it a git repository.
  -m --modname=NAME      Use another name for the module [default: project_name]
  -v --version=VERSION   Set project version [default: %s]
  -s --set-pkg-version   Set version on package name [default: False]
@@ -73,11 +73,11 @@ def main():
     default_target, target = os.getcwd(), None
 
     shortopts = "hgsp:m:v:t:"
-    longopts  = ["help", "git", "set-pkg-version",
+    longopts = ["help", "git", "set-pkg-version",
                  "project=", "modname=", "version=", "target="]
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
-    except getopt.GetoptError, err:
+    except getopt.GetoptError:
         usage(default_version, default_target)
 
     for o, a in opts:
@@ -115,9 +115,11 @@ def main():
 
     if modname in ("frontend", "tools", "twisted"):
         if mod_is_proj is True:
-            print("Please specify a different modname, using --modname=name. '%s' is not allowed." % modname)
+            print("Please specify a different modname, using "
+                  "--modname=name. '%s' is not allowed." % modname)
         else:
-            print("Please specify a different modname. '%s' is not allowed." % modname)
+            print("Please specify a different modname. "
+                  "'%s' is not allowed." % modname)
         sys.exit(1)
 
     if not re.match(r"^[0-9a-z_]+$", modname, re.I):
@@ -131,7 +133,8 @@ def main():
         target = default_target
 
     if not (os.access(target, os.W_OK) and os.access(target, os.X_OK)):
-        print("Cannot create project on target directory '%s': permission denied" % target)
+        print("Cannot create project on target directory "
+              "'%s': permission denied" % target)
         sys.exit(1)
 
     name = "Foo Bar"
@@ -151,13 +154,14 @@ def main():
                     email = v
 
     skel = zipfile.ZipFile(open(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "appskel.zip")))
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "appskel.zip")))
 
     if set_pkg_version is True:
-        project_name="%s-%s" % (project, version)
+        project_name = "%s-%s" % (project, version)
     else:
-        project_name=project
-    project_path=os.path.join(target, project_name)
+        project_name = project
+    project_path = os.path.join(target, project_name)
     new_project(skel=skel,
                 name=name,
                 email=email,

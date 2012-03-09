@@ -18,6 +18,7 @@
 
 import cyclone.web
 
+
 class Entry(cyclone.web.UIModule):
     def render(self):
         return '<div>ENTRY</div>'

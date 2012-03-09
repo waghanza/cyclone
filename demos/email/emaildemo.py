@@ -25,6 +25,7 @@ import cyclone.web
 from twisted.python import log
 from twisted.internet import defer, reactor
 
+
 class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
