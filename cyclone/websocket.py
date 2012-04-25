@@ -29,8 +29,9 @@ class _NotEnoughFrame(Exception):
 
 
 class WebSocketHandler(cyclone.web.RequestHandler):
-    def __init__(self, application, request):
-        cyclone.web.RequestHandler.__init__(self, application, request)
+    def __init__(self, application, request, **kwargs):
+        cyclone.web.RequestHandler.__init__(self, application, request,
+                                            **kwargs)
         self.application = application
         self.request = request
         self.transport = request.connection.transport
