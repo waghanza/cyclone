@@ -156,38 +156,27 @@ it has to be used *before* the ``defer.inlineCallbacks`` to function properly::
         @cyclone.web.authenticated
         @defer.inlineCallbacks
         def get(self):
-            result = yield something()
+            result = yield self.do_download()
             self.write(result)
 
-On the other hand, the ``cyclone.web.asynchronous`` decorator will keep the request open
-until you explicitly call ``self.finish()`` later on. Of course, it may also be combined
-with ``defer.inlineCallbacks``, but it MUST be placed *after* to function properly::
+The ``cyclone.web.asynchronous`` decorator should be used with
+asynchronous handers that don't use ``defer.inlineCallbacks``.  This
+decorator will keep the request open until you explicitly call
+``self.finish()`` later on, which is necessary if your handler needs
+to continue writing to the request::
 
     class Indexhandler(cyclone.web.RequestHandler):
-        @defer.inlineCallbacks
         @cyclone.web.asynchronous
         def get(self):
-            result = yield something()
+            download_deferred = self.do_download()
+            download_deferred.addCallback(self.process_download())
+            return d
+
+        def process_download(self, result):
             self.finish(result)
 
-Yes, you may combine the three decorators to have the most powerful and simple code
-in cyclone, like this::
-
-    class Indexhandler(cyclone.web.RequestHandler):
-        @cyclone.web.authenticated
-        @defer.inlineCallbacks
-        @cyclone.web.asynchronous
-        def get(self):
-            try:
-                result = yield self.redisdb.get("foo")
-            except Exception, e:
-                log.msg("Redis query failed: %s" % str(e))
-                raise cyclone.web.HTTPError(503) # Service Unavailable
-
-            if not result:
-                raise cyclone.web.HTTPError(404)
-
-            self.finish({"result":result})
+If you're looking for the Cyclone equivalent of the ``tornado.gen.engine``
+decorator, this is Tornado's version of ``defer.inlineCallbacks``.
 
 Localization
 ------------
