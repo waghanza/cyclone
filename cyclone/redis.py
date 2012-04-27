@@ -60,6 +60,10 @@ class InvalidData(RedisError):
     pass
 
 
+class WatchError(RedisError):
+    pass
+
+
 def list_or_args(command, keys, args):
     oldapi = bool(args)
     try:
@@ -169,8 +173,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
                 self.multi_bulk_length = long(data)
             except (TypeError, ValueError):
                 self.replyReceived(InvalidResponse(
-                 "Cannot convert multi-response header "
-                 "'%s' to integer" % data))
+                 "Cannot convert multi-response header '%s' to integer" % \
+                 data))
                 self.multi_bulk_length = 0
                 return
             if self.multi_bulk_length == -1:
@@ -195,6 +199,20 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
             bulk_buffer = self.bulk_buffer[:-2]
             self.bulk_buffer = ""
             self.bulkDataReceived(bulk_buffer)
+            while self.multi_bulk_length > 0 and rest:
+                if rest[0] == self.BULK:
+                    idx = rest.find(self.delimiter)
+                    if idx == -1:
+                        break
+                    data_len = int(rest[1:idx], 10)
+                    if len(rest) >= (idx + 5 + data_len):
+                        data_start = idx + 2
+                        data_end = data_start + data_len
+                        data = rest[data_start: data_end]
+                        rest = rest[data_end + 2:]
+                        self.bulkDataReceived(data)
+                        continue
+                break
             self.setLineMode(extra=rest)
 
     def errorReceived(self, data):
@@ -655,18 +673,25 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("RPOPLPUSH", srckey, dstkey)
 
+    def _make_set(self, result):
+        if isinstance(result, list):
+            return set(result)
+        return result
+
     # Commands operating on sets
-    def sadd(self, key, member):
+    def sadd(self, key, members, *args):
         """
         Add the specified member to the Set value at key
         """
-        return self.execute_command("SADD", key, member)
+        members = list_or_args("sadd", members, args)
+        return self.execute_command("SADD", key, *members)
 
-    def srem(self, key, member):
+    def srem(self, key, members, *args):
         """
         Remove the specified member from the Set value at key
         """
-        return self.execute_command("SREM", key, member)
+        members = list_or_args("srem", members, args)
+        return self.execute_command("SREM", key, *members)
 
     def spop(self, key):
         """
@@ -678,7 +703,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         Move the specified member from one Set to another atomically
         """
-        return self.execute_command("SMOVE", srckey, dstkey, member)
+        return self.execute_command(
+                "SMOVE", srckey, dstkey, member).addCallback(bool)
 
     def scard(self, key):
         """
@@ -690,14 +716,15 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         Test if the specified value is a member of the Set at key
         """
-        return self.execute_command("SISMEMBER", key, value)
+        return self.execute_command("SISMEMBER", key, value).addCallback(bool)
 
     def sinter(self, keys, *args):
         """
         Return the intersection between the Sets stored at key1, ..., keyN
         """
         keys = list_or_args("sinter", keys, args)
-        return self.execute_command("SINTER", *keys)
+        return self.execute_command("SINTER", *keys).addCallback(
+                self._make_set)
 
     def sinterstore(self, dstkey, keys, *args):
         """
@@ -712,7 +739,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         Return the union between the Sets stored at key1, key2, ..., keyN
         """
         keys = list_or_args("sunion", keys, args)
-        return self.execute_command("SUNION", *keys)
+        return self.execute_command("SUNION", *keys).addCallback(
+                self._make_set)
 
     def sunionstore(self, dstkey, keys, *args):
         """
@@ -728,7 +756,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         all the Sets key2, ..., keyN
         """
         keys = list_or_args("sdiff", keys, args)
-        return self.execute_command("SDIFF", *keys)
+        return self.execute_command("SDIFF", *keys).addCallback(
+                self._make_set)
 
     def sdiffstore(self, dstkey, keys, *args):
         """
@@ -742,7 +771,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         Return all the members of the Set value at key
         """
-        return self.execute_command("SMEMBERS", key)
+        return self.execute_command("SMEMBERS", key).addCallback(
+                self._make_set)
 
     def srandmember(self, key):
         """
@@ -751,18 +781,29 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         return self.execute_command("SRANDMEMBER", key)
 
     # Commands operating on sorted zsets (sorted sets)
-    def zadd(self, key, score, member):
+    def zadd(self, key, score, member, *args):
         """
         Add the specified member to the Sorted Set value at key
         or update the score if it already exist
         """
-        return self.execute_command("ZADD", key, score, member)
+        if args:
+            # Args should be pairs (have even number of elements)
+            if len(args) % 2:
+                return defer.fail(InvalidData(
+                    "Invalid number of arguments to ZADD"))
+            else:
+                l = [score, member]
+                l.extend(args)
+                args = l
+        else:
+            args = [score, member]
+        return self.execute_command("ZADD", key, *args)
 
-    def zrem(self, key, member):
+    def zrem(self, key, *args):
         """
         Remove the specified member from the Sorted Set value at key
         """
-        return self.execute_command("ZREM", key, member)
+        return self.execute_command("ZREM", key, *args)
 
     def zincr(self, key, member):
         return self.zincrby(key, 1, member)
@@ -791,33 +832,85 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("ZREVRANK", key, member)
 
-    def zrange(self, key, start, end):
+    def _handle_withscores(self, r):
+        if isinstance(r, list):
+            # Return a list tuples of form (value, score)
+            return zip(r[::2], r[1::2])
+        return r
+
+    def _zrange(self, key, start, end, withscores, reverse):
+        if reverse:
+            cmd = "ZREVRANGE"
+        else:
+            cmd = "ZRANGE"
+        if withscores:
+            pieces = (cmd, key, start, end, "WITHSCORES")
+        else:
+            pieces = (cmd, key, start, end)
+        r = self.execute_command(*pieces)
+        if withscores:
+            r.addCallback(self._handle_withscores)
+        return r
+
+    def zrange(self, key, start=0, end=-1, withscores=False):
         """
         Return a range of elements from the sorted set at key
-
         """
-        return self.execute_command("ZRANGE", key, start, end)
+        return self._zrange(key, start, end, withscores, False)
 
-    def zrevrange(self, key, start, end):
+    def zrevrange(self, key, start=0, end=-1, withscores=False):
         """
         Return a range of elements from the sorted set at key,
         exactly like ZRANGE, but the sorted set is ordered in
         traversed in reverse order, from the greatest to the smallest score
         """
-        return self.execute_command("ZREVRANGE", key, start, end)
+        return self._zrange(key, start, end, withscores, True)
 
-    def zrangebyscore(self, key, min, max):
+    def _zrangebyscore(self, key, min, max, withscores, offset,
+            count, reverse):
+        if reverse:
+            cmd = "ZREVRANGEBYSCORE"
+        else:
+            cmd = "ZRANGEBYSCORE"
+        if (offset is None) != (count is None):  # XNOR
+            return defer.fail(InvalidData(
+                "Invalid count and offset arguments to %s" % cmd))
+        if withscores:
+            pieces = [cmd, key, min, max, "WITHSCORES"]
+        else:
+            pieces = [cmd, key, min, max]
+        if offset and count:
+            pieces.extend(("LIMIT", offset, count))
+        r = self.execute_command(*pieces)
+        if withscores:
+            r.addCallback(self._handle_withscores)
+        return r
+
+    def zrangebyscore(self, key, min='-inf', max='+inf', withscores=False,
+            offset=None, count=None):
         """
         Return all the elements with score >= min and score <= max
         (a range query) from the sorted set
         """
-        return self.execute_command("ZRANGEBYSCORE", key, min, max)
+        return self._zrangebyscore(key, min, max, withscores, offset,
+                count, False)
 
-    def zcount(self, key, min, max):
+    def zrevrangebyscore(self, key, max='+inf', min='-inf', withscores=False,
+            offset=None, count=None):
+        """
+        ZRANGEBYSCORE in reverse order
+        """
+        # ZREVRANGEBYSCORE takes max before min
+        return self._zrangebyscore(key, max, min, withscores, offset,
+                count, True)
+
+    def zcount(self, key, min='-inf', max='+inf'):
         """
         Return the number of elements with score >= min and score <= max
         in the sorted set
         """
+        if min == '-inf' and max == '+inf':
+            return self.zcard(key)
         return self.execute_command("ZCOUNT", key, min, max)
 
     def zcard(self, key):
@@ -833,14 +926,14 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("ZSCORE", key, element)
 
-    def zremrangebyrank(self, key, min, max):
+    def zremrangebyrank(self, key, min=0, max=-1):
         """
         Remove all the elements with rank >= min and rank <= max from
         the sorted set
         """
         return self.execute_command("ZREMRANGEBYRANK", key, min, max)
 
-    def zremrangebyscore(self, key, min, max):
+    def zremrangebyscore(self, key, min='-inf', max='+inf'):
         """
         Remove all the elements with score >= min and score <= max from
         the sorted set
@@ -864,9 +957,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
     def _zaggregate(self, command, dstkey, keys, aggregate):
         pieces = [command, dstkey, len(keys)]
         if isinstance(keys, dict):
-            items = keys.items()
-            keys = [i[0] for i in items]
-            weights = [i[1] for i in items]
+            keys, weights = zip(*keys.items())
         else:
             weights = None
 
@@ -874,10 +965,25 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         if weights:
             pieces.append("WEIGHTS")
             pieces.extend(weights)
-        if aggregate:
-            pieces.append("AGGREGATE")
-            pieces.append(aggregate)
 
+        if aggregate:
+            if aggregate is min:
+                aggregate = 'MIN'
+            elif aggregate is max:
+                aggregate = 'MAX'
+            elif aggregate is sum:
+                aggregate = 'SUM'
+            else:
+                err_flag = True
+                if isinstance(aggregate, (str, unicode)):
+                    aggregate_u = aggregate.upper()
+                    if aggregate_u in ('MIN', 'MAX', 'SUM'):
+                        aggregate = aggregate_u
+                        err_flag = False
+                if err_flag:
+                    return defer.fail(InvalidData(
+                        "Invalid aggregate function: %s" % aggregate))
+            pieces.extend(("AGGREGATE", aggregate))
         return self.execute_command(*pieces)
 
     # Commands operating on hashes
@@ -998,17 +1104,42 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
     # That object must be used for further interactions within
     # the transaction. At the end, either exec() or discard()
     # must be executed.
-    @defer.inlineCallbacks
-    def multi(self):
-        response = yield self.execute_command("MULTI")
-        if response == "OK":
-            self.inTransaction = True
-        defer.returnValue(self)
+    def multi(self, keys=None):
+        if keys:
+            if isinstance(keys, (str, unicode)):
+                keys = [keys]
+            d = defer.Deferred()
+            self.execute_command("WATCH", *keys).addCallback(
+                    self._watch_added, d)
+        else:
+            d = self.execute_command("MULTI").addCallback(self._multi_started)
+        self.inTransaction = True
+        return d
+
+    def _watch_added(self, response, d):
+        if response != 'OK':
+            d.errback(RedisError('Invalid WATCH response: %s' % response))
+        self.execute_command("MULTI").addCallback(
+                self._multi_started).chainDeferred(d)
+
+    def _multi_started(self, response):
+        if response != 'OK':
+            raise RedisError('Invalid MULTI response: %s' % response)
+        return self
+
+    def _commit_check(self, response):
+        if response is None:
+            self.inTransaction = False
+            self.transactions = 0
+            raise WatchError("Transaction failed")
+        else:
+            return response
 
     def commit(self):
         if self.inTransaction is False:
             raise RedisError("Not in transaction")
-        return self.execute_command("EXEC")
+        return self.execute_command("EXEC").addCallback(
+                self._commit_check)
 
     def discard(self):
         if self.inTransaction is False:
@@ -1150,7 +1281,18 @@ class ConnectionHandler(object):
                    (cli.host, cli.port, self._factory.size)
 
 
-ShardedMethods = [
+class UnixConnectionHandler(ConnectionHandler):
+    def __repr__(self):
+        try:
+            cli = self._factory.pool[0].transport.getPeer()
+        except:
+            return "<Redis Connection: Not connected>"
+        else:
+            return "<Redis Unix Connection: %s - %d connection(s)>" % \
+                   (cli.name, self._factory.size)
+
+
+ShardedMethods = frozenset([
     "decr",
     "delete",
     "exists",
@@ -1190,16 +1332,23 @@ ShardedMethods = [
     "ttl",
     "zadd",
     "zcard",
+    "zcount",
+    "zdecr",
     "zincr",
+    "zincrby",
     "zrange",
     "zrangebyscore",
+    "zrevrangebyscore",
+    "zrevrank",
+    "zrank",
     "zrem",
     "zremrangebyscore",
+    "zremrangebyrank",
     "zrevrange",
     "zscore",
-]
+])
 
-_findhash = re.compile('.+\{(.*)\}.*', re.I)
+_findhash = re.compile(r'.+\{(.*)\}.*')
 
 
 class HashRing(object):
@@ -1239,6 +1388,7 @@ class HashRing(object):
             return [None, None]
         crc = zlib.crc32(key)
         idx = bisect.bisect(self.sorted_keys, crc)
+        # prevents out of range index
         idx = min(idx, (self.replicas * len(self.nodes)) - 1)
         return [self.ring[self.sorted_keys[idx]], idx]
 
@@ -1335,11 +1485,26 @@ class ShardedConnectionHandler(object):
         return "<Redis Sharded Connection: %s>" % ", ".join(nodes)
 
 
+class ShardedUnixConnectionHandler(ShardedConnectionHandler):
+    def __repr__(self):
+        nodes = []
+        for conn in self._ring.nodes:
+            try:
+                cli = conn._factory.pool[0].transport.getPeer()
+            except:
+                pass
+            else:
+                nodes.append("%s/%d" % \
+                             (cli.name, conn._factory.size))
+        return "<Redis Sharded Connection: %s>" % ", ".join(nodes)
+
+
 class RedisFactory(protocol.ReconnectingClientFactory):
     maxDelay = 10
     protocol = RedisProtocol
 
-    def __init__(self, dbid, poolsize, isLazy=False):
+    def __init__(self, dbid, poolsize, isLazy=False,
+                 handler=ConnectionHandler):
         if not isinstance(poolsize, int):
             raise ValueError("Redis poolsize must be an integer, not %s" % \
                              repr(poolsize))
@@ -1356,7 +1521,7 @@ class RedisFactory(protocol.ReconnectingClientFactory):
         self.size = 0
         self.pool = []
         self.deferred = defer.Deferred()
-        self.handler = ConnectionHandler(self)
+        self.handler = handler(self)
 
     def addConnection(self, conn):
         self.pool.append(conn)
@@ -1396,7 +1561,7 @@ class RedisFactory(protocol.ReconnectingClientFactory):
 
 
 def makeConnection(host, port, dbid, poolsize, reconnect, isLazy):
-    factory = RedisFactory(dbid, poolsize, isLazy)
+    factory = RedisFactory(dbid, poolsize, isLazy, ConnectionHandler)
     factory.continueTrying = reconnect
     for x in xrange(poolsize):
         reactor.connectTCP(host, port, factory)
@@ -1420,8 +1585,8 @@ def makeShardedConnection(hosts, dbid, poolsize, reconnect, isLazy):
         except:
             raise ValueError(err)
 
-    c = makeConnection(host, port, dbid, poolsize, reconnect, isLazy)
-    connections.append(c)
+        c = makeConnection(host, port, dbid, poolsize, reconnect, isLazy)
+        connections.append(c)
 
     if isLazy:
         return ShardedConnectionHandler(connections)
@@ -1464,47 +1629,81 @@ def ShardedConnectionPool(hosts, dbid=0, poolsize=10, reconnect=True):
 def lazyShardedConnectionPool(hosts, dbid=0, poolsize=10, reconnect=True):
     return makeShardedConnection(hosts, dbid, poolsize, reconnect, True)
 
+
+def makeUnixConnection(path, dbid, poolsize, reconnect, isLazy):
+    factory = RedisFactory(dbid, poolsize, isLazy, UnixConnectionHandler)
+    factory.continueTrying = reconnect
+    for x in xrange(poolsize):
+        reactor.connectUNIX(path, factory)
+
+    if isLazy:
+        return factory.handler
+    else:
+        return factory.deferred
+
+
+def makeShardedUnixConnection(paths, dbid, poolsize, reconnect, isLazy):
+    err = "Please use a list or tuple of paths for sharded unix connections"
+    if not isinstance(paths, (list, tuple)):
+        raise ValueError(err)
+
+    connections = []
+    for path in paths:
+        c = makeUnixConnection(path, dbid, poolsize, reconnect, isLazy)
+        connections.append(c)
+
+    if isLazy:
+        return ShardedUnixConnectionHandler(connections)
+    else:
+        deferred = defer.DeferredList(connections)
+        ShardedUnixConnectionHandler(deferred)
+        return deferred
+
+
+def UnixConnection(path="/tmp/redis.sock", dbid=0, reconnect=True):
+    return makeUnixConnection(path, dbid, 1, reconnect, False)
+
+
+def lazyUnixConnection(path="/tmp/redis.sock", dbid=0, reconnect=True):
+    return makeUnixConnection(path, dbid, 1, reconnect, True)
+
+
+def UnixConnectionPool(path="/tmp/redis.sock", dbid=0, poolsize=10,
+                       reconnect=True):
+    return makeUnixConnection(path, dbid, poolsize, reconnect, False)
+
+
+def lazyUnixConnectionPool(path="/tmp/redis.sock", dbid=0, poolsize=10,
+                           reconnect=True):
+    return makeUnixConnection(path, dbid, poolsize, reconnect, True)
+
+
+def ShardedUnixConnection(paths, dbid=0, reconnect=True):
+    return makeShardedUnixConnection(paths, dbid, 1, reconnect, False)
+
+
+def lazyShardedUnixConnection(paths, dbid=0, reconnect=True):
+    return makeShardedUnixConnection(paths, dbid, 1, reconnect, True)
+
+
+def ShardedUnixConnectionPool(paths, dbid=0, poolsize=10, reconnect=True):
+    return makeShardedUnixConnection(paths, dbid, poolsize, reconnect, False)
+
+
+def lazyShardedUnixConnectionPool(paths, dbid=0, poolsize=10, reconnect=True):
+    return makeShardedUnixConnection(paths, dbid, poolsize, reconnect, True)
+
+
 __all__ = [
     Connection, lazyConnection,
     ConnectionPool, lazyConnectionPool,
     ShardedConnection, lazyShardedConnection,
     ShardedConnectionPool, lazyShardedConnectionPool,
+    UnixConnection, lazyUnixConnection,
+    UnixConnectionPool, lazyUnixConnectionPool,
+    ShardedUnixConnection, lazyShardedUnixConnection,
+    ShardedUnixConnectionPool, lazyShardedUnixConnectionPool,
 ]
 
-__version__ = version = "0.3-cyclone"
+__version__ = version = "0.4"
 __author__ = "Alexandre Fiori"
-
-
-# backward compatible connection methods
-def RedisConnection(host="localhost", port=6379, reconnect=True, db=0):
-    return Connection(host, port, db, reconnect)
-
-
-def lazyRedisConnection(host="localhost", port=6379, reconnect=True, db=0):
-    return lazyConnection(host, port, db, reconnect)
-
-
-def RedisConnectionPool(host="localhost", port=6379, reconnect=True,
-                        pool_size=5, db=0):
-    return ConnectionPool(host, port, db, pool_size, reconnect)
-
-
-def lazyRedisConnectionPool(host="localhost", port=6379, reconnect=True,
-                            pool_size=5, db=0):
-    return lazyConnectionPool(host, port, db, pool_size, reconnect)
-
-
-def RedisShardingConnection(hosts, reconnect=True, db=0):
-    return ShardedConnection(hosts, db, reconnect)
-
-
-def RedisShardingConnectionPool(hosts, reconnect=True, pool_size=5, db=0):
-    return ShardedConnectionPool(hosts, db, pool_size, reconnect)
-
-
-def lazyRedisShardingConnection(hosts, reconnect=True, db=0):
-    return lazyShardedConnection(hosts, db, reconnect)
-
-
-def lazyRedisShardingConnectionPool(hosts, reconnect=True, pool_size=5, db=0):
-    return lazyShardedConnectionPool(hosts, db, pool_size, reconnect)
