@@ -169,7 +169,7 @@ to continue writing to the request::
         @cyclone.web.asynchronous
         def get(self):
             download_deferred = self.do_download()
-            download_deferred.addCallback(self.process_download())
+            download_deferred.addCallback(self.process_download)
             return d
 
         def process_download(self, result):
