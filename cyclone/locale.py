@@ -48,6 +48,7 @@ import os
 import re
 
 from twisted.python import log
+from twisted.internet import reactor
 
 _default_locale = "en_US"
 _translations = {}
@@ -183,8 +184,8 @@ def load_gettext_translations(directory, domain):
             continue
     _supported_locales = frozenset(_translations.keys() + [_default_locale])
     _use_gettext = True
-    print("Supported locales: %s" % sorted(_supported_locales))
-    #log.msg("Supported locales: %s" % sorted(_supported_locales))
+    reactor.callWhenRunning(log.msg,
+                        "Supported locales: %s" % sorted(_supported_locales))
 
 
 def get_supported_locales():
