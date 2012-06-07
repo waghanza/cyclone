@@ -1,7 +1,21 @@
 # coding: utf-8
+#
+# Copyright 2012 Alexandre Fiori
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
 
-import ConfigParser
 import os
+import ConfigParser
 from cyclone.util import ObjectDict
 
 
@@ -16,6 +30,7 @@ def parse_config(filename):
     cfg = ConfigParser.RawConfigParser()
     with open(filename) as fp:
         cfg.readfp(fp)
+    fp.close()
 
     settings = {}
 
@@ -37,9 +52,8 @@ def parse_config(filename):
 
     # sqlite support
     if xget(cfg.getboolean, "sqlite", "enabled", False):
-        settings["sqlite_settings"] = ObjectDict(
-            database=cfg.get("sqlite", "database")
-        )
+        settings["sqlite_settings"] = ObjectDict(database=cfg.get("sqlite",
+                                                                  "database"))
     else:
         settings["sqlite_settings"] = None
 
@@ -49,8 +63,7 @@ def parse_config(filename):
             host=cfg.get("redis", "host"),
             port=cfg.getint("redis", "port"),
             dbid=cfg.getint("redis", "dbid"),
-            poolsize=cfg.getint("redis", "poolsize"),
-        )
+            poolsize=cfg.getint("redis", "poolsize"))
     else:
         settings["redis_settings"] = None
 
@@ -63,10 +76,8 @@ def parse_config(filename):
             password=xget(cfg.get, "mysql", "password"),
             database=xget(cfg.get, "mysql", "database"),
             poolsize=xget(cfg.getint, "mysql", "poolsize", 10),
-            debug=xget(cfg.getboolean, "mysql", "debug", False),
-        )
+            debug=xget(cfg.getboolean, "mysql", "debug", False))
     else:
         settings["mysql_settings"] = None
 
-    # it must always return a dict
     return settings
