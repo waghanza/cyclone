@@ -29,7 +29,7 @@ class SampleSQLiteHandler(BaseHandler, DatabaseMixin):
     def get(self):
         if self.sqlite:
             response = self.sqlite.runQuery("select strftime('%Y-%m-%d')")
-            self.write({"response":response})
+            self.write({"response": response})
         else:
             self.write("SQLite is disabled\r\n")
 
@@ -42,9 +42,9 @@ class SampleRedisHandler(BaseHandler, DatabaseMixin):
                 response = yield self.redis.get("foo")
             except Exception, e:
                 log.msg("Redis query failed: %s" % str(e))
-                raise cyclone.web.HTTPError(503) # Service Unavailable
+                raise cyclone.web.HTTPError(503)  # Service Unavailable
             else:
-                self.write({"response":response})
+                self.write({"response": response})
         else:
             self.write("Redis is disabled\r\n")
 
@@ -58,9 +58,8 @@ class SampleMySQLHandler(BaseHandler, DatabaseMixin):
                 response = yield self.mysql.runQuery("select now()")
             except Exception, e:
                 log.msg("MySQL query failed: %s" % str(e))
-                raise cyclone.web.HTTPError(503) # Service Unavailable
+                raise cyclone.web.HTTPError(503)  # Service Unavailable
             else:
-                self.write({"response":response})
+                self.write({"response": response})
         else:
             self.write("MySQL is disabled\r\n")
-

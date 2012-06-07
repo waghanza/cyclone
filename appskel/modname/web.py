@@ -6,6 +6,7 @@ import cyclone.web
 from $modname import views
 from $modname.utils import DatabaseMixin
 
+
 class Application(cyclone.web.Application):
     def __init__(self, settings):
         handlers = [
