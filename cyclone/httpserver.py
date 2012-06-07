@@ -25,6 +25,7 @@ import urlparse
 from twisted.python import log
 from twisted.protocols import basic
 from twisted.internet import defer
+from twisted.internet import interfaces
 
 from cyclone.escape import utf8, native_str, parse_qs_bytes
 from cyclone import httputil
@@ -271,13 +272,17 @@ class HTTPRequest(object):
             if not self._valid_ip(self.remote_ip):
                 self.remote_ip = remote_ip
             # AWS uses X-Forwarded-Proto
-            #self.protocol = self.headers.get(
-            #    "X-Scheme", self.headers.get("X-Forwarded-Proto", protocol))
-            #if self.protocol != "http":
-            self.protocol = "http"
+            self.protocol = self.headers.get("X-Scheme",
+                            self.headers.get("X-Forwarded-Proto", protocol))
+            if self.protocol not in ("http", "https"):
+                self.protocol = "http"
         else:
             self.remote_ip = remote_ip
-            self.protocol = "http"
+            if connection and interfaces.ISSLTransport.providedBy(
+                                                        connection.transport):
+                self.protocol = "https"
+            else:
+                self.protocol = "http"
         self.host = host or self.headers.get("Host") or "127.0.0.1"
         self.files = files or {}
         self.connection = connection
