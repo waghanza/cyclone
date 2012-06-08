@@ -17,7 +17,6 @@
 # under the License.
 
 import sys
-
 from cyclone.bottle import run, route
 
 

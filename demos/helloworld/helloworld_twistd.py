@@ -17,7 +17,8 @@
 # under the License.
 
 import cyclone.web
-from twisted.application import service, internet
+from twisted.application import internet
+from twisted.application import service
 
 
 class MainHandler(cyclone.web.RequestHandler):
