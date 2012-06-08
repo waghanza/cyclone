@@ -1,12 +1,12 @@
 #!/bin/bash
 
 ### BEGIN INIT INFO
-# Provides:          foobar
+# Provides:          cyclone
 # Required-Start:    $all
 # Required-Stop:     $all
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Starts a service for the Twisted plugin 'foobar'
+# Short-Description: Starts a service on the cyclone web server
 # Description:       Foobar
 ### END INIT INFO
 
@@ -20,16 +20,13 @@ INSTANCES=4
 START_PORT=9901
 LISTEN="127.0.0.1"
 CONFIG=$SERVICE_DIR/$SERVICE_NAME.conf
+APP=${SERVICE_NAME}.web.Application
 
 USER=www-data
 GROUP=www-data
 
 # Check out the start_service function for other customization options
 # such as setting CPU affinity.
-
-# Set python path so twistd can find the plugin
-# See: http://twistedmatrix.com/projects/core/documentation/howto/plugin.html
-export PYTHONPATH=$SERVICE_DIR
 
 if [ ! -x $DAEMON ]; then
   echo "ERROR: Can't execute $DAEMON."
@@ -48,7 +45,7 @@ start_service() {
     PORT=$[START_PORT]
     PIDFILE=/var/run/$SERVICE_NAME.$PORT.pid
     LOGFILE=/var/log/$SERVICE_NAME.$PORT.log
-    DAEMON_OPTS="-u $USER -g $GROUP --pidfile=$PIDFILE --logfile=$LOGFILE $SERVICE_NAME -p $PORT -l $LISTEN -c $CONFIG"
+    DAEMON_OPTS="-u $USER -g $GROUP --pidfile=$PIDFILE --logfile=$LOGFILE cyclone --port $PORT --listen $LISTEN --app $APP -c $CONFIG"
     START_PORT=$[PORT+1]
 
     start-stop-daemon -Sq -p $PIDFILE -x $DAEMON -- $DAEMON_OPTS

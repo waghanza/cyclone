@@ -18,11 +18,12 @@ import cyclone.locale
 import cyclone.web
 
 from $modname import views
+from $modname import config
 from $modname.utils import DatabaseMixin
 
 
 class Application(cyclone.web.Application):
-    def __init__(self, settings):
+    def __init__(self, config_file):
         handlers = [
             (r"/",              views.IndexHandler),
             (r"/lang/(.+)",     views.LangHandler),
@@ -30,6 +31,8 @@ class Application(cyclone.web.Application):
             (r"/sample/redis",  views.SampleRedisHandler),
             (r"/sample/sqlite", views.SampleSQLiteHandler),
         ]
+
+        settings = config.parse_config(config_file)
 
         # Initialize locales
         locales = settings.get("locale_path")
