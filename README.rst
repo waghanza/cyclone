@@ -19,41 +19,41 @@ It is extremely stable, and ready for production.
 Features
 --------
 
-- cyclone is a `Twisted` protocol. Thus, it may be used in conjunction with any
-other protocol implemented in Twisted. The same server can deliver HTTP content
-on one port, SSH on another, and it can keep a pool of persistent, non-blocking
-connections to several databases. All in a single process.
+**cyclone is a `Twisted` protocol**. Thus, it may be used in conjunction with
+any other protocol implemented in Twisted. The same server can deliver HTTP
+content on one port, SSH on another, and it can keep a pool of persistent,
+non-blocking connections to several databases. All in a single process.
 
-- Web apps built with cyclone are fully translatable. The localisation system
+Web apps built with cyclone are **fully translatable**. The localisation system
 is based on `Gettext <http://www.gnu.org/software/gettext/>`_. It's possible
 to translate strings in the server code, as well as text and HTML templates.
 
-- Secure. It can deliver HTTP and HTTPS (SSL) on the same server, with
+**Secure**. It can deliver HTTP and **HTTPS (SSL)** on the same server, with
 individual request routing mechanism. Also, cyclone supports the standard HTTP
 Authentication, which can be used to implement HTTP Basic, Digest, or any
 other hand crafted authentication system, like `Amazon's S3
 <http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html>`_.
 
-- API friendly. cyclone is very useful for writing web APIs, RESTful or not.
+**API friendly**. cyclone is very useful for writing web APIs, RESTful or not.
 Features like HTTP Keep-Alive and XSRF can be enabled or disabled per request,
 which means the server can have different behaviour when communicating with
 browsers, or other custom HTTP clients.
 
-- Ships with a full featured, non-blocking HTTP client, using
+Ships with a full featured, **non-blocking HTTP client**, using
 `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_.
 
-- E-mail, the easy way. With cyclone, the web server can connect to multiple
+**E-mail, the easy way**. With cyclone, the web server can connect to multiple
 SMTP servers, on demand. The e-mail API is simple, support client connections
 with SSL and TLS, and provide you with an easy way to customize messages,
 and attachments.
 
-- Supports multiple protocols: built-in support for XML-RPC, JSON-RPC,
+Supports **multiple protocols**: built-in support for XML-RPC, JSON-RPC,
 WebSocket and SSE. And, many other protocols can be used in cyclone-based web
 servers, like the `Event Socket <http://wiki.freeswitch.org/wiki/Event_Socket>`_
 protocol of `Freeswitch <http://freeswitch.org/>`_, a highly scalable soft
 switch, telephony platform.
 
-- Storage engines: cyclone ships with built-in support for inline SQLite,
+**Storage engines**: cyclone ships with built-in support for inline SQLite,
 and `Redis <http://redis.io/>`_. MongoDB and many other NoSQL are supported
 with 3rd party libraries. All other RDBMs supported by Python are available as
 well, like MySQL and PostgreSQL, via `twisted.enterprise.adbapi
@@ -62,7 +62,7 @@ Connection pools can persist, and be efficiently used by all requests. It can
 also auto-reconnect automatically, making it totally fault-tolerant on database
 errors and disconnections.
 
-- For the simple, and the complex: cyclone-based web apps can be written as
+**For the simple, and the complex**: cyclone-based web apps can be written as
 `Bottle <http://bottlepy.org/>`_, or Tornado. A 10-line script can handle
 thousands of connections per second, with very low CPU and memory footprint.
 For more complex applications, cyclone offers an app template out of the box,
