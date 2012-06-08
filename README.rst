@@ -74,7 +74,7 @@ pid files, reactor, permissions, and many other settings.
 **Documented**, here and there, mostly by sample code. Features are either
 documented here, or in the demos. Check out `the demos
 <https://github.com/fiorix/cyclone/tree/master/demos>`_.
-For some other stuff, we use the Tornado docs. Like `HTML templates,
+For some other stuff, we use the Tornado docs. Like `HTML templates
 <http://www.tornadoweb.org/documentation/template.html>`_, `Escaping and
 string manipulation <http://www.tornadoweb.org/documentation/escape.html>`_,
 `Locale <http://www.tornadoweb.org/documentation/locale.html>`_, and
