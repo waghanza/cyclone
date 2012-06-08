@@ -37,7 +37,7 @@ def new_project(**kwargs):
         else:
             ext = n.rsplit(".", 1)[-1]
             fd = open(os.path.join(dst, mod), "w", 0644)
-            if ext in ("conf", "html", "py", "rst"):
+            if ext in ("conf", "html", "py", "rst", "sh"):
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
             else:
                 fd.write(zf.read(n))

@@ -1,4 +1,3 @@
-#!/usr/bin/env twistd -ny
 # coding: utf-8
 #
 # Copyright 2010 Alexandre Fiori
@@ -15,20 +14,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+#
+# Run: twistd -n cyclone -r helloworld_simple.Application
+# For more info: twistd -n cyclone --help
 
 import cyclone.web
-from twisted.application import internet
-from twisted.application import service
 
 
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
         self.write("Hello, world")
 
-webapp = cyclone.web.Application([
-    (r"/", MainHandler)
-])
 
-application = service.Application("helloworld_twistd")
-server = internet.TCPServer(8888, webapp, interface="127.0.0.1")
-server.setServiceParent(application)
+class Application(cyclone.web.Application):
+    def __init__(self):
+        cyclone.web.Application.__init__(self, [(r"/", MainHandler)])

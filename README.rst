@@ -7,29 +7,79 @@ cyclone
 About
 =====
 
-cyclone is a low-level network toolkit, which provides support for HTTP 1.1 in an API very similar to the one implemented by the `Tornado <http://tornadoweb.org>`_ web server.
+cyclone is a clone of facebook's `Tornado <http://tornadoweb.org>`_, on top of
+`Twisted <http://twistedmatrix.com>`_.
 
-Key differences between cyclone and tornado
--------------------------------------------
+The web framework is very similar, but cyclone leverages all enterprise class
+features of Twisted, and more.
 
-- cyclone is a `Twisted <http://twistedmatrix.com>`_ protocol, therefore it may be used in conjunction with any other protocol implemented in Twisted.
-- Localization is based on the standard `Gettext <http://www.gnu.org/software/gettext/>`_ instead of the CSV implementation in the original tornado. The gettext support has been merged back into Tornado.
-- Asynchronous HTTP client based on `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_. It's not compatible with with one provided by Tornado - which is based on `PyCurl <http://pycurl.sourceforge.net/>`_. (The HTTP server code is NOT based on TwistedWeb, for several reasons)
-- Support for sending e-mails based on `TwistedMail <http://twistedmatrix.com/trac/wiki/TwistedMail>`_, with authentication and TLS, plus an easy way to create plain text or HTML messages, and attachments. (see the `e-mail demo <http://github.com/fiorix/cyclone/tree/master/demos/email>`_)
-- Support for HTTP Authentication. (see the `authentication demo <http://github.com/fiorix/cyclone/tree/master/demos/httpauth/>`_)
-- Support for Bottle-like API, Twistd application and Twistd plugin. (see the `hello world demos <https://github.com/fiorix/cyclone/tree/master/demos/helloworld>`_)
-- Built-in support for XMLRPC and JsonRPC (`rpc demo <http://github.com/fiorix/cyclone/tree/master/demos/rpc/>`_), Server Sent Events (`sse demo <https://github.com/fiorix/cyclone/tree/master/demos/sse>`_) and WebSocket (`websocket demo <http://github.com/fiorix/cyclone/tree/master/demos/websocket/>`_).
-- Built-in support for `Redis <http://code.google.com/p/redis/>`_, based on `txredisapi <http://github.com/fiorix/txredisapi>`_. We usually need an in-memory caching server like memcache for web applications. However, we prefer redis over memcache because it supports more operations like pubsub, various data types like sets, hashes (python dict), and persistent storage. (see the `redis demo <http://github.com/fiorix/cyclone/tree/master/demos/redis/>`_ for details.)
-- Built-in support for inline SQLite in an API similar to the ``twisted.enterprise.adbapi``.
-- XSRF control per RequestHandler. Basically, adding ``no_xsrf = True`` in a RequestHandler cause it ignore the ``_xsrf`` cookie. This is useful when exposing handlers to HTTP clients other than browsers in the same server that is serving normal HTML content with the ``_xsrf`` cookie and form element.
+It is extremely stable, and ready for production.
 
-Advantages of being a Twisted Protocol
---------------------------------------
 
-- Easy deployment of applications, using `twistd <http://twistedmatrix.com/documents/current/core/howto/basics.html>`_.
-- RDBM (MySQL, PostgreSQL, etc) support via: `twisted.enterprise.adbapi <http://twistedmatrix.com/documents/current/core/howto/rdbms.html>`_.
-- NoSQL support for MongoDB (`TxMongo <http://github.com/fiorix/mongo-async-python-driver>`_) and Redis (`TxRedisAPI <http://github.com/fiorix/txredisapi>`_).
-- May combine many more functionality within the webserver: sending emails, communicating with message brokers, etc...
+Features
+--------
+
+**cyclone is a Twisted protocol**. Thus, it may be used in conjunction with
+any other protocol implemented in Twisted. The same server can deliver HTTP
+content on one port, SSH on another, and it can keep a pool of persistent,
+non-blocking connections to several databases. All in a single process.
+
+Web apps built with cyclone are **fully translatable**. The localisation system
+is based on `Gettext <http://www.gnu.org/software/gettext/>`_. It's possible
+to translate strings in the server code, as well as text and HTML templates.
+
+**Secure**. It can deliver HTTP and **HTTPS (SSL)** on the same server, with
+individual request routing mechanism. Also, cyclone supports the standard HTTP
+Authentication, which can be used to implement HTTP Basic, Digest, or any
+other hand crafted authentication system, like `Amazon's S3
+<http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html>`_.
+
+**API friendly**. cyclone is very useful for writing web APIs, RESTful or not.
+Features like HTTP Keep-Alive and XSRF can be enabled or disabled per request,
+which means the server can have different behaviour when communicating with
+browsers, or other custom HTTP clients.
+
+Ships with a full featured, **non-blocking HTTP client**, using
+`TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_.
+
+**E-mail, the easy way**. With cyclone, the web server can connect to multiple
+SMTP servers, on demand. The e-mail API is simple, support client connections
+with SSL and TLS, and provide you with an easy way to customize messages,
+and attachments.
+
+Supports **multiple protocols**: built-in support for XML-RPC, JSON-RPC,
+WebSocket and SSE. And, many other protocols can be used in cyclone-based web
+servers, like the `Event Socket <http://wiki.freeswitch.org/wiki/Event_Socket>`_
+protocol of `Freeswitch <http://freeswitch.org/>`_, a highly scalable soft
+switch, telephony platform.
+
+**Storage engines**: cyclone ships with built-in support for inline SQLite,
+and `Redis <http://redis.io/>`_. MongoDB and many other NoSQL are supported
+with 3rd party libraries. All other RDBMs supported by Python are available as
+well, like MySQL and PostgreSQL, via `twisted.enterprise.adbapi
+<http://twistedmatrix.com/documents/current/core/howto/rdbms.html>`_.
+Connection pools can persist, and be efficiently used by all requests. It can
+also auto-reconnect automatically, making it totally fault-tolerant on database
+errors and disconnections.
+
+**For the simple, and the complex**: cyclone-based web apps can be written as
+`Bottle <http://bottlepy.org/>`_, or Tornado. A 10-line script can handle
+thousands of connections per second, with very low CPU and memory footprint.
+For more complex applications, cyclone offers an app template out of the box,
+with a configuration file, database support, translation, and deployment
+scheme, fully integrated with Debian GNU/Linux. Via ``twistd``, cyclone-based
+apps can be easily deployed in any operating system, with customized log and
+pid files, reactor, permissions, and many other settings.
+
+**Documented**, here and there, mostly by sample code. Features are either
+documented here, or in the demos. Check out `the demos
+<https://github.com/fiorix/cyclone/tree/master/demos>`_.
+For some other stuff, we use the Tornado docs. Like `HTML templates
+<http://www.tornadoweb.org/documentation/template.html>`_, `Escaping and
+string manipulation <http://www.tornadoweb.org/documentation/escape.html>`_,
+`Locale <http://www.tornadoweb.org/documentation/locale.html>`_, and
+`OpenID and Oauth <http://www.tornadoweb.org/documentation/auth.html>`_.
+
 
 Benchmarks
 ----------
