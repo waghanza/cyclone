@@ -30,7 +30,7 @@ class Options(usage.Options):
         ["port", "p", 8888, "tcp port to listen on", int],
         ["listen", "l", "127.0.0.1", "interface to listen on"],
         ["app", "r", None, "cyclone application to run"],
-        ["appopts", None, None, "arguments to your application"],
+        ["appopts", "c", None, "arguments to your application"],
         ["sslport", None, 8443, "port to listen on for ssl", int],
         ["ssliface", None, "127.0.0.1", "interface to listen on for ssl"],
         ["sslcert", None, "server.crt", "ssl certificate"],
