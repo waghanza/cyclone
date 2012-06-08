@@ -410,6 +410,41 @@ More options and tricks
         >>> base64.b64encode(uuid.uuid4().bytes + uuid.uuid4().bytes)
         'FoQv5hgLTYCb9aKiBagpJJYtLJInWUcXilg3/vPkUnI='
 
+- SSL
+    cyclone can serve SSL or sit behind a termination proxy (e.g. nginx).
+    Make sure that you bind the right port with listenSSL passing the certs:
+
+        import cyclone.web                                                              
+        import sys                                                                      
+        from twisted.internet import reactor                                            
+        from twisted.internet import ssl                                                
+        from twisted.python import log                                                  
+                                                                                        
+                                                                                        
+        class MainHandler(cyclone.web.RequestHandler):                                  
+            def get(self):                                                              
+                self.write("Hello, world")                                              
+                                                                                        
+                                                                                        
+        def main():                                                                     
+            log.startLogging(sys.stdout)                                                
+            application = cyclone.web.Application([                                     
+                (r"/", MainHandler)                                                     
+            ])                                                                          
+                                                                                        
+            interface = "127.0.0.1"                                                     
+            reactor.listenTCP(8888, application, interface=interface)                   
+            reactor.listenSSL(8443, application,                                        
+                              ssl.DefaultOpenSSLContextFactory("server.key",            
+                                                               "server.crt"),           
+                              interface=interface)                                      
+            reactor.run()                                                               
+                                                                                        
+                                                                                        
+        if __name__ == "__main__":                                                      
+            main()                    
+
+    This example plus a script to generate certificates sits under demos/ssl.
 
 FAQ
 ---

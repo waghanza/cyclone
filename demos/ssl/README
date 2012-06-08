@@ -1,0 +1,6 @@
+create a pair of certs
+
+$ mkcert (some questions, write down your passphrase, etc)
+$ python helloworld_ssl.py
+
+point your browser to https://localhost:8443
