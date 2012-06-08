@@ -19,7 +19,7 @@ It is extremely stable, and ready for production.
 Features
 --------
 
-**cyclone is a `Twisted` protocol**. Thus, it may be used in conjunction with
+**cyclone is a Twisted protocol**. Thus, it may be used in conjunction with
 any other protocol implemented in Twisted. The same server can deliver HTTP
 content on one port, SSH on another, and it can keep a pool of persistent,
 non-blocking connections to several databases. All in a single process.
