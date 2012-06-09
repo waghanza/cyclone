@@ -51,7 +51,7 @@ def new_project(**kwargs):
 
 def usage(version, target):
     print("""
-use: %s [options]
+use: cyclone.app [options]
 Options:
  -h --help              Show this help.
  -p --project=NAME      Create new cyclone project.
@@ -60,7 +60,7 @@ Options:
  -v --version=VERSION   Set project version [default: %s]
  -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
-    """ % (sys.argv[0], version, target))
+    """ % (version, target))
     sys.exit(0)
 
 
