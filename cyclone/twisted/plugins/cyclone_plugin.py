@@ -31,19 +31,19 @@ class Options(usage.Options):
         ["listen", "l", "127.0.0.1", "interface to listen on"],
         ["app", "r", None, "cyclone application to run"],
         ["appopts", "c", None, "arguments to your application"],
-        ["sslport", None, 8443, "port to listen on for ssl", int],
-        ["ssliface", None, "127.0.0.1", "interface to listen on for ssl"],
-        ["sslcert", None, "server.crt", "ssl certificate"],
-        ["sslkey", None, "server.key", "ssl server key"],
-        ["sslapp", None, None, "ssl application (same as --app)"],
-        ["sslappopts", None, None, "arguments to the ssl application"],
+        ["ssl-port", None, 8443, "port to listen on for ssl", int],
+        ["ssl-listen", None, "127.0.0.1", "interface to listen on for ssl"],
+        ["ssl-cert", None, "server.crt", "ssl certificate"],
+        ["ssl-key", None, "server.key", "ssl server key"],
+        ["ssl-app", None, None, "ssl application (same as --app)"],
+        ["ssl-appopts", None, None, "arguments to the ssl application"],
     ]
 
 
 class ServiceMaker(object):
     implements(service.IServiceMaker, IPlugin)
     tapname = "cyclone"
-    description = "cyclone web server"
+    description = "A high performance web server"
     options = Options
 
     def makeService(self, options):
@@ -62,16 +62,16 @@ class ServiceMaker(object):
             s.setServiceParent(srv)
 
         # https
-        if options["sslapp"]:
-            appmod = reflect.namedAny(options["sslapp"])
-            if options["sslappopts"]:
-                app = appmod(options["sslappopts"])
+        if options["ssl-app"]:
+            appmod = reflect.namedAny(options["ssl-app"])
+            if options["ssl-appopts"]:
+                app = appmod(options["ssl-appopts"])
             else:
                 app = appmod()
-            s = internet.SSLServer(options["sslport"], app,
+            s = internet.SSLServer(options["ssl-port"], app,
                                    ssl.DefaultOpenSSLContextFactory(
-                                   options["sslkey"], options["sslcert"]),
-                                   interface=options["ssliface"])
+                                   options["ssl-key"], options["ssl-cert"]),
+                                   interface=options["ssl-listen"])
             s.setServiceParent(srv)
 
         if s is None:

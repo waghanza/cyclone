@@ -16,11 +16,17 @@
 # under the License.
 
 from distutils.core import setup
+from distutils.sysconfig import get_python_lib
+import os
+
+
+TWISTED_PLUGIN_PATH = os.path.join(get_python_lib(), "twisted", "plugins")
+MODULE_PLUGIN_PATH = os.path.join("cyclone", "twisted", "plugins")
 
 setup(
     name="cyclone",
     version="1.0-rc6",
-    packages=["cyclone", "twisted.plugins"],
+    packages=["cyclone"],
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
@@ -28,8 +34,11 @@ setup(
     description="Non-blocking web server. "
                 "A facebook's Tornado on top of Twisted.",
     keywords="python non-blocking web server twisted facebook tornado",
-    package_data={"cyclone": ["appskel.zip"],
-                  "twisted": ["plugins/cyclone_plugin.py"]},
+    package_data={"cyclone": ["appskel.zip"]},
+    data_files=[
+        (TWISTED_PLUGIN_PATH,
+         [os.path.join(MODULE_PLUGIN_PATH, "cyclone_plugin.py")])
+    ]
 )
 
 from twisted.plugin import IPlugin, getPlugins
