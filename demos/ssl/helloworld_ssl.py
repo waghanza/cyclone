@@ -25,7 +25,7 @@ from twisted.python import log
 
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        self.write("Hello, %s" % self.request.protocol)
 
 
 def main():

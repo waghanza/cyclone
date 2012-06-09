@@ -23,9 +23,7 @@ import cyclone.web
 
 class MainHandler(cyclone.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        self.write("Hello, %s" % self.request.protocol)
 
 
-class Application(cyclone.web.Application):
-    def __init__(self):
-        cyclone.web.Application.__init__(self, [(r"/", MainHandler)])
+Application = lambda: cyclone.web.Application([(r"/", MainHandler)])
