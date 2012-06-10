@@ -1,7 +1,7 @@
 =======
 cyclone
 =======
-:Info: See `github <http://github.com/fiorix/cyclone>`_ for the latest source.
+:Info: See `github <https://github.com/fiorix/cyclone>`_ for the latest source.
 :Author: Alexandre Fiori <fiorix@gmail.com>
 
 
@@ -106,8 +106,8 @@ packages. In this case, you'll need at least ``python-twisted-core``,
 ``python-twisted-web``, and optionally ``python-twisted-mail`` - if you want to
 be able to send e-mails straight from cyclone apps.
 
-Source code is available on `http://github.com/fiorix/cyclone
-<http://github.com/fiorix/cyclone>`_, and ships with very useful and
+Source code is available on `https://github.com/fiorix/cyclone
+<https://github.com/fiorix/cyclone>`_, and ships with very useful and
 comprehensive demo applications.
 
 Check out the `demos <https://github.com/fiorix/cyclone/tree/master/demos>`_.
@@ -370,8 +370,8 @@ in, usually via a control Cookie.
 All can be mixed up, but some care has to be taken.
 
 When multiple decorators are applied to a request method, ``@authenticated``
-must always be the first. The reason for this, is because if authentication
-fails the request shouln't be processed.
+must always be the first (top of other decorators). The reason for this, is
+because if authentication fails the request shouln't be processed.
 
 For the other two, ``inlineCallbacks`` and ``@authenticated``, sequence doesn't
 really matter.
@@ -608,6 +608,26 @@ FAQ
             def delete(self):
                 pass
 
+- How to handle file uploads?
+
+    They are available inside the request object as ``self.request.files``.
+    Make sure your HTML form encoding is ``multipart/form-data``::
+
+        class MyHandler(cyclone.web.RequestHandler):
+            def post(self):
+                photos = self.request.files.get("photos")
+
+                # Because it's possible to upload several files under the
+                # same form name, we fetch the first uploaded photo.
+                first_photo = photos[0]
+
+                # first_photo.filename: original filename
+                # first_photo.content_type: parsed content type (not mime-type)
+                # first_photo.body: file contents
+
+    There's an example in `demos/upload
+    <https://github.com/fiorix/cyclone/tree/master/demos/upload>`_.
+
 
 Credits
 =======
@@ -619,7 +639,7 @@ Thanks to (in no particular order):
 
 - Gleicon Moraes
 
-  - Testing and using it in the `RestMQ <http://github.com/gleicon/restmq>`_ web service
+  - Testing and using it in the `RestMQ <https://github.com/gleicon/restmq>`_ web service
 
 - Vanderson Mota
 

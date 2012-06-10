@@ -15,7 +15,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 #
-# Run: twistd -n cyclone --sslapp helloworld_simple.Application
+# Run: twistd -n cyclone --ssl-app helloworld_simple.Application
 # For more info: twistd -n cyclone --help
 
 import cyclone.web
