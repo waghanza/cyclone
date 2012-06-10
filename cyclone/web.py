@@ -411,7 +411,7 @@ class RequestHandler(object):
         url = re.sub(b(r"[\x00-\x20]+"), "", utf8(url))
         self.set_header("Location", urlparse.urljoin(utf8(self.request.uri),
                                                      url))
-        self.finish()
+        return self.finish()
 
     def write(self, chunk):
         """Writes the given chunk to the output buffer.
@@ -521,8 +521,9 @@ class RequestHandler(object):
             html = html[:hloc] + b('').join(html_heads) + b('\n') + html[hloc:]
         if html_bodies:
             hloc = html.index(b('</body>'))
-            html = html[:hloc] + b('').join(html_bodies) + b('\n') + html[hloc:]
-        self.finish(html)
+            html = html[:hloc] + b('').join(
+                    html_bodies) + b('\n') + html[hloc:]
+        return self.finish(html)
 
     def render_string(self, template_name, **kwargs):
         """Generate the given template with the given arguments.
@@ -629,7 +630,7 @@ class RequestHandler(object):
         self.request.finish()
         self._log()
         self._finished = True
-        self.on_finish()
+        return self.on_finish()
 
     def send_error(self, status_code=500, **kwargs):
         """Sends the given HTTP error code to the browser.
@@ -645,7 +646,7 @@ class RequestHandler(object):
         if self._headers_written:
             log.msg("Cannot send error response after headers written")
             if not self._finished:
-                self.finish()
+                return self.finish()
             return
         self.clear()
         self.set_status(status_code)
@@ -656,11 +657,11 @@ class RequestHandler(object):
             self.set_header("WWW-Authenticate", "%s %s" % (e.auth_type, args))
 
         try:
-            self.write_error(status_code, **kwargs)
+            return self.write_error(status_code, **kwargs)
         except:
             log.msg("Uncaught exception in write_error")
         if not self._finished:
-            self.finish()
+            return self.finish()
 
     def write_error(self, status_code, **kwargs):
         """Override to implement custom error pages.
@@ -688,18 +689,18 @@ class RequestHandler(object):
                     # Put the traceback into sys.exc_info()
                     raise exc_info[0], exc_info[1], exc_info[2]
                 except Exception:
-                    self.finish(self.get_error_html(status_code, **kwargs))
+                    return self.finish(
+                            self.get_error_html(status_code, **kwargs))
             else:
-                self.finish(self.get_error_html(status_code, **kwargs))
-            return
+                return self.finish(self.get_error_html(status_code, **kwargs))
         if self.settings.get("debug") and "exc_info" in kwargs:
             # in debug mode, try to send a traceback
             self.set_header('Content-Type', 'text/plain')
             for line in traceback.format_exception(*kwargs["exc_info"]):
                 self.write(line)
-            self.finish()
+            return self.finish()
         else:
-            self.finish("<html><title>%(code)d: %(message)s</title>"
+            return self.finish("<html><title>%(code)d: %(message)s</title>"
                         "<body>%(code)d: %(message)s</body></html>" % {
                     "code": status_code,
                     "message": httplib.responses[status_code],
@@ -932,25 +933,29 @@ class RequestHandler(object):
                self.application.settings.get("xsrf_cookies"):
                 if not getattr(self, "no_xsrf", False):
                     self.check_xsrf_cookie()
-            self.prepare()
-            if not self._finished:
-                args = [self.decode_argument(arg) for arg in args]
-                kwargs = dict((k, self.decode_argument(v, name=k))
-                                for (k, v) in kwargs.iteritems())
-                function = getattr(self, self.request.method.lower())
-                d = defer.maybeDeferred(function, *args, **kwargs)
-                d.addCallback(self._execute_success)
-                d.addErrback(self._execute_failure)
-                self.notifyFinish().addCallback(self.on_connection_close)
+            defer.maybeDeferred(self.prepare).addCallbacks(
+                    self._execute_handler,
+                    lambda f: self._handle_request_exception(f.value),
+                    callbackArgs=(args, kwargs))
         except Exception, e:
             self._handle_request_exception(e)
 
+    def _execute_handler(self, r, args, kwargs):
+        if not self._finished:
+            args = [self.decode_argument(arg) for arg in args]
+            kwargs = dict((k, self.decode_argument(v, name=k))
+                            for (k, v) in kwargs.iteritems())
+            function = getattr(self, self.request.method.lower())
+            d = defer.maybeDeferred(function, *args, **kwargs)
+            d.addCallbacks(self._execute_success, self._execute_failure)
+            self.notifyFinish().addCallback(self.on_connection_close)
+
     def _execute_success(self, ign):
         if self._auto_finish and not self._finished:
-            self.finish()
+            return self.finish()
 
     def _execute_failure(self, err):
-        self._handle_request_exception(err)
+        return self._handle_request_exception(err)
 
     def _generate_headers(self):
         lines = [utf8(self.request.version + " " +
@@ -992,15 +997,15 @@ class RequestHandler(object):
                 log.msg(msg(*args))
             if e.status_code not in httplib.responses:
                 log.msg("Bad HTTP status code: %d" % e.status_code)
-                self.send_error(500, exception=e)
+                return self.send_error(500, exception=e)
             else:
-                self.send_error(e.status_code, exception=e)
+                return self.send_error(e.status_code, exception=e)
         else:
             if self.settings.get("debug") is True:
                 log.msg(e)
             log.msg("Uncaught exception %s :: %r" % \
                     (self._request_summary(), self.request))
-            self.send_error(500, exception=e)
+            return self.send_error(500, exception=e)
 
     def _ui_module(self, name, module):
         def render(*args, **kwargs):
@@ -1057,8 +1062,7 @@ def removeslash(method):
                 if uri:  # don't try to redirect '/' to ''
                     if self.request.query:
                         uri += "?" + self.request.query
-                self.redirect(uri)
-                return
+                return self.redirect(uri)
             else:
                 raise HTTPError(404)
         return method(self, *args, **kwargs)
@@ -1079,8 +1083,7 @@ def addslash(method):
                 uri = self.request.path + "/"
                 if self.request.query:
                     uri += "?" + self.request.query
-                self.redirect(uri)
-                return
+                return self.redirect(uri)
             else:
                 raise HTTPError(404)
         return method(self, *args, **kwargs)
@@ -1288,8 +1291,9 @@ class Application(protocol.ServerFactory):
                                 return s
                             return escape.url_unescape(s, encoding=None)
                         # Pass matched groups to the handler.  Since
-                        # match.groups() includes both named and unnamed groups,
-                        # we want to use either groups or groupdict but not both.
+                        # match.groups() includes both named and
+                        # unnamed groups,we want to use either groups
+                        # or groupdict but not both.
                         # Note that args are passed as bytes so the handler can
                         # decide what encoding to use.
 
@@ -1391,7 +1395,7 @@ class RedirectHandler(RequestHandler):
         self._permanent = permanent
 
     def get(self):
-        self.redirect(self._url, permanent=self._permanent)
+        return self.redirect(self._url, permanent=self._permanent)
 
 
 class StaticFileHandler(RequestHandler):
@@ -1442,8 +1446,7 @@ class StaticFileHandler(RequestHandler):
             # but there is some prefix to the path that was already
             # trimmed by the routing
             if not self.request.path.endswith("/"):
-                self.redirect(self.request.path + "/")
-                return
+                return self.redirect(self.request.path + "/")
             abspath = os.path.join(abspath, self.default_filename)
         if not os.path.exists(abspath):
             raise HTTPError(404)
@@ -1691,8 +1694,7 @@ def authenticated(method):
                     else:
                         next_url = self.request.uri
                     url += "?" + urllib.urlencode(dict(next=next_url))
-                self.redirect(url)
-                return
+                return self.redirect(url)
             raise HTTPError(403)
         return method(self, *args, **kwargs)
     return wrapper
