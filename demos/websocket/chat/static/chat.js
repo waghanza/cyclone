@@ -30,6 +30,10 @@ $(document).ready(function() {
     updater.start();
 });
 
+$(window).unload(function() {
+    updater.stop()
+});
+
 function newMessage(form) {
     var message = form.formToDict();
     updater.socket.send(JSON.stringify(message));
@@ -59,6 +63,11 @@ var updater = {
         console.log(event.data);
 	    updater.showMessage(JSON.parse(event.data));
 	}
+    },
+
+    stop: function() {
+        updater.socket.close();
+        updater.socket = null;
     },
 
     showMessage: function(message) {
