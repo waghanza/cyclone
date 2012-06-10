@@ -466,3 +466,7 @@ Thanks to (in no particular order):
 - `Toby Padilla <https://github.com/tobypadilla>`_
 
   - WebSocket server
+
+- `Jeethu Rao <https://github.com/jeethu>`_
+
+  - Minor bugfixes and patches
