@@ -4,16 +4,16 @@ cyclone
 :Info: See `github <http://github.com/fiorix/cyclone>`_ for the latest source.
 :Author: Alexandre Fiori <fiorix@gmail.com>
 
+
 About
 =====
 
 cyclone is a clone of facebook's `Tornado <http://tornadoweb.org>`_, on top of
 `Twisted <http://twistedmatrix.com>`_.
 
-The web framework is very similar, but cyclone leverages all enterprise class
-features of Twisted, and more.
-
-It is extremely stable, and ready for production.
+Although cyclone and tornado are very similar, cyclone leverages all
+enterprise class features of Twisted, and more. It is extremely stable, and
+ready for production.
 
 
 Features
@@ -24,7 +24,7 @@ any other protocol implemented in Twisted. The same server can deliver HTTP
 content on one port, SSH on another, and it can keep a pool of persistent,
 non-blocking connections to several databases. All in a single process.
 
-Web apps built with cyclone are **fully translatable**. The localisation system
+Web apps built with cyclone are **fully translatable**. The localization system
 is based on `Gettext <http://www.gnu.org/software/gettext/>`_. It's possible
 to translate strings in the server code, as well as text and HTML templates.
 
@@ -34,10 +34,10 @@ Authentication, which can be used to implement HTTP Basic, Digest, or any
 other hand crafted authentication system, like `Amazon's S3
 <http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html>`_.
 
-**API friendly**. cyclone is very useful for writing web APIs, RESTful or not.
-Features like HTTP Keep-Alive and XSRF can be enabled or disabled per request,
-which means the server can have different behaviour when communicating with
-browsers, or other custom HTTP clients.
+**API friendly**. cyclone is very useful for writing web services, RESTful or
+any other type of web API. Features like HTTP Keep-Alive and XSRF can be
+enabled or disabled per request, which means the server can have different
+behaviour when communicating with browsers, or other custom HTTP clients.
 
 Ships with a full featured, **non-blocking HTTP client**, using
 `TwistedWeb <http://twistedmatrix.com/trac/wiki/TwistedWeb>`_.
@@ -84,294 +84,384 @@ string manipulation <http://www.tornadoweb.org/documentation/escape.html>`_,
 Benchmarks
 ----------
 
-Check out the `benchmarks <http://wiki.github.com/fiorix/cyclone/benchmarks>`_ page.
+Check out the `benchmarks <http://wiki.github.com/fiorix/cyclone/benchmarks>`_
+page.
 
 
-Development and Deployment
-==========================
+Installing
+----------
 
-Twisted Plugin is the recommended way to go for production. Create new projects
-right away off of the generic application skeleton shipped with cyclone::
+cyclone can be installed from ``pip`` or ``easy_install``::
+
+    $ pip install cyclone
+
+It has no external dependencies other than Twisted 10 or newer, running
+on Python 2.6 or 2.7, or PyPy 1.8 or 1.9.
+
+It runs on Python 2.5 too, but requires the ``simplejson`` module. Also, it
+runs on PyPy 1.8 as long as there's no SSL.
+
+On most Linux distributions, such as Debian, twisted is splitted in several
+packages. In this case, you'll need at least ``python-twisted-core``,
+``python-twisted-web``, and optionally ``python-twisted-mail`` - if you want to
+be able to send e-mails straight from cyclone apps.
+
+Source code is available on `http://github.com/fiorix/cyclone
+<http://github.com/fiorix/cyclone>`_, and ships with very useful and
+comprehensive demo applications.
+
+Check out the `demos <https://github.com/fiorix/cyclone/tree/master/demos>`_.
+
+
+Running, and deploying
+----------------------
+
+cyclone apps can be run by ``twistd``, and it's the easiest way to start
+playing with the framework.
+
+This is ``hello.py``::
+
+    import cyclone.web
+
+
+    class MainHandler(cyclone.web.RequestHandler):
+        def get(self):
+            self.write("hello, world")
+
+
+    Application = lambda: cyclone.web.Application([(r"/", MainHandler)])
+
+A dev server can be started like this::
+
+    $ twistd -n cyclone -r hello.Application
+    Log opened.
+    reactor class: twisted.internet.selectreactor.SelectReactor.
+    cyclone.web.Application starting on 8888
+
+Due to the power of ``twistd``, cyclone apps can be easily deployed in
+production, with all the basic features of standard daemons::
+
+    $ twistd --uid=www-data --gid=www-data --reactor=epoll \
+             --logfile=/var/log/hello.log --pidfile=/var/run/hello.log \
+             cyclone --port=80 --listen=0.0.0.0 --app=hello.Application
+
+Process permissions are properly set, log files rotate automatically,
+syslog is also an option, pid files are generated so other subsystems can
+use it on start/stop scripts.
+
+Setting up SSL on the same server is just a matter or creating a certificate
+and adding ``--ssl-app=hello.Application`` to the command line. It could easily
+point to yet another ``Application`` class, with a completely different URL
+routing. Check out the `SSL demo
+<https://github.com/fiorix/cyclone/tree/master/demos/ssl>`_.
+
+Run ``twistd --help`` for more details. Here's a complete list of options
+supported by the cyclone twisted plugin::
+
+    $ twistd cyclone --help
+    Usage: twistd [options] cyclone [options]
+    Options:
+      -p, --port=         tcp port to listen on [default: 8888]
+      -l, --listen=       interface to listen on [default: 127.0.0.1]
+      -r, --app=          cyclone application to run
+      -c, --appopts=      arguments to your application
+          --ssl-port=     port to listen on for ssl [default: 8443]
+          --ssl-listen=   interface to listen on for ssl [default: 127.0.0.1]
+          --ssl-cert=     ssl certificate [default: server.crt]
+          --ssl-key=      ssl server key [default: server.key]
+          --ssl-app=      ssl application (same as --app)
+          --ssl-appopts=  arguments to the ssl application
+          --version
+          --help          Display this help and exit.
+
+
+Project template
+----------------
+
+cyclone ships with a full featured project template. It helps on avoiding the
+repetitive process of creating a basic project structure, like parsing
+configuration files, setting up database connections, and translation of code
+and HTML templates.
+
+::
 
     $ python -m cyclone.app --help
 
-    use: cyclone/app.py [options]
+    use: cyclone.app [options]
     Options:
-    -h --help              Show this help.
-    -g --git               Use git's name and email settings, and create a git repo on target
-    -p --project=NAME      Create new cyclone project.
-    -m --modname=NAME      Use another name for the module [default: project_name]
-    -v --version=VERSION   Set project version [default: 0.1]
-    -s --set-pkg-version   Set version on package name [default: False]
-    -t --target=PATH       Set path where project is created [default: ./]
+     -h --help              Show this help.
+     -p --project=NAME      Create new cyclone project.
+     -g --git               Use in conjunction with -p to make it a git repository.
+     -m --modname=NAME      Use another name for the module [default: project_name]
+     -v --version=VERSION   Set project version [default: 0.1]
+     -s --set-pkg-version   Set version on package name [default: False]
+     -t --target=PATH       Set path where project is created [default: ./]
 
-Example::
+Creating new projects can be as simple as running this::
 
-    python -m cyclone.app -p foobar
-    cd foobar
-    twistd -n foobar
+    $ python -m cyclone.app -p foobar
 
-Check out the README.rst in the new project's directory for detailed information.
-It ships with debian init scripts for single or multiple instances (one per cpu core)
-to help make deployment as simple as possible.
+Check README.rst in the new project directory for detailed information on how
+to use it.
+
+The template ships with Debian init scripts for running ``twistd`` as single,
+or multiple instances (one per CPU core) to help make deployments as simple as
+possible.
 
 
 Tips and Tricks
 ===============
 
-As a clone, the API implemented in cyclone is almost the same of Tornado. Therefore you may use the `Tornado Documentation <http://www.tornadoweb.org/documentation>`_ for stuff like templates and so on.
+As a clone, the API implemented in cyclone is almost the same of Tornado.
+Therefore you may use `Tornado Documentation
+<http://www.tornadoweb.org/documentation>`_ for things like auth, and the
+template engine.
 
-The snippets below will show some tips and tricks regarding the few differences between the two.
+The snippets below will show some tips and tricks regarding the few differences
+between the two.
 
-Hello World
------------
 
-::
+Deferreds
+---------
 
-    #!/usr/bin/env python
-    # coding: utf-8
+First things first: you don't need to care about deferreds at all to start
+playing with cyclone. `http://cyclone.io/ssedemo <http://cyclone.io/ssedemo>`_
+is an example.
+
+However, `Deferreds
+<http://twistedmatrix.com/documents/current/core/howto/defer.html>`_ might
+help take your app to a whole new level.
+
+cyclone uses deferreds extensively, to provide persistent database connections,
+and, generally speaking, to allow web apps to easily communicate with other
+subsystems on demand, while handling HTTP requests.
+
+Here's an example, ``crawler.py``::
+
+    # run: twistd -n cyclone -r crawler.Application
 
     import cyclone.web
-    import sys
+    from twisted.internet import defer
+    from twisted.web.client import getPage
+
+
+    class MainHandler(cyclone.web.RequestHandler):
+        @defer.inlineCallbacks
+        def get(self):
+            response = yield getPage("http://freegeoip.net/xml/")
+            self.set_header("Content-Type", "text/plain")
+            self.write(response)
+
+
+    Application = lambda: cyclone.web.Application([("/", MainHandler)], debug=True)
+
+The example above is an app that makes a new request to ``freegeoip.net`` on
+each request it takes, and respond to this request with whatever it gets from
+freegeoip. All without blocking the server.
+
+The exact same concept is used to communicate with databases. Basically, using
+``inlineCallbacks`` eliminates the nightmare of dealing with chained deferreds
+and their responses in different callbacks. This way is simple and
+straightforward.
+
+Here is another example, ``delayed.py``::
+
+    # run: twistd -n cyclone -r delayed.Application
+
+    import cyclone.web
+    from twisted.internet import defer
     from twisted.internet import reactor
-    from twisted.python import log
+
+
+    def sleep(n):
+        d = defer.Deferred()
+        reactor.callLater(5, lambda: d.callback(None))
+        return d
+
+
+    class MainHandler(cyclone.web.RequestHandler):
+        @defer.inlineCallbacks
+        def get(self):
+            yield sleep(5)
+            self.write("hello, world")
+
+
+    Application = lambda: cyclone.web.Application([("/", MainHandler)], debug=True)
+
+There are other useful examples in the `demos
+<https://github.com/fiorix/cyclone/tree/master/demos/ssl>`_ directory. Take a
+look at ``demos/email``, ``demos/redis``, and ``demos/httpauth``.
+
+
+The @asynchronous decorator
+---------------------------
+
+By default, cyclone will terminate the request after it is processed by the
+``RequestHandler``. Consider this code::
 
     class MainHandler(cyclone.web.RequestHandler):
         def get(self):
-            self.write("Hello, world")
+            self.write("hello, world")
 
-    def main():
-        log.startLogging(sys.stdout)
-        application = cyclone.web.Application([
-            (r"/", MainHandler)
-        ])
+The above request is always terminated after ``get`` returns. Even if ``get``
+returns a deferred, the request is automatically terminated after the deferred
+is fired.
 
-        reactor.listenTCP(8888, application, interface="127.0.0.1")
-        reactor.run()
+The ``cyclone.web.asynchronous`` decorator can be used to keep the request
+open until ``self.finish()`` is explicitly called. The request will be in a
+stale state, allowing for sending late, and incremental (chunked) responses.
 
-    if __name__ == "__main__":
-        main()
+Here's an example, ``clock.py``::
 
-
-Twisted Application and Plugin
-------------------------------
-
-The advantage of being a Twisted Application is that you don't need to care about basic daemon features like forking, creating pid files, changing application's user and group permissions, and selecting the proper reactor within the code.
-
-Instead, the application may be run by ``twistd``, as follows::
-
-    for testing:
-    /usr/bin/twistd --nodaemon --python=foobar.tac
-
-    for production:
-    /usr/bin/twistd --pidfile=/var/run/foobar.pid \
-                    --logfile=/var/log/foobar.log \
-                    --uid=nobody --gid=nobody \
-                    --reactor=epoll \
-                    --python=foobar.tac
-
-Following is the *Hello World* as a twisted application::
-
-    # coding: utf-8
-    # twisted application: foobar.tac
+    # run: twistd -n cyclone -r clock.Application
 
     import cyclone.web
-    from twisted.application import service, internet
-
-    class IndexHandler(cyclone.web.RequestHandler):
-        def get(self):
-            self.write("hello world")
-
-    foobar = cyclone.web.Application([(r"/", IndexHandler)])
-
-    application = service.Application("foobar")
-    internet.TCPServer(8888, foobar(),
-        interface="127.0.0.1").setServiceParent(application)
+    import time
+    from twisted.internet import task
+    from twisted.internet import reactor
 
 
-Authenticated and Asynchronous decorators
------------------------------------------
+    class MessagesMixin(object):
+        clients = []
 
-Tornado provides decorator functions for asynchronous and authenticated
-methods. Obviously, they're also implemented in cyclone, and yet more
-powerful when combined with a famous Twisted decorator: ``defer.inlineCallbacks``.
+        @classmethod
+        def setup(self):
+            task.LoopingCall(MessagesMixin.broadcast).start(1)
 
-The ``cyclone.web.authenticated`` decorator may be combined with ``defer.inlineCallbacks``,
-however, there's a basic rule to use them together. Considering that the authenticated
-decorator will check user credentials, and, depending on the result, it will
-continue processing the request OR redirect the request to the login page,
-it has to be used *before* the ``defer.inlineCallbacks`` to function properly::
+        @classmethod
+        def broadcast(self):
+            for req in MessagesMixin.clients:
+                req.write("%s\r\n" % time.ctime())
+                req.flush()
 
-    class IndexHandler(cyclone.web.RequestHandler):
-        @cyclone.web.authenticated
-        @defer.inlineCallbacks
-        def get(self):
-            result = yield self.do_download()
-            self.write(result)
 
-The ``cyclone.web.asynchronous`` decorator should be used with
-asynchronous handers that don't use ``defer.inlineCallbacks``.  This
-decorator will keep the request open until you explicitly call
-``self.finish()`` later on, which is necessary if your handler needs
-to continue writing to the request::
-
-    class Indexhandler(cyclone.web.RequestHandler):
+    class MainHandler(cyclone.web.RequestHandler, MessagesMixin):
         @cyclone.web.asynchronous
         def get(self):
-            download_deferred = self.do_download()
-            download_deferred.addCallback(self.process_download)
-            return d
+            self.set_header("Content-Type", "text/plain")
+            self.clients.append(self)
+            d = self.notifyFinish()
+            d.addCallback(lambda *ign: self.clients.remove(self))
 
-        def process_download(self, result):
-            self.finish(result)
 
-If you're looking for the Cyclone equivalent of the ``tornado.gen.engine``
-decorator, this is Tornado's version of ``defer.inlineCallbacks``.
+    class Application(cyclone.web.Application):
+        def __init__(self):
+            reactor.callWhenRunning(MessagesMixin.setup)
+            cyclone.web.Application.__init__(self, [("/", MainHandler)])
+
+This server will never terminate client connections. Instead, it'll send one
+message per second, to all clients, forever.
+
+Whenever the client disconnects, it's automatically removed from the list of
+connected clients - ``notifyFinish()`` returns a deferred, which is fired
+when the connection is terminated.
+
+
+Mixing @inlineCallbacks, @asynchronous and @authenticated
+---------------------------------------------------------
+
+A quick refresh: ``@inlineCallbacks`` turns decorated functions into
+deferreds so they can cooperatively call functions that returns deferreds
+and handle their results inline, making the code much simpler.
+``@asynchronous`` is used to keep the connection open until explicitly
+terminated. And ``@authenticated`` is used to require the client to be logged
+in, usually via a control Cookie.
+
+All can be mixed up, but some care has to be taken.
+
+When multiple decorators are applied to a request method, ``@authenticated``
+must always be the first. The reason for this, is because if authentication
+fails the request shouln't be processed.
+
+For the other two, ``inlineCallbacks`` and ``@authenticated``, sequence doesn't
+really matter.
+
+::
+
+    class MainHandler(cyclone.web.RequestHandler):
+        @cyclone.web.authenticated
+        @cyclone.web.asynchronous
+        @defer.inlineCallbacks
+        def get(self):
+            ...
+
+        @cyclone.web.authenticated
+        @defer.inlineCallbacks
+        @cyclone.web.asynchronous
+        def post(self):
+            ...
+
 
 Localization
 ------------
 
-The ``cyclone.locale`` provides an API based on the Python ``gettext`` module.
+``cyclone.locale`` uses ``gettext`` to provide translation to strings in the
+server code, and any other text or HTML templates.
 
-Because of that, there is *one* extra option that may be passed to ``cyclone.locale.load_gettext_translations(path, domain="cyclone")``, which the is the gettext's domain. The default domain is *cyclone*.
+It must be initialized with a domain, which is where all translation messages
+are stored. Refer to the ``gettext`` manual for details on usage, domains, etc.
 
-Following is a step-by-step guide to implement localization in any cyclone application:
+The default domain is *cyclone*, and must be changed to the name of your app
+or module. All translation files are named after the domain.
 
-1. Create a python script or twisted application with translatable strings::
+There is a complete example of internationalized web application in
+`demos/locale <https://github.com/fiorix/cyclone/tree/master/demos/locale>`_.
 
-    # coding: utf-8
-    # twisted application: foobar.tac
+Also, the project template that ships with cyclone is already prepared for
+full translation. Give it a try::
 
-    import cyclone.web
-    import cyclone.locale
-    from twisted.application import service, internet
+    $ python -m cyclone.app -p foobar
 
-    class BaseHandler(cyclone.web.RequestHandler):
-        def get_user_locale(self):
-            lang = self.get_cookie("lang")
-            return cyclone.locale.get(lang)
+Then check the contents of ``foobar/``.
 
-    class IndexHandler(BaseHandler):
-        def get(self):
-            self.render("index.html")
 
-        def post(self):
-            _ = self.locale.translate
-            name = self.get_argument("name")
-            self.write(_("the name is: %s" % name))
-
-    class LangHandler(cyclone.web.RequestHandler):
-        def get(self, lang):
-            if lang in cyclone.locale.get_supported_locales():
-                self.set_cookie("lang", lang)
-            self.redirect("/")
-
-    class Application(cyclone.web.Application):
-        def __init__(self):
-            handlers = [
-                (r"/", IndexHandler),
-                (r"/lang/(.+)", LangHandler),
-            ]
-
-            settings = {
-                "static_path": "./static",
-                "template_path": "./template",
-            }
-
-            cyclone.locale.load_gettext_translations("./locale", "foobar")
-            cyclone.web.Application.__init__(self, handlers, **settings)
-
-    application = service.Application("foobar")
-    internet.TCPServer(8888, Application(),
-        interface="127.0.0.1").setServiceParent(application)
-
-2. Create a file in ``./template/index.html`` with translatable strings::
-
-    <html>
-    <body>
-        <form action="/" method="post">
-        <p>{{ _("write someone's name:") }}</p>
-        <input type="text" name="name">
-        <input type="submit" value="{{ _('send') }}">
-        </form>
-
-        <br>
-        <p>{{ _("change language:") }}</p>
-        <p><a href="/lang/en_US">English (US)</a></p>
-        <p><a href="/lang/pt_BR">Portuguese (BR)</a></p>
-    </body>
-    </html>
-
-3. Generate PO translatable file from the source code, using ``xgettext``:
-
-    You will notice that ``xgettext`` cannot parse HTML properly. It was
-    first designed to parse C files, and now it supports many other
-    languages including Python.
-
-    In order to parse lines like ``<input type="submit" value="{{ _('send') }}">``,
-    you'll need an extra script to pre-process the files.
-
-    Here's what you can use as ``fix.py``::
-
-        #!/usr/bin/env python
-        # coding: utf-8
-        # fix.py
-
-        import re, sys
-
-        if __name__ == "__main__":
-            try:
-                filename = sys.argv[1]
-                assert filename != "-"
-                fd = open(filename)
-            except:
-                fd = sys.stdin
-
-            line_re = re.compile(r"""['"]{{|}}['"] """)
-            for line in fd:
-                line = line_re.sub(r"", line)
-                sys.stdout.write(line)
-            fd.close()
-
-    Then, call ``xgettext`` to generate the PO translatable file::
-
-        cat foobar.tac template/index.html | python fix.py | \
-            xgettext --language=Python --from-code=utf-8 --keyword=_:1,2 -d foobar
-
-    This will create a file named ``foobar.po``, which needs to be
-    translated, then compiled into an MO file::
-
-        vi foobar.po
-        (translate everything, :wq)
-
-        mkdir -p ./locale/pt_BR/LC_MESSAGES/
-        msgfmt foobar.po -o ./locale/pt_BR/LC_MESSAGES/foobar.mo
-
-4. Finally, test the internationalized application::
-
-    twistd -ny foobar.tac
-
-There is also a complete example with pluralization in `demos/locale <http://github.com/fiorix/cyclone/tree/master/demos/locale>`_.
-
-More options and tricks
------------------------
+Other important things
+----------------------
 
 - Keep-Alive
 
     Because of the HTTP 1.1 support, sockets aren't always closed when you call
-    ``self.finish()`` in a RequestHandler. cyclone lets you enforce that by setting
-    the ``no_keep_alive`` attribute attribute in some of your RequestHandlers::
+    ``self.finish()`` in a ``RequestHandler``. cyclone lets you enforce that by
+    setting the ``no_keep_alive`` class attribute attribute::
 
         class IndexHandler(cyclone.web.RequestHandler):
             no_keep_alive = True
             def get(self):
                 ...
 
+    With this, cyclone will always close the socket after ``self.finish()`` is
+    called on all methods (get, post, etc) of this ``RequestHandler`` class.
+
+- XSRF
+
+    By default, XSRF is either enabled or disabled for the entire server,
+    because it's set in Application's settings::
+
+        cyclone.web.Application(handlers, xsrf_cookies=True)
+
+    That might be a problem if the application is also serving an API, like
+    a RESTful API supposed to work with HTTP clients other than the browser.
+
+    For those endpoints, it's possible to disable XSRF::
+
+        class WebLoginHandler(cyclone.web.RequestHandler):
+            def post(self):
+                u = self.get_argument("username")
+                ...
+
+        class APILoginHandler(cyclone.web.RequestHandler):
+            no_xsrf = True
+
+            def post(self):
+                u = self.get_argument("username")
+                ...
+
 - Socket closed notification
 
-    One of the great features of TwistedWeb is the ``request.notifyFinish()``,
-    which is also available in cyclone.
-    This method returns a deferred which is fired when the request socket
+    One of the great features of ``TwistedWeb`` is the
+    ``request.notifyFinish()``, which is also available in cyclone.
+
+    This method returns a deferred, which is fired when the request socket
     is closed, by either ``self.finish()``, someone closing their browser
     while receiving data, or closing the connection of a Comet request::
 
@@ -381,70 +471,66 @@ More options and tricks
                 d = self.notifyFinish()
                 d.addCallback(remove_from_comet_handlers_list)
 
+            def on_finish(self):
+                # alternative to notifyFinish
+                pass
+
+    This was implemented before Tornado added support to ``on_finish``.
+    Currently, both methods are supported in cyclone.
+
 - HTTP X-Headers
 
-    When running a cyclone-based application behind `Nginx <http://nginx.org/en/>`_,
-    it's very important to make it automatically use X-Real-Ip and X-Scheme HTTP
-    headers. In order to make cyclone recognize those headers, the option ``xheaders=True``
-    must be set in the Application settings::
+    When running a cyclone-based application behind `Nginx
+    <http://nginx.org/en/>`_, it's very important to make it automatically use
+    X-Real-Ip and X-Scheme HTTP headers. In order to make cyclone recognize
+    those headers, the option ``xheaders=True`` must be set in the Application
+    settings::
 
-        class Application(cyclone.web.Application):
-            def __init__(self):
-                handlers = [
-                    (r"/", IndexHandler),
-                ]
-
-                settings = {
-                    "xheaders": True
-                    "static_path": "./static",
-                }
-
-                cyclone.web.Application.__init__(self, handlers, **settings)
+        cyclone.web.Application(handlers, xheaders=True)
 
 - Cookie-Secret generation
 
-    What I use to generate the "cookie_secrect" key used in cyclone.web.Application's
-    settings is something pretty simple, like this::
+    The following code can be used to generate random cookie secrets::
 
         >>> import uuid, base64
         >>> base64.b64encode(uuid.uuid4().bytes + uuid.uuid4().bytes)
         'FoQv5hgLTYCb9aKiBagpJJYtLJInWUcXilg3/vPkUnI='
 
 - SSL
-    cyclone can serve SSL or sit behind a termination proxy (e.g. nginx).
-    Make sure that you bind the right port with listenSSL passing the certs:
 
-        import cyclone.web                                                              
-        import sys                                                                      
-        from twisted.internet import reactor                                            
-        from twisted.internet import ssl                                                
-        from twisted.python import log                                                  
-                                                                                        
-                                                                                        
-        class MainHandler(cyclone.web.RequestHandler):                                  
-            def get(self):                                                              
-                self.write("Hello, world")                                              
-                                                                                        
-                                                                                        
-        def main():                                                                     
-            log.startLogging(sys.stdout)                                                
-            application = cyclone.web.Application([                                     
-                (r"/", MainHandler)                                                     
-            ])                                                                          
-                                                                                        
-            interface = "127.0.0.1"                                                     
-            reactor.listenTCP(8888, application, interface=interface)                   
-            reactor.listenSSL(8443, application,                                        
-                              ssl.DefaultOpenSSLContextFactory("server.key",            
-                                                               "server.crt"),           
-                              interface=interface)                                      
-            reactor.run()                                                               
-                                                                                        
-                                                                                        
-        if __name__ == "__main__":                                                      
-            main()                    
+    cyclone can serve SSL or sit behind a termination proxy (e.g. Nginx).
+    Make sure that you bind the right port with listenSSL, passing the certs::
 
-    This example plus a script to generate certificates sits under demos/ssl.
+        import cyclone.web
+        import sys
+        from twisted.internet import reactor
+        from twisted.internet import ssl
+        from twisted.python import log
+
+
+        class MainHandler(cyclone.web.RequestHandler):
+            def get(self):
+                self.write("Hello, world")
+
+
+        def main():
+            log.startLogging(sys.stdout)
+            application = cyclone.web.Application([(r"/", MainHandler)])
+
+            interface = "127.0.0.1"
+            reactor.listenTCP(8888, application, interface=interface)
+            reactor.listenSSL(8443, application,
+                              ssl.DefaultOpenSSLContextFactory("server.key",
+                                                               "server.crt"),
+                              interface=interface)
+            reactor.run()
+
+
+        if __name__ == "__main__":
+            main()
+
+    This example plus a script to generate certificates sits under `demos/ssl
+    <https://github.com/fiorix/cyclone/tree/master/demos/ssl>`_.
 
 FAQ
 ---
@@ -460,7 +546,7 @@ FAQ
 
 - How do I access raw POST data?
 
-    Both raw POST data and GET/DELETE un-parsed query string are available::
+    Both raw POST data and GET/DELETE un-parsed query strings are available::
 
         class MyHandler(cyclone.web.RequestHandler):
             def get(self):
@@ -469,12 +555,14 @@ FAQ
             def post(self):
                 raw = self.request.body
 
-- Where is the request information, like remote IP address, HTTP method, URI and version?
+- Where is the request information like remote IP address, etc?
 
-    Everything is available as request attributes::
+    Everything is available as request attributes, like protocol, HTTP method,
+    URI and version::
 
         class MyHandler(cyclone.web.RequestHandler):
             def get(self):
+                proto = self.request.protocol
                 remote_ip = self.request.remote_ip
                 method = self.request.method
                 uri = self.request.uri
@@ -482,7 +570,7 @@ FAQ
 
 - How do I set my own headers for the reply?
 
-    Guess what, use self.set_header(name, value)::
+    Guess what, use ``self.set_header(name, value)``::
 
         class MyHandler(cyclone.web.RequestHandler):
             def get(self):
@@ -491,14 +579,19 @@ FAQ
 
 - What HTTP methods are supported in RequestHandler?
 
-    Well, almost all of them. HEAD, GET, POST, DELETE, PUT and OPTIONS are supported.
-    TRACE is disabled by default, because it may get you in trouble. CONNECT has nothing
-    to do with web servers, it's for proxies.
+    Well, almost all of them. HEAD, GET, POST, DELETE, PUT and OPTIONS are
+    supported. TRACE is disabled by default, because it may get you in trouble.
+    CONNECT has nothing to do with web servers, it's for proxies.
 
-    For more information on HTTP 1.1 methods, please refer to the `RFC 2612 Fielding, et al. <http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html>`_.
-    For information regarding TRACE vulnerabilities, please check the following links:
-    `What is HTTP TRACE? <http://www.cgisecurity.com/questions/httptrace.shtml>`_ and
-    `Apache Week, security issues <http://www.apacheweek.com/issues/03-01-24#news>`_.
+    For more information on HTTP 1.1 methods, please refer to the `RFC 2612
+    Fielding, et al. <http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html>`_.
+
+    For information regarding TRACE vulnerabilities, please check the following
+    links:
+    `What is HTTP TRACE?
+    <http://www.cgisecurity.com/questions/httptrace.shtml>`_ and
+    `Apache Week, security issues
+    <http://www.apacheweek.com/issues/03-01-24#news>`_.
 
     Supporting different HTTP methods in the same RequestHandler is easy::
 
@@ -509,7 +602,11 @@ FAQ
             def head(self):
                 pass
 
-            ...
+            def post(self):
+                pass
+
+            def delete(self):
+                pass
 
 
 Credits
