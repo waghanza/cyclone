@@ -18,21 +18,30 @@
 Authentication, error handling, etc are left as an exercise for the reader :)
 """
 
-import cyclone.escape
-import cyclone.web
-import cyclone.websocket
 import os.path
 import uuid
 import sys
+import time
+from collections import defaultdict
+
 from twisted.python import log
-from twisted.internet import reactor
+from twisted.internet import reactor, task
+
+import cyclone.escape
+import cyclone.web
+import cyclone.websocket
 
 
 class Application(cyclone.web.Application):
     def __init__(self):
+
+        stats = Stats()
+
         handlers = [
-            (r"/", MainHandler),
-            (r"/chatsocket", ChatSocketHandler),
+            (r"/", MainHandler, dict(stats=stats)),
+            (r"/stats", StatsPageHandler),
+            (r"/statssocket", StatsSocketHandler, dict(stats=stats)),
+            (r"/chatsocket", ChatSocketHandler, dict(stats=stats)),
         ]
         settings = dict(
             cookie_secret="43oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
@@ -45,7 +54,11 @@ class Application(cyclone.web.Application):
 
 
 class MainHandler(cyclone.web.RequestHandler):
+    def initialize(self, stats):
+        self.stats = stats
+
     def get(self):
+        self.stats.newVisit()
         self.render("index.html", messages=ChatSocketHandler.cache)
 
 
@@ -54,11 +67,16 @@ class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
     cache = []
     cache_size = 200
 
+    def initialize(self, stats):
+        self.stats = stats
+
     def connectionMade(self):
         ChatSocketHandler.waiters.add(self)
+        self.stats.newChatter()
 
     def connectionLost(self, reason):
         ChatSocketHandler.waiters.remove(self)
+        self.stats.lostChatter()
 
     @classmethod
     def update_cache(cls, chat):
@@ -87,6 +105,50 @@ class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
         ChatSocketHandler.update_cache(chat)
         ChatSocketHandler.send_updates(chat)
 
+class StatsSocketHandler(cyclone.websocket.WebSocketHandler):
+    def initialize(self, stats):
+        self.stats = stats
+
+        self._updater = task.LoopingCall(self._sendData)
+
+    def connectionMade(self):
+        self._updater.start(2)
+
+    def connectionLost(self, reason):
+        self._updater.stop()
+
+    def _sendData(self):
+        data = dict(visits=self.stats.todaysVisits(),
+                    chatters=self.stats.chatters)
+        self.sendMessage(cyclone.escape.json_encode(data))
+
+
+class Stats(object):
+    def __init__(self):
+        self.visits = defaultdict(int) 
+        self.chatters = 0
+
+    def todaysVisits(self):
+        today = time.localtime()
+        key = time.strftime('%Y%m%d', today)
+        return self.visits[key]
+
+    def newChatter(self):
+        self.chatters += 1
+
+    def lostChatter(self):
+        self.chatters -= 1
+
+    def newVisit(self):
+        today = time.localtime()
+        key = time.strftime('%Y%m%d', today)
+        self.visits[key] += 1
+
+
+class StatsPageHandler(cyclone.web.RequestHandler):
+    def get(self):
+        self.render("stats.html")
+
 
 def main():
     reactor.listenTCP(8888, Application())
@@ -96,3 +158,4 @@ def main():
 if __name__ == "__main__":
     log.startLogging(sys.stdout)
     main()
+

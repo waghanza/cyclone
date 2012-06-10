@@ -470,3 +470,7 @@ Thanks to (in no particular order):
 - `Jeethu Rao <https://github.com/jeethu>`_
 
   - Minor bugfixes and patches
+
+- `Flavio Grossi <https://github.com/flaviogrossi>`_
+
+  - Minor code fixes and websockets chat statistics example
