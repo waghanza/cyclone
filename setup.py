@@ -20,7 +20,7 @@ from distutils.core import setup
 
 setup(
     name="cyclone",
-    version="1.0-rc6",
+    version="1.0-rc7",
     packages=["cyclone", "twisted.plugins"],
     author="fiorix",
     author_email="fiorix@gmail.com",

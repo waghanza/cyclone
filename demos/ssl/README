@@ -7,4 +7,4 @@ point your browser to https://localhost:8443
 
 try using cyclone's twisted plugin:
 
-$ twistd -n cyclone --ssl=app=helloworld_simple.Application
+$ twistd -n cyclone --ssl-app=helloworld_simple.Application
