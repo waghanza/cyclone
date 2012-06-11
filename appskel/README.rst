@@ -10,6 +10,7 @@ About
 This file has been created automatically by cyclone-tool for $project_name.
 It contains the following files:
 
+- ``start.sh``: simple shell script to start the server
 - ``$modname.conf``: configuration file for the web server
 - ``$modname/__init__.py``: information such as author and version of this package
 - ``$modname/web.py``: map of url handlers and main class of the web server
