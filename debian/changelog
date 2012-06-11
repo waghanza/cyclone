@@ -1,3 +1,9 @@
+python-cyclone (1.0-rc6) unstable; urgency=low
+
+  * Version synch with git repo
+
+ -- Alexandre Fiori <fiorix@gmail.com>  Sun, 10 Jun 2012 22:33:13 -0400
+
 python-cyclone (0.1-1) unstable; urgency=low
 
   * Initial debian package
