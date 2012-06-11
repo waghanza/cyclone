@@ -15,19 +15,22 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import sys
-import setuptools
+from distutils.core import setup
 
-setuptools.setup(
+
+setup(
     name="cyclone",
-    version="1.0-rc5",
-    packages=["cyclone"],
-    #install_requires=["twisted"],
+    version="1.0-rc6",
+    packages=["cyclone", "twisted.plugins"],
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    description="Non-blocking web server. A facebook's Tornado on top of Twisted.",
-    keywords="web server non-blocking python twisted facebook tornado",
-    package_data={"cyclone":["appskel.zip"]},
+    description="Non-blocking web server. "
+                "A facebook's Tornado on top of Twisted.",
+    keywords="python non-blocking web server twisted facebook tornado",
+    package_data={"cyclone": ["appskel.zip"]},
 )
+
+from twisted.plugin import IPlugin, getPlugins
+list(getPlugins(IPlugin))

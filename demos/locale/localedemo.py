@@ -29,6 +29,7 @@ class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
             (r"/", IndexHandler),
+            (r"/hello", HelloHandler),
         ]
         settings = dict(
             debug=True,
@@ -67,6 +68,17 @@ class IndexHandler(BaseHandler):
 
         self.set_cookie("lang", lang)
         self.redirect("/?apples=%d" % self._apples())
+
+
+class HelloHandler(BaseHandler):
+    def get(self):
+        # Test with es_ES or pt_BR:
+        # curl -D - -H "Cookie: lang=es_ES" http://localhost:8888/hello
+        _ = self.locale.translate
+        msg = _("hello world")
+        text = self.render_string("hello.txt", msg=msg)
+        self.set_header("Content-Type", "text/plain")
+        self.write(text)
 
 
 def main():

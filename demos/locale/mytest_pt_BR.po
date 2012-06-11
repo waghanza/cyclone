@@ -17,23 +17,32 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=n != 1;\n"
 
-#: templates/index.html:8
+#: localedemo.py:76
+msgid "hello world"
+msgstr "olá mundo"
+
+#: frontend/template/hello.txt:2
+#, python-format
+msgid "%s, translated"
+msgstr "%s, traduzido"
+
+#: frontend/template/index.html:5 frontend/template/index.html:25
 msgid "cyclone locale demo"
 msgstr "demonstração de internacionalização do cyclone"
 
-#: templates/index.html:9
+#: frontend/template/index.html:29
 msgid "Please select your language:"
 msgstr "Por favor, selecione sua língua:"
 
-#: templates/index.html:16
+#: frontend/template/index.html:35
 msgid "How many apples?"
 msgstr "Quantas maçãs?"
 
-#: templates/index.html:20
+#: frontend/template/index.html:39
 msgid "Submit"
 msgstr "Enviar"
 
-#: templates/index.html:19
+#: frontend/template/index.html:42
 #, python-format
 msgid "One apple"
 msgid_plural "%(count)d apples"
