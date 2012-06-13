@@ -18,11 +18,17 @@ import sys
 
 from twisted.application import internet
 from twisted.application import service
-from twisted.internet import ssl
 from twisted.plugin import IPlugin
 from twisted.python import usage
 from twisted.python import reflect
 from zope.interface import implements
+
+try:
+    from twisted.internet import ssl
+except ImportError:
+    ssl_support = False
+else:
+    ssl_support = True
 
 
 class Options(usage.Options):
@@ -63,16 +69,20 @@ class ServiceMaker(object):
 
         # https
         if options["ssl-app"]:
-            appmod = reflect.namedAny(options["ssl-app"])
-            if options["ssl-appopts"]:
-                app = appmod(options["ssl-appopts"])
+            if ssl_support:
+                appmod = reflect.namedAny(options["ssl-app"])
+                if options["ssl-appopts"]:
+                    app = appmod(options["ssl-appopts"])
+                else:
+                    app = appmod()
+                s = internet.SSLServer(options["ssl-port"], app,
+                                       ssl.DefaultOpenSSLContextFactory(
+                                       options["ssl-key"],
+                                       options["ssl-cert"]),
+                                       interface=options["ssl-listen"])
+                s.setServiceParent(srv)
             else:
-                app = appmod()
-            s = internet.SSLServer(options["ssl-port"], app,
-                                   ssl.DefaultOpenSSLContextFactory(
-                                   options["ssl-key"], options["ssl-cert"]),
-                                   interface=options["ssl-listen"])
-            s.setServiceParent(srv)
+                print("SSL is not supported. Please install PyOpenSSL.")
 
         if s is None:
             print("Nothing to do. Try --help")
