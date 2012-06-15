@@ -155,7 +155,7 @@ def main():
 
     skel = zipfile.ZipFile(open(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     "appskel.zip")))
+                     "appskel.zip")), "rb")
 
     if set_pkg_version is True:
         project_name = "%s-%s" % (project, version)
