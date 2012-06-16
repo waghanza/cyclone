@@ -155,7 +155,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             (accept, cyclone.version, origin,
              self.request.host, self.request.path))
 
-        self.hanler._connectionMade()
+        self.handler._connectionMade()
 
     def rawDataReceived(self, data):
 
