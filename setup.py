@@ -24,7 +24,7 @@ TWISTED_PLUGIN_PATH = os.path.join(get_python_lib(), 'twisted', 'plugins')
 
 setup(
     name="cyclone",
-    version="1.0-rc7",
+    version="1.0-rc8",
     packages=["cyclone"],
     requires=["pyopenssl", "twisted"],
     author="fiorix",
