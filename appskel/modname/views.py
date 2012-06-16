@@ -36,7 +36,7 @@ class LangHandler(BaseHandler):
             self.set_secure_cookie("lang", lang_code)
 
         self.redirect(self.request.headers.get("Referer",
-                                               self.get_argument("next", "/"))
+                                               self.get_argument("next", "/")))
 
 
 class SampleSQLiteHandler(BaseHandler, DatabaseMixin):
