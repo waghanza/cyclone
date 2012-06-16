@@ -35,8 +35,8 @@ class LangHandler(BaseHandler):
         if lang_code in cyclone.locale.get_supported_locales():
             self.set_secure_cookie("lang", lang_code)
 
-        n = self.request.headers.get("Referer", self.get_argument("next", "/"))
-        self.redirect(n)
+        self.redirect(self.request.headers.get("Referer",
+                                               self.get_argument("next", "/"))
 
 
 class SampleSQLiteHandler(BaseHandler, DatabaseMixin):
@@ -68,7 +68,6 @@ class SampleMySQLHandler(BaseHandler, DatabaseMixin):
     def get(self):
         if self.mysql:
             try:
-                query = "select now()"
                 response = yield self.mysql.runQuery("select now()")
             except Exception, e:
                 log.msg("MySQL query failed: %s" % str(e))
