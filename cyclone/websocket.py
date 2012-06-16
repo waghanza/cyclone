@@ -320,8 +320,8 @@ class WebSocketProtocol76(WebSocketProtocol):
             for message in messages[:-1]:
                 self.handler.messageReceived(message[1:])
         except Exception, e:
-            log.msg("Invalid WebSocket Message: %s" % repr(data))
-            self._handle_request_exception(e)
+            log.msg("Invalid WebSocket Message '%s': %s" % (repr(data), e))
+            self.handler._handle_request_exception(e)
 
     def sendMessage(self, message):
         self.transport.write("\x00" + message + "\xff")
