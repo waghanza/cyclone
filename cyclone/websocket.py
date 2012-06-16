@@ -70,6 +70,9 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         except:
             return self.forbidConnection("Expected WebSocket Headers")
 
+        self._connectionMade = functools.partial(self.connectionMade,
+                                                 *args, **kwargs)
+
         if "Sec-Websocket-Version" in self.request.headers and \
             self.request.headers['Sec-Websocket-Version'] in ('7', '8', '13'):
             self.ws_protocol = WebSocketProtocol17(self)
@@ -85,8 +88,6 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.request.connection.rawDataReceived = \
             self.ws_protocol.rawDataReceived
         self.ws_protocol.acceptConnection()
-        self._connectionMade = functools.partial(self.connectionMade,
-                                                 *args, **kwargs)
 
     def forbidConnection(self, message):
         self.transport.write(
