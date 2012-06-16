@@ -16,11 +16,14 @@
 # under the License.
 
 import base64
+import functools
 import hashlib
 import struct
+
 import cyclone
 import cyclone.web
 import cyclone.escape
+
 from twisted.python import log
 
 
@@ -82,8 +85,8 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.request.connection.rawDataReceived = \
             self.ws_protocol.rawDataReceived
         self.ws_protocol.acceptConnection()
-
-        self.connectionMade(*args, **kwargs)
+        self._connectionMade = functools.partial(self.connectionMade,
+                                                 *args, **kwargs)
 
     def forbidConnection(self, message):
         self.transport.write(
@@ -151,6 +154,8 @@ class WebSocketProtocol17(WebSocketProtocol):
             "WebSocket-Location: ws://%s%s\r\n\r\n" % \
             (accept, cyclone.version, origin,
              self.request.host, self.request.path))
+
+        self.hanler._connectionMade()
 
     def rawDataReceived(self, data):
 
@@ -307,6 +312,7 @@ class WebSocketProtocol76(WebSocketProtocol):
                  self.request.host, self.request.path, token))
             self._postheader = False
             self.handler.flush()
+            self.handler._connectionMade()
             return
 
         try:
