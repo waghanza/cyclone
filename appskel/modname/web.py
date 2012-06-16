@@ -43,4 +43,5 @@ class Application(cyclone.web.Application):
         DatabaseMixin.setup(settings)
 
         #settings["login_url"] = "/auth/login"
+        #settings["autoescape"] = None
         cyclone.web.Application.__init__(self, handlers, **settings)
