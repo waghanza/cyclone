@@ -16,7 +16,7 @@
 # under the License.
 
 from distutils import log
-from distutils.core import setup
+from setuptools import setup
 from distutils.sysconfig import get_python_lib
 import os.path
 
