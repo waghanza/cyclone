@@ -112,9 +112,14 @@ class HTTPClient(object):
 
         response.error = None
         response.headers = dict(response.headers.getAllRawHeaders())
-        d = defer.Deferred()
-        response.deliverBody(Receiver(d))
-        response.body = yield d
+        # HTTP 204 and 304 responses have no body
+        # http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
+        if response.code in (204, 304):
+            response.body = ''
+        else:
+            d = defer.Deferred()
+            response.deliverBody(Receiver(d))
+            response.body = yield d
         response.request = self
         defer.returnValue(response)
 
