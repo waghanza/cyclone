@@ -15,8 +15,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import sys
+
+# PyPy and setuptools don't get along too well, yet.
+if sys.subversion[0].lower().startswith('pypy'):
+    from distutils.core import setup
+else:
+    from setuptools import setup
+
 from distutils import log
-from distutils.core import setup
 from distutils.sysconfig import get_python_lib
 import os.path
 
