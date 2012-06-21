@@ -59,7 +59,14 @@ class HTTPHeaders(dict):
         dict.__init__(self)
         self._as_list = {}
         self._last_key = None
-        self.update(*args, **kwargs)
+        if (len(args) == 1 and len(kwargs) == 0 and
+            isinstance(args[0], HTTPHeaders)):
+            # Copy constructor
+            for k, v in args[0].get_all():
+                self.add(k, v)
+        else:
+            # Dict-style initialization
+            self.update(*args, **kwargs)
 
     # new public methods
 
@@ -148,6 +155,10 @@ class HTTPHeaders(dict):
         # dict.update bypasses our __setitem__
         for k, v in dict(*args, **kwargs).iteritems():
             self[k] = v
+
+    def copy(self):
+        # default implementation returns dict(self), not the subclass
+        return HTTPHeaders(self)
 
     _NORMALIZED_HEADER_RE = \
         re.compile(r'^[A-Z0-9][a-z0-9]*(-[A-Z0-9][a-z0-9]*)*$')

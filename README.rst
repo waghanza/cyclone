@@ -579,7 +579,7 @@ FAQ
 
 - What HTTP methods are supported in RequestHandler?
 
-    Well, almost all of them. HEAD, GET, POST, DELETE, PUT and OPTIONS are
+    Well, almost all of them. HEAD, GET, POST, DELETE, PATCH, PUT and OPTIONS are
     supported. TRACE is disabled by default, because it may get you in trouble.
     CONNECT has nothing to do with web servers, it's for proxies.
 
