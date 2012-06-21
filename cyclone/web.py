@@ -66,7 +66,8 @@ class RequestHandler(object):
     should override the class variable SUPPORTED_METHODS in your
     RequestHandler class.
     """
-    SUPPORTED_METHODS = ("GET", "HEAD", "POST", "DELETE", "PUT", "OPTIONS")
+    SUPPORTED_METHODS = ("GET", "HEAD", "POST", "DELETE", "PATCH", "PUT",
+            "OPTIONS")
 
     no_keep_alive = False
     _template_loaders = {}  # {path: template.BaseLoader}
@@ -129,6 +130,9 @@ class RequestHandler(object):
         raise HTTPError(405)
 
     def delete(self, *args, **kwargs):
+        raise HTTPError(405)
+
+    def patch(self, *args, **kwargs):
         raise HTTPError(405)
 
     def put(self, *args, **kwargs):
@@ -226,6 +230,15 @@ class RequestHandler(object):
         """
         self._list_headers.append((name, self._convert_header_value(value)))
 
+    def clear_header(self, name):
+        """Clears an outgoing header, undoing a previous `set_header` call.
+
+        Note that this method does not apply to multi-valued headers
+        set by `add_header`.
+        """
+        if name in self._headers:
+            del self._headers[name]
+
     def _convert_header_value(self, value):
         if isinstance(value, bytes_type):
             pass
@@ -242,7 +255,7 @@ class RequestHandler(object):
         # If \n is allowed into the header, it is possible to inject
         # additional headers or split the request. Also cap length to
         # prevent obviously erroneous values.
-        if len(value) > 4000 or re.match(b(r"[\x00-\x1f]"), value):
+        if len(value) > 4000 or re.search(b(r"[\x00-\x1f]"), value):
             raise ValueError("Unsafe header value %r", value)
         return value
 
@@ -252,7 +265,7 @@ class RequestHandler(object):
         """Returns the value of the argument with the given name.
 
         If default is not provided, the argument is considered to be
-        required, and we throw an HTTP 404 exception if it is missing.
+        required, and we throw an HTTP 400 exception if it is missing.
 
         If the argument appears in the url more than once, we return the
         last value.
@@ -262,7 +275,7 @@ class RequestHandler(object):
         args = self.get_arguments(name, strip=strip)
         if not args:
             if default is self._ARG_DEFAULT:
-                raise HTTPError(404, "Missing argument %s" % name)
+                raise HTTPError(400, "Missing argument %s" % name)
             return default
         return args[-1]
 
@@ -325,26 +338,27 @@ class RequestHandler(object):
         if re.search(r"[\x00-\x20]", name + value):
             # Don't let us accidentally inject bad stuff
             raise ValueError("Invalid cookie %r: %r" % (name, value))
-        if not hasattr(self, "_new_cookies"):
-            self._new_cookies = []
-        new_cookie = Cookie.SimpleCookie()
-        self._new_cookies.append(new_cookie)
-        new_cookie[name] = value
+        if not hasattr(self, "_new_cookie"):
+            self._new_cookie = Cookie.SimpleCookie()
+        if name in self._new_cookie:
+            del self._new_cookie[name]
+        self._new_cookie[name] = value
+        morsel = self._new_cookie[name]
         if domain:
-            new_cookie[name]["domain"] = domain
+            morsel["domain"] = domain
         if expires_days is not None and not expires:
             expires = datetime.datetime.utcnow() + datetime.timedelta(
                 days=expires_days)
         if expires:
             timestamp = calendar.timegm(expires.utctimetuple())
-            new_cookie[name]["expires"] = email.utils.formatdate(
+            morsel["expires"] = email.utils.formatdate(
                 timestamp, localtime=False, usegmt=True)
         if path:
-            new_cookie[name]["path"] = path
+            morsel["path"] = path
         for k, v in kwargs.iteritems():
             if k == 'max_age':
                 k = 'max-age'
-            new_cookie[name][k] = v
+            morsel[k] = v
 
     def clear_cookie(self, name, path="/", domain=None):
         """Deletes the cookie with the given name."""
@@ -434,7 +448,7 @@ class RequestHandler(object):
                                "@asynchronous decorator.")
         if isinstance(chunk, dict):
             chunk = escape.json_encode(chunk)
-            self.set_header("Content-Type", "application/json")
+            self.set_header("Content-Type", "application/json; charset=UTF-8")
         chunk = utf8(chunk)
         self._write_buffer.append(chunk)
 
@@ -554,7 +568,7 @@ class RequestHandler(object):
             _=self.locale.translate,
             static_url=self.static_url,
             xsrf_form_html=self.xsrf_form_html,
-            reverse_url=self.application.reverse_url
+            reverse_url=self.reverse_url
         )
         args.update(self.ui)
         args.update(kwargs)
@@ -578,8 +592,10 @@ class RequestHandler(object):
         if not self._headers_written:
             self._headers_written = True
             for transform in self._transforms:
-                self._headers, chunk = transform.transform_first_chunk(
-                    self._headers, chunk, include_footers)
+                self._status_code, self._headers, chunk = \
+                        transform.transform_first_chunk(
+                        self._status_code, self._headers,
+                        chunk, include_footers)
             headers = self._generate_headers()
         else:
             for transform in self._transforms:
@@ -622,7 +638,10 @@ class RequestHandler(object):
                         self.set_status(304)
                     else:
                         self.set_header("Etag", etag)
-            if "Content-Length" not in self._headers:
+            if self._status_code == 304:
+                assert not self._write_buffer, "Cannot send body with 304"
+                self._clear_headers_for_304()
+            elif "Content-Length" not in self._headers:
                 content_length = sum(len(part) for part in self._write_buffer)
                 self.set_header("Content-Length", content_length)
 
@@ -964,8 +983,8 @@ class RequestHandler(object):
         lines.extend([(utf8(n) + b(": ") + utf8(v)) for n, v in
                       itertools.chain(self._headers.iteritems(),
                       self._list_headers)])
-        for cookie_dict in getattr(self, "_new_cookies", []):
-            for cookie in cookie_dict.values():
+        if hasattr(self, "_new_cookie"):
+            for cookie in self._new_cookie.values():
                 lines.append(utf8("Set-Cookie: " + cookie.OutputString(None)))
         return b("\r\n").join(lines) + b("\r\n\r\n")
 
@@ -1019,6 +1038,17 @@ class RequestHandler(object):
 
     def _ui_method(self, method):
         return lambda *args, **kwargs: method(self, *args, **kwargs)
+
+    def _clear_headers_for_304(self):
+        # 304 responses should not contain entity headers (defined in
+        # http://www.w3.org/Protocols/rfc2616/rfc2616-sec7.html#sec7.1)
+        # not explicitly allowed by
+        # http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3.5
+        headers = ["Allow", "Content-Encoding", "Content-Language",
+                   "Content-Length", "Content-MD5", "Content-Range",
+                   "Content-Type", "Last-Modified"]
+        for h in headers:
+            self.clear_header(h)
 
 
 def asynchronous(method):
@@ -1299,7 +1329,7 @@ class Application(protocol.ServerFactory):
 
                         if spec.regex.groupindex:
                             kwargs = dict(
-                                (k, unquote(v))
+                                (str(k), unquote(v))
                                 for (k, v) in match.groupdict().iteritems())
                         else:
                             args = [unquote(s) for s in match.groups()]
@@ -1321,7 +1351,11 @@ class Application(protocol.ServerFactory):
     def reverse_url(self, name, *args):
         """Returns a URL path for handler named `name`
 
-        The handler must be added to the application as a named URLSpec
+        The handler must be added to the application as a named URLSpec.
+
+        Args will be substituted for capturing groups in the URLSpec regex.
+        They will be converted to strings if necessary, encoded as utf8,
+        and url-escaped.
         """
         if name in self.named_handlers:
             return self.named_handlers[name].reverse(*args)
@@ -1599,8 +1633,8 @@ class OutputTransform(object):
     def __init__(self, request):
         pass
 
-    def transform_first_chunk(self, headers, chunk, finishing):
-        return headers, chunk
+    def transform_first_chunk(self, status_code, headers, chunk, finishing):
+        return status_code, headers, chunk
 
     def transform_chunk(self, chunk, finishing):
         return chunk
@@ -1622,7 +1656,7 @@ class GZipContentEncoding(OutputTransform):
         self._gzipping = request.supports_http_1_1() and \
             "gzip" in request.headers.get("Accept-Encoding", "")
 
-    def transform_first_chunk(self, headers, chunk, finishing):
+    def transform_first_chunk(self, status_code, headers, chunk, finishing):
         if self._gzipping:
             ctype = _unicode(headers.get("Content-Type", "")).split(";")[0]
             self._gzipping = (ctype in self.CONTENT_TYPES) and \
@@ -1636,7 +1670,7 @@ class GZipContentEncoding(OutputTransform):
             chunk = self.transform_chunk(chunk, finishing)
             if "Content-Length" in headers:
                 headers["Content-Length"] = str(len(chunk))
-        return headers, chunk
+        return status_code, headers, chunk
 
     def transform_chunk(self, chunk, finishing):
         if self._gzipping:
@@ -1659,15 +1693,17 @@ class ChunkedTransferEncoding(OutputTransform):
     def __init__(self, request):
         self._chunking = request.supports_http_1_1()
 
-    def transform_first_chunk(self, headers, chunk, finishing):
-        if self._chunking:
+    def transform_first_chunk(self, status_code, headers, chunk, finishing):
+        # 304 responses have no body (not even a zero-length body), and so
+        # should not have either Content-Length or Transfer-Encoding headers.
+        if self._chunking and status_code != 304:
             # No need to chunk the output if a Content-Length is specified
             if "Content-Length" in headers or "Transfer-Encoding" in headers:
                 self._chunking = False
             else:
                 headers["Transfer-Encoding"] = "chunked"
                 chunk = self.transform_chunk(chunk, finishing)
-        return headers, chunk
+        return status_code, headers, chunk
 
     def transform_chunk(self, block, finishing):
         if self._chunking:
@@ -1827,7 +1863,7 @@ class TemplateModule(UIModule):
 
 class URLSpec(object):
     """Specifies mappings between URLs and handlers."""
-    def __init__(self, pattern, handler_class, kwargs={}, name=None):
+    def __init__(self, pattern, handler_class, kwargs=None, name=None):
         """Creates a URLSpec.
 
         Parameters:
@@ -1851,7 +1887,7 @@ class URLSpec(object):
             ("groups in url regexes must either be all named or all "
              "positional: %r" % self.regex.pattern)
         self.handler_class = handler_class
-        self.kwargs = kwargs
+        self.kwargs = kwargs or {}
         self.name = name
         self._path, self._group_count = self._find_groups()
 
@@ -1890,7 +1926,12 @@ class URLSpec(object):
             "not found"
         if not len(args):
             return self._path
-        return self._path % tuple([str(a) for a in args])
+        converted_args = []
+        for a in args:
+            if not isinstance(a, (unicode, bytes_type)):
+                a = str(a)
+            converted_args.append(escape.url_escape(utf8(a)))
+        return self._path % tuple(converted_args)
 
 url = URLSpec
 

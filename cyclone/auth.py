@@ -48,6 +48,7 @@ class GoogleHandler(tornado.web.RequestHandler, tornado.auth.GoogleMixin):
 
 from cyclone import escape
 from cyclone import httpclient
+from cyclone.util import b
 from twisted.python import log
 
 import binascii
@@ -78,7 +79,7 @@ class OpenIdMixin(object):
         all those attributes for your app, you can request fewer with
         the ax_attrs keyword argument.
         """
-        callback_uri = callback_uri or self.request.path
+        callback_uri = callback_uri or self.request.uri
         args = self._openid_args(callback_uri, ax_attrs=ax_attrs)
         self.redirect(self._OPENID_ENDPOINT + "?" + urllib.urlencode(args))
 
@@ -92,10 +93,11 @@ class OpenIdMixin(object):
         # Verify the OpenID response via direct request to the OP
         args = dict((k, v[-1]) for k, v in self.request.arguments.iteritems())
         args["openid.mode"] = u"check_authentication"
-        url = self._OPENID_ENDPOINT + "?" + urllib.urlencode(args)
+        url = self._OPENID_ENDPOINT
         callback = self.async_callback(self._on_authentication_verified,
                                        callback)
-        httpclient.fetch(url).addBoth(callback)
+        httpclient.fetch(url, method="POST",
+                postdata=urllib.urlencode(args)).addBoth(callback)
 
     def _openid_args(self, callback_uri, ax_attrs=[], oauth_scope=None):
         url = urlparse.urljoin(self.request.full_url(), callback_uri)
@@ -106,7 +108,7 @@ class OpenIdMixin(object):
             "openid.identity":
                 "http://specs.openid.net/auth/2.0/identifier_select",
             "openid.return_to": url,
-            "openid.realm": "http://" + self.request.host + "/",
+            "openid.realm": urlparse.urljoin(url, '/'),
             "openid.mode": "checkid_setup",
         }
         if ax_attrs:
@@ -146,7 +148,7 @@ class OpenIdMixin(object):
         return args
 
     def _on_authentication_verified(self, callback, response):
-        if response.error or "is_valid:true" not in repr(response.body):
+        if response.error or b("is_valid:true") not in response.body:
             log.msg("Invalid OpenID response: %s" % \
                     (response.error or response.body))
             callback(None)
@@ -154,9 +156,9 @@ class OpenIdMixin(object):
 
         # Make sure we got back at least an email from attribute exchange
         ax_ns = None
-        for name, values in self.request.arguments.iteritems():
+        for name in self.request.arguments.iterkeys():
             if name.startswith("openid.ns.") and \
-               values[-1] == u"http://openid.net/srv/ax/1.0":
+               self.get_argument(name) == u"http://openid.net/srv/ax/1.0":
                 ax_ns = name[10:]
                 break
 
@@ -165,8 +167,8 @@ class OpenIdMixin(object):
                 return u""
             prefix = "openid." + ax_ns + ".type."
             ax_name = None
-            for name, values in self.request.arguments.iteritems():
-                if values[-1] == uri and name.startswith(prefix):
+            for name in self.request.arguments.iterkeys():
+                if self.get_argument(name) == uri and name.startswith(prefix):
                     part = name[len(prefix):]
                     ax_name = "openid." + ax_ns + ".value." + part
                     break
@@ -643,7 +645,7 @@ class GoogleMixin(OpenIdMixin, OAuthMixin):
         You can authorize multiple resources by separating the resource
         URLs with a space.
         """
-        callback_uri = callback_uri or self.request.path
+        callback_uri = callback_uri or self.request.uri
         args = self._openid_args(callback_uri, ax_attrs=ax_attrs,
                                  oauth_scope=oauth_scope)
         self.redirect(self._OPENID_ENDPOINT + "?" + urllib.urlencode(args))
@@ -711,7 +713,7 @@ class FacebookMixin(object):
                               extended_permissions=None):
         """Authenticates/installs this app for the current user."""
         self.require_setting("facebook_api_key", "Facebook Connect")
-        callback_uri = callback_uri or self.request.path
+        callback_uri = callback_uri or self.request.uri
         args = {
             "api_key": self.settings["facebook_api_key"],
             "v": "1.0",
