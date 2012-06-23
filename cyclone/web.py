@@ -448,7 +448,7 @@ class RequestHandler(object):
                                "@asynchronous decorator.")
         if isinstance(chunk, dict):
             chunk = escape.json_encode(chunk)
-            self.set_header("Content-Type", "application/json; charset=UTF-8")
+            self.set_header("Content-Type", "application/json")
         chunk = utf8(chunk)
         self._write_buffer.append(chunk)
 
