@@ -1,11 +1,9 @@
-=====================
-cyclone-based project
-=====================
-:Info: This is the source code of $project_name
-:Author: $name <$email>
+# cyclone-based project
 
-About
-=====
+	This is the source code of $project_name
+	$name <$email>
+
+## About
 
 This file has been created automatically by cyclone-tool for $project_name.
 It contains the following files:
@@ -21,15 +19,14 @@ It contains the following files:
 - ``scripts/localefix.py``: script to fix html text before running ``xgettext``
 - ``scripts/cookie_secret.py``: script for generating new secret key for the web server
 
-Running
--------
+### Running
 
-For development and testing::
+For development and testing:
 
     twistd -n cyclone --help
     twistd -n cyclone -r $modname.web.Application [--help]
 
-For production::
+For production:
 
     twistd cyclone \
     	   --logfile=/var/log/$project.log \
@@ -37,31 +34,24 @@ For production::
 	   -r $modname.web.Application
 
 
-Convert this document to HTML
------------------------------
+### Convert this document to HTML
 
 Well, since this is a web server, it might be a good idea to convert this document
 to HTML before getting into customization details.
 
-Because not everybody has `DocUtils <http://docutils.sourceforge.net/>`_ installed,
-I recommend using the ``rst2a`` web service API::
+This can be done using [markdown](http://daringfireball.net/projects/markdown/).
 
-    curl -F "rst=@README.rst" http://api.rst2a.com/1.0/rst2/html > frontend/static/readme.html
+	brew install markdown
+	markdown README.md > frontend/static/readme.html
 
-And point your browser to ``http://localhost:8888/static/readme.html`` after this server
+And point your browser to <http://localhost:8888/static/readme.html> after this server
 is running.
 
-For more information on the API, please check `http://rst2a.com/api/ <http://rst2a.com/api/>`_.
-
-
-Customization
-=============
+## Customization
 
 This section is dedicated to explaining how to customize your brand new package.
 
-
-Databases
----------
+### Databases
 
 cyclone provides built-in support for SQLite and Redis databases.
 It also supports any RDBM supported by the ``twisted.enterprise.adbapi`` module,
@@ -78,8 +68,7 @@ Take a look at ``$modname/utils.py``, which is where persistent database
 connections are initialized.
 
 
-Internationalization
---------------------
+### Internationalization
 
 cyclone uses the standard ``gettext`` library for dealing with string
 translation.
@@ -91,20 +80,20 @@ For installing the ``gettext`` package on Debian and Ubuntu systems, do this:
 
     apt-get install gettext
 
-For Mac OS X, I'd suggest using `HomeBrew <http://mxcl.github.com/homebrew>`_.
+For Mac OS X, I'd suggest using [HomeBrew](http://mxcl.github.com/homebrew>).
 If you already use HomeBrew, run:
 
     brew install gettext
     brew link gettext
 
 For generating translatable files for HTML and Python code of your software,
-run this::
+run this:
 
     cat frontend/template/*.html $modname/*.py | python scripts/localefix.py | \
         xgettext - --language=Python --from-code=utf-8 --keyword=_:1,2 -d $modname
 
 Then translate $modname.po, compile and copy to the appropriate locale
-directory::
+directory:
 
     (pt_BR is used as example here)
     vi $modname.po
@@ -115,14 +104,12 @@ There are sample translations for both Spanish and Portuguese in this package,
 already compiled.
 
 
-Cookie Secret
--------------
+### Cookie Secret
 
 The current cookie secret key in ``$modname.conf`` was generated during the
 creation of this package. However, if you need a new one, you may run the
 ``scripts/cookie_secret.py`` script to generate a random key.
 
-Credits
-=======
+## Credits
 
-- `cyclone <http://github.com/fiorix/cyclone>`_ web server.
+- [cyclone](http://github.com/fiorix/cyclone) web server.
