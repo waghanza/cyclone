@@ -1,18 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2012 Alexandre Fiori
-#
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License.
+$license
 
 import cyclone.escape
 import cyclone.locale
@@ -25,9 +13,31 @@ from $modname.utils import BaseHandler
 from $modname.utils import DatabaseMixin
 
 
+class TemplateFields(dict):
+    """Helper class to make sure our
+        template doesn't fail due to an invalid key"""
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            return None
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
 class IndexHandler(BaseHandler):
     def get(self):
-        self.render("index.html")
+        self.render("index.html", hello='world', awesome='bacon')
+        # another option would be
+        # fields = {'hello': 'world', 'awesome': 'bacon'}
+        # self.render('index.html', **fields)
+
+    def post(self):
+        tpl_fields = TemplateFields()
+        tpl_fields['post'] = True
+        tpl_fields['ip'] = self.request.remote_ip
+        self.render("post.html", fields=tpl_fields)
 
 
 class LangHandler(BaseHandler):

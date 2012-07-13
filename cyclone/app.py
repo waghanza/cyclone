@@ -15,6 +15,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from __future__ import with_statement
 import base64
 import getopt
 import os
@@ -23,6 +24,22 @@ import string
 import sys
 import uuid
 import zipfile
+
+DEFAULT_LICENSE = """# Copyright 2010 Alexandre Fiori
+# based on the original Tornado by Facebook
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+"""
 
 
 def new_project(**kwargs):
@@ -37,12 +54,14 @@ def new_project(**kwargs):
         else:
             ext = n.rsplit(".", 1)[-1]
             fd = open(os.path.join(dst, mod), "w", 0644)
-            if ext in ("conf", "html", "py", "rst", "sh"):
+            if ext in ("conf", "html", "py", "md", "sh"):
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
             else:
                 fd.write(zf.read(n))
             fd.close()
 
+    # make sure we can actually run start.sh
+    os.chmod(os.path.join(dst, 'start.sh'), 0755)
     if kwargs["use_git"] is True:
         os.chdir(kwargs["project_path"])
         os.system("git init")
@@ -60,6 +79,7 @@ Options:
  -v --version=VERSION   Set project version [default: %s]
  -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
+ -l --license=FILE      Append the following license file [default: Apache 2]
     """ % (version, target))
     sys.exit(0)
 
@@ -69,12 +89,13 @@ def main():
     modname = None
     use_git = False
     set_pkg_version = False
+    license_file = None
     default_version, version = "0.1", None
     default_target, target = os.getcwd(), None
 
-    shortopts = "hgsp:m:v:t:"
+    shortopts = "hgsp:m:v:t:l:"
     longopts = ["help", "git", "set-pkg-version",
-                 "project=", "modname=", "version=", "target="]
+                 "project=", "modname=", "version=", "target=", "license="]
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
     except getopt.GetoptError:
@@ -101,6 +122,15 @@ def main():
 
         elif o in ("-t", "--target"):
             target = a
+
+        elif o in ("-l", "--license"):
+            license_file = a
+
+    if license_file is None:
+        license = DEFAULT_LICENSE
+    else:
+        with open(license_file) as f:
+            license = f.read()
 
     if project is None:
         usage(default_version, default_target)
@@ -161,7 +191,15 @@ def main():
         project_name = "%s-%s" % (project, version)
     else:
         project_name = project
+
     project_path = os.path.join(target, project_name)
+    if os.path.exists(project_path):
+        print("Directory '%s' already exists. Either remove it, or set a "
+              "different project name. "
+              "e.g.: python -m cyclone.app -p %sz" % (project_path,
+                                                      project_name))
+        sys.exit(1)
+
     new_project(skel=skel,
                 name=name,
                 email=email,
@@ -172,6 +210,7 @@ def main():
                 version=version,
                 target=target,
                 use_git=use_git,
+                license=license,
                 cookie_secret=base64.b64encode(uuid.uuid4().bytes +
                                                uuid.uuid4().bytes))
 

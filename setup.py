@@ -17,23 +17,27 @@
 
 import sys
 
-# PyPy and setuptools don't get along too well, yet.
-if sys.subversion[0].lower().startswith('pypy'):
-    from distutils.core import setup
-else:
-    from setuptools import setup
+requires = ["twisted", "pyopenssl"]
 
 from distutils import log
 from distutils.sysconfig import get_python_lib
 import os.path
 
+# PyPy and setuptools don't get along too well, yet.
+if sys.subversion[0].lower().startswith('pypy'):
+    from distutils.core import setup
+    extra = dict(requires=requires)
+else:
+    from setuptools import setup
+    extra = dict(install_requires=requires)
+
+
 TWISTED_PLUGIN_PATH = os.path.join(get_python_lib(), 'twisted', 'plugins')
 
 setup(
     name="cyclone",
-    version="1.0-rc8",
+    version="1.0-rc9",
     packages=["cyclone"],
-    requires=["pyopenssl", "twisted"],
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
@@ -42,7 +46,8 @@ setup(
                 "A facebook's Tornado on top of Twisted.",
     keywords="python non-blocking web server twisted facebook tornado",
     package_data={"cyclone": ["appskel.zip"]},
-    data_files=[(TWISTED_PLUGIN_PATH, ["twisted/plugins/cyclone_plugin.py"])]
+    data_files=[(TWISTED_PLUGIN_PATH, ["twisted/plugins/cyclone_plugin.py"])],
+    **extra
 )
 
 try:
