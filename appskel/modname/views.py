@@ -37,6 +37,10 @@ class IndexHandler(BaseHandler):
         tpl_fields = TemplateFields()
         tpl_fields['post'] = True
         tpl_fields['ip'] = self.request.remote_ip
+        # you can also fetch your own config variables defined in
+        # $modname.conf using
+        # self.settings.raw.get('section', 'parameter')
+        tpl_fields['mysql_host'] = self.settings.raw.get('mysql', 'host')
         self.render("post.html", fields=tpl_fields)
 
 
