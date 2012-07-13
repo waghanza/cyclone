@@ -29,8 +29,7 @@ import re
 import types
 import warnings
 import zlib
-
-from itertools import imap
+import string
 
 from twisted.internet import defer
 from twisted.internet import protocol
@@ -82,6 +81,9 @@ def list_or_args(command, keys, args):
         keys.extend(args)
     return keys
 
+# Possible first characters in a string containing an integer or a float.
+_NUM_FIRST_CHARS = frozenset(string.digits + '+-.')
+
 
 class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
     """
@@ -99,7 +101,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         self.errors = errors
 
         self.bulk_length = 0
-        self.bulk_buffer = ""
+        self.bulk_buffer = []
         self.multi_bulk_length = 0
         self.multi_bulk_reply = []
         self.replyQueueLength = 0
@@ -152,17 +154,38 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         token = line[0]  # first byte indicates reply type
         data = line[1:]
         if token == self.ERROR:
-            self.errorReceived(data)
+            reply = ResponseError(data[4:] if data[:4] == "ERR" else data)
+
+            if self.multi_bulk_length:
+                self.handleMultiBulkElement(reply)
+            else:
+                self.replyReceived(reply)
         elif token == self.STATUS:
-            self.statusReceived(data)
-        elif token == self.INTEGER:
-            self.integerReceived(data)
+            if data == "QUEUED":
+                self.transactions += 1
+                self.replyReceived(data)
+            else:
+                if self.multi_bulk_length:
+                    self.handleMultiBulkElement(data)
+                else:
+                    self.replyReceived(data)
+        elif token == self.INTEGER:  # For handling integer replies.
+            try:
+                reply = int(data)
+            except ValueError:
+                reply = InvalidResponse(
+                    "Cannot convert data '%s' to integer" % data)
+
+            if self.multi_bulk_length:
+                self.handleMultiBulkElement(reply)
+            else:
+                self.replyReceived(reply)
         elif token == self.BULK:
             try:
                 self.bulk_length = long(data)
             except ValueError:
                 self.replyReceived(InvalidResponse(
-                 "Cannot convert data '%s' to integer" % data))
+                    "Cannot convert data '%s' to integer" % data))
                 return
             if self.bulk_length == -1:
                 self.bulkDataReceived(None)
@@ -175,8 +198,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
                 self.multi_bulk_length = long(data)
             except (TypeError, ValueError):
                 self.replyReceived(InvalidResponse(
-                 "Cannot convert multi-response header '%s' to integer" % \
-                 data))
+                    "Cannot convert multi-response header '%s' to integer" %
+                    data))
                 self.multi_bulk_length = 0
                 return
             if self.multi_bulk_length == -1:
@@ -196,10 +219,10 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         else:
             rest = ""
 
-        self.bulk_buffer += data
+        self.bulk_buffer.append(data)
         if self.bulk_length == 0:
-            bulk_buffer = self.bulk_buffer[:-2]
-            self.bulk_buffer = ""
+            bulk_buffer = ''.join(self.bulk_buffer)[:-2]
+            self.bulk_buffer = []
             self.bulkDataReceived(bulk_buffer)
             while self.multi_bulk_length > 0 and rest:
                 if rest[0] == self.BULK:
@@ -221,62 +244,19 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
                 break
             self.setLineMode(extra=rest)
 
-    def errorReceived(self, data):
-        """
-        Error from server.
-        """
-        reply = ResponseError(data[4:] if data[:4] == "ERR " else data)
-
-        if self.multi_bulk_length:
-            self.handleMultiBulkElement(reply)
-        else:
-            self.replyReceived(reply)
-
-    def statusReceived(self, data):
-        """
-        Single line status should always be a string.
-        """
-        #if data == "none":
-        #    reply = None # should this happen here in the client?
-        #else:
-        #    reply = data
-
-        reply = data
-        if reply == "QUEUED":
-            self.transactions += 1
-            self.replyReceived(reply)
-            return
-
-        if self.multi_bulk_length:
-            self.handleMultiBulkElement(reply)
-        else:
-            self.replyReceived(reply)
-
-    def integerReceived(self, data):
-        """
-        For handling integer replies.
-        """
-        try:
-            reply = int(data)
-        except ValueError:
-            reply = InvalidResponse(
-            "Cannot convert data '%s' to integer" % data)
-
-        if self.multi_bulk_length:
-            self.handleMultiBulkElement(reply)
-        else:
-            self.replyReceived(reply)
-
     def bulkDataReceived(self, data):
         """
         Receipt of a bulk data element.
         """
-        if data is None:
-            element = data
-        else:
-            try:
-                element = int(data) if data.find('.') == -1 else float(data)
-            except (ValueError):
+        element = None
+        if data is not None:
+            if data and data[0] in _NUM_FIRST_CHARS:  # Most likely a number
+                try:
+                    element = int(data) if data.find('.') == -1 else \
+                        float(data)
+                except ValueError:
+                    pass
+            if element is None:
                 try:
                     element = data.decode(self.charset)
                 except UnicodeDecodeError:
@@ -314,33 +294,39 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         self.replyQueueLength += 1
         self.replyQueue.put(reply)
 
-    def get_response(self):
-        """return deferred which will fire with response from server.
-        """
-        self.replyQueueLength -= 1
-        return self.replyQueue.get()
-
-    def encode(self, s):
-        if isinstance(s, str):
-            return s
-        if isinstance(s, unicode):
-            try:
-                return s.encode(self.charset, self.errors)
-            except UnicodeEncodeError, e:
-                raise InvalidData(
-                "Error encoding unicode value '%s': %s" % (repr(s), e))
-        if isinstance(s, float):
-            return format(s, "f")
-        return str(s)
+    @staticmethod
+    def handle_reply(r):
+        if isinstance(r, Exception):
+            raise r
+        return r
 
     def execute_command(self, *args):
         if self.connected == 0:
             raise ConnectionError("Not connected")
         else:
-            cmds = ["$%s\r\n%s\r\n" % (len(enc_value), enc_value)
-                for enc_value in imap(self.encode, args)]
+            cmds = []
+            cmd_template = "$%s\r\n%s\r\n"
+            for s in args:
+                if isinstance(s, str):
+                    cmd = s
+                elif isinstance(s, unicode):
+                    try:
+                        cmd = s.encode(self.charset, self.errors)
+                    except UnicodeEncodeError, e:
+                        raise InvalidData(
+                            "Error encoding unicode value '%s': %s" %
+                            (repr(s), e))
+                elif isinstance(s, float):
+                    try:
+                        cmd = format(s, "f")
+                    except NameError:
+                        cmd = "%0.6f" % s
+                else:
+                    cmd = str(s)
+                cmds.append(cmd_template % (len(cmd), cmd))
             self.transport.write("*%s\r\n%s" % (len(cmds), "".join(cmds)))
-            return self.get_response()
+            self.replyQueueLength -= 1
+            return self.replyQueue.get().addCallback(self.handle_reply)
 
     ##
     # REDIS COMMANDS
@@ -671,6 +657,13 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         keys.append(timeout)
         return self.execute_command("BRPOP", *keys)
 
+    def brpoplpush(self, source, destination):
+        """
+        Pop a value from a list, push it to another list and return
+        it; or block until one is available.
+        """
+        return self.execute_command("BRPOPLPUSH", source, destination)
+
     def rpoplpush(self, srckey, dstkey):
         """
         Return and remove (atomically) the last element of the source
@@ -710,7 +703,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         Move the specified member from one Set to another atomically
         """
         return self.execute_command(
-                "SMOVE", srckey, dstkey, member).addCallback(bool)
+            "SMOVE", srckey, dstkey, member).addCallback(bool)
 
     def scard(self, key):
         """
@@ -730,7 +723,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         keys = list_or_args("sinter", keys, args)
         return self.execute_command("SINTER", *keys).addCallback(
-                self._make_set)
+            self._make_set)
 
     def sinterstore(self, dstkey, keys, *args):
         """
@@ -746,7 +739,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         keys = list_or_args("sunion", keys, args)
         return self.execute_command("SUNION", *keys).addCallback(
-                self._make_set)
+            self._make_set)
 
     def sunionstore(self, dstkey, keys, *args):
         """
@@ -763,7 +756,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         keys = list_or_args("sdiff", keys, args)
         return self.execute_command("SDIFF", *keys).addCallback(
-                self._make_set)
+            self._make_set)
 
     def sdiffstore(self, dstkey, keys, *args):
         """
@@ -778,7 +771,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         Return all the members of the Set value at key
         """
         return self.execute_command("SMEMBERS", key).addCallback(
-                self._make_set)
+            self._make_set)
 
     def srandmember(self, key):
         """
@@ -872,9 +865,8 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self._zrange(key, start, end, withscores, True)
 
-    def _zrangebyscore(self, key, min, max, withscores, offset,
-            count, reverse):
-        if reverse:
+    def _zrangebyscore(self, key, min, max, withscores, offset, count, rev):
+        if rev:
             cmd = "ZREVRANGEBYSCORE"
         else:
             cmd = "ZRANGEBYSCORE"
@@ -893,22 +885,22 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         return r
 
     def zrangebyscore(self, key, min='-inf', max='+inf', withscores=False,
-            offset=None, count=None):
+                      offset=None, count=None):
         """
         Return all the elements with score >= min and score <= max
         (a range query) from the sorted set
         """
         return self._zrangebyscore(key, min, max, withscores, offset,
-                count, False)
+                                   count, False)
 
     def zrevrangebyscore(self, key, max='+inf', min='-inf', withscores=False,
-            offset=None, count=None):
+                         offset=None, count=None):
         """
         ZRANGEBYSCORE in reverse order
         """
         # ZREVRANGEBYSCORE takes max before min
         return self._zrangebyscore(key, max, min, withscores, offset,
-                count, True)
+                                   count, True)
 
     def zcount(self, key, min='-inf', max='+inf'):
         """
@@ -1045,11 +1037,15 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("HEXISTS", key, field)
 
-    def hdel(self, key, field):
+    def hdel(self, key, fields):
         """
-        Remove the specified field from a hash
+        Remove the specified field or fields from a hash
         """
-        return self.execute_command("HDEL", key, field)
+        if isinstance(fields, (str, unicode)):
+            fields = [fields]
+        else:
+            fields = list(fields)
+        return self.execute_command("HDEL", key, *fields)
 
     def hlen(self, key):
         """
@@ -1079,9 +1075,9 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
 
     # Sorting
     def sort(self, key, start=None, end=None, by=None, get=None,
-            desc=None, alpha=False, store=None):
+             desc=None, alpha=False, store=None):
         if (start is not None and end is not None) or \
-            (end is not None and start is None):
+           (end is not None and start is None):
             raise RedisError("``start`` and ``end`` must both be specified")
 
         pieces = [key]
@@ -1116,7 +1112,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
                 keys = [keys]
             d = defer.Deferred()
             self.execute_command("WATCH", *keys).addCallback(
-                    self._watch_added, d)
+                self._watch_added, d)
         else:
             d = self.execute_command("MULTI").addCallback(self._multi_started)
         self.inTransaction = True
@@ -1126,7 +1122,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         if response != 'OK':
             d.errback(RedisError('Invalid WATCH response: %s' % response))
         self.execute_command("MULTI").addCallback(
-                self._multi_started).chainDeferred(d)
+            self._multi_started).chainDeferred(d)
 
     def _multi_started(self, response):
         if response != 'OK':
@@ -1145,7 +1141,7 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         if self.inTransaction is False:
             raise RedisError("Not in transaction")
         return self.execute_command("EXEC").addCallback(
-                self._commit_check)
+            self._commit_check)
 
     def discard(self):
         if self.inTransaction is False:
@@ -1437,7 +1433,7 @@ class ShardedConnectionHandler(object):
             assert isinstance(key, (str, unicode))
         except:
             raise ValueError(
-                  "Method '%s' requires a key as the first argument" % method)
+                "Method '%s' requires a key as the first argument" % method)
 
         m = _findhash.match(key)
         if m is not None and len(m.groups()) >= 1:
@@ -1486,7 +1482,7 @@ class ShardedConnectionHandler(object):
             except:
                 pass
             else:
-                nodes.append("%s:%s/%d" % \
+                nodes.append("%s:%s/%d" %
                              (cli.host, cli.port, conn._factory.size))
         return "<Redis Sharded Connection: %s>" % ", ".join(nodes)
 
@@ -1500,7 +1496,7 @@ class ShardedUnixConnectionHandler(ShardedConnectionHandler):
             except:
                 pass
             else:
-                nodes.append("%s/%d" % \
+                nodes.append("%s/%d" %
                              (cli.name, conn._factory.size))
         return "<Redis Sharded Connection: %s>" % ", ".join(nodes)
 
@@ -1512,11 +1508,11 @@ class RedisFactory(protocol.ReconnectingClientFactory):
     def __init__(self, dbid, poolsize, isLazy=False,
                  handler=ConnectionHandler):
         if not isinstance(poolsize, int):
-            raise ValueError("Redis poolsize must be an integer, not %s" % \
+            raise ValueError("Redis poolsize must be an integer, not %s" %
                              repr(poolsize))
 
         if not isinstance(dbid, (int, types.NoneType)):
-            raise ValueError("Redis dbid must be an integer, not %s" % \
+            raise ValueError("Redis dbid must be an integer, not %s" %
                              repr(dbid))
 
         self.dbid = dbid
@@ -1712,5 +1708,5 @@ __all__ = [
     ShardedUnixConnectionPool, lazyShardedUnixConnectionPool,
 ]
 
-__version__ = version = "0.4"
 __author__ = "Alexandre Fiori"
+__version__ = version = "0.5"
