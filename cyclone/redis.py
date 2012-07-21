@@ -385,10 +385,11 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("EXISTS", key)
 
-    def delete(self, *keys):
+    def delete(self, keys, *args):
         """
         Delete one or more keys
         """
+        keys = list_or_args("delete", keys, args)
         return self.execute_command("DEL", *keys)
 
     def type(self, key):
@@ -1223,8 +1224,29 @@ class RedisProtocol(basic.LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("INFO")
 
-    # monitor and slaveof should are missing
+    # slaveof is missing
 
+class MonitorProtocol(RedisProtocol):
+    """
+    monitor command has the same behavior as subscribe: takes the whole connection.
+    take care with the performance impact:
+    http://redis.io/commands/monitor
+    """
+
+    def connectionLost(self, why):
+        pass
+
+    def messageReceived(self, message):
+        pass
+
+    def replyReceived(self, reply):
+        self.messageReceived(reply)
+
+    def monitor(self):
+        return self.execute_command("MONITOR")
+
+    def stop(self):
+        self.transport.loseConnection()
 
 class SubscriberProtocol(RedisProtocol):
     def connectionLost(self, why):
@@ -1266,6 +1288,10 @@ class SubscriberFactory(protocol.ReconnectingClientFactory):
     continueTrying = True
     protocol = SubscriberProtocol
 
+class MonitorFactory(protocol.ReconnectingClientFactory):
+    maxDelay = 120
+    continueTrying = True
+    protocol = MonitorProtocol
 
 class ConnectionHandler(object):
     def __init__(self, factory):
