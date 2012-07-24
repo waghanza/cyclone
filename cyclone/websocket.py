@@ -247,7 +247,8 @@ class WebSocketProtocol17(WebSocketProtocol):
             return str(payload)
 
     def sendMessage(self, message, code=0x81):
-        message = unicode(message, "utf-8")
+        if isinstance(message, unicode):
+            message = message.encode('utf8')
         length = len(message)
         newFrame = []
         newFrame.append(code)
@@ -261,7 +262,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             newFrame.append(127)
             newFrame += struct.pack('!Q', length)
 
-        newFrame += message.encode('utf-8')
+        newFrame += message
         self.transport.write(str(newFrame))
 
 
