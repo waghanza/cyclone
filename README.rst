@@ -275,7 +275,7 @@ Here is another example, ``delayed.py``::
 
     def sleep(n):
         d = defer.Deferred()
-        reactor.callLater(5, lambda: d.callback(None))
+        reactor.callLater(n, lambda: d.callback(None))
         return d
 
 
