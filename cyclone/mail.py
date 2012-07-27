@@ -51,8 +51,7 @@ class Message(object):
         self.message = MIMEText(message, _charset=charset)
         self.message.set_type(mime)
 
-    def attach(self, filename, mime=None, charset=None, content=None,
-               attach_filename=None):
+    def attach(self, filename, mime=None, charset=None, content=None):
         base = os.path.basename(filename)
         if content is None:
             fd = open(filename)
@@ -65,10 +64,8 @@ class Message(object):
         part = MIMEBase("application", "octet-stream")
         part.set_payload(content)
         Encoders.encode_base64(part)
-        if attach_filename is None:
-            attach_filename = base
         part.add_header("Content-Disposition",
-                        'attachment; filename="%s"' % attach_filename)
+                        'attachment; filename="%s"' % base)
 
         if mime is not None:
             part.set_type(mime)
