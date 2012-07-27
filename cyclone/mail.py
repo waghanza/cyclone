@@ -48,8 +48,7 @@ class Message(object):
 
         self.msg = None
         self.__cache = None
-        self.message = MIMEText(message)
-        self.message.set_charset(charset)
+        self.message = MIMEText(message, _charset=charset)
         self.message.set_type(mime)
 
     def attach(self, filename, mime=None, charset=None, content=None):
