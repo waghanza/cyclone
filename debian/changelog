@@ -1,3 +1,10 @@
+python-cyclone (1.0-rc11) unstable; urgency=low
+
+  * Fix postinst script to install twisted plugin o python2.5 as well as
+    python2.6
+
+ -- Rodrigo Sampaio Vaz <rodrigo.vaz@gmail.com>  Tue, 21 Ago 2012 15:48:22 -0300
+
 python-cyclone (1.0-rc9) unstable; urgency=low
 
   * Version synch with git repo

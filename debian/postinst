@@ -11,7 +11,12 @@ rebuild_cache()
     for p in $(pyversions -i); do
 	$p -c 'from twisted.plugin import IPlugin, getPlugins; list(getPlugins(IPlugin))' \
 	  >/dev/null 2>&1 || true
+    if [ -d /usr/lib/${p}/dist-packages/twisted/plugins ]; then
         ln -sf /usr/share/pyshared/twisted/plugins/cyclone_plugin.py /usr/lib/${p}/dist-packages/twisted/plugins/
+    elif [ -d /usr/lib/${p}/site-packages/twisted/plugins ]; then
+        ln -sf /usr/share/pyshared/twisted/plugins/cyclone_plugin.py /usr/lib/${p}/site-packages/twisted/plugins/
+    fi
+
     done
 }
 
