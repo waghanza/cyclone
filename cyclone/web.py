@@ -1312,7 +1312,17 @@ class Application(protocol.ServerFactory):
             for spec in handlers:
                 match = spec.regex.match(request.path)
                 if match:
-                    handler = spec.handler_class(self, request, **spec.kwargs)
+                    # If we are in debug mode
+                    #
+                    if self.settings.get("debug"):
+                        try:
+                            handler = spec.handler_class(self, request, **spec.kwargs)
+                        except:
+                            traceback.print_exc()
+                            handler = ErrorHandler(self, request, status_code=500)
+                    else:
+                        handler = spec.handler_class(self, request, **spec.kwargs)
+
                     if spec.regex.groups:
                         # None-safe wrapper around url_unescape to handle
                         # unmatched optional groups correctly
