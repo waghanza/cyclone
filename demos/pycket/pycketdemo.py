@@ -44,11 +44,11 @@ class Application(cyclone.web.Application):
         settings['pycket'] = {
             'engine': 'redis',
             'storage': {
-                'host' : 'localhost',
-                'port' : 6379,
-                'db_sessions' : 10,
-                'db_notifications' : 11,
-                }
+                'host': 'localhost',
+                'port': 6379,
+                'db_sessions': 10,
+                'db_notifications': 11
+            }
         }
 
         cyclone.web.Application.__init__(self, handlers, **settings)
@@ -73,13 +73,17 @@ class MainHandler(BaseHandler):
 class AuthHandler(BaseHandler, SessionMixin):
 
     def get(self):
-        self.write('<form method="post">Enter your username: <input name="username" type="text"><button type="submit" class="btn">Login</button></form>')
-
+        self.write('<form method="post">'
+                   'Enter your username: <input name="username" type="text">'
+                   '<button type="submit" class="btn">Login</button></form>')
 
     def post(self):
         username = self.get_argument('username')
         if not username:
-            self.write('<form method="post">Enter your username: <input name="username" type="text"><button type="submit" class="btn">Login</button></form>')
+            self.write('<form method="post">Enter your username: '
+                       '<input name="username" type="text">'
+                       '<button type="submit" class="btn">Login</button>'
+                       '</form>')
         else:
             self.session.set('user', username)
             self.redirect('/')
