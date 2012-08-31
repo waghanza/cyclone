@@ -71,9 +71,14 @@ class HTTPClient(object):
         self.url = url
         self.followRedirect = self._kwargs.get("followRedirect", 0)
         self.maxRedirects = self._kwargs.get("maxRedirects", 3)
-        self.headers = self._kwargs.get("headers")
+        self.headers = self._kwargs.get("headers", {})
         self.body = self._kwargs.get("postdata")
         self.method = self._kwargs.get("method", self.body and "POST" or "GET")
+        if self.method.upper() == "POST" and \
+                                  "Content-Type" not in self.headers:
+            self.headers["Content-Type"] = \
+                        ["application/x-www-form-urlencoded"]
+
         self.response = None
         if self.body:
             self.body_producer = StringProducer(self.body)
