@@ -10,6 +10,19 @@ import cyclone.web
 from twisted.enterprise import adbapi
 
 
+class TemplateFields(dict):
+    """Helper class to make sure our
+        template doesn't fail due to an invalid key"""
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            return None
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
 class BaseHandler(cyclone.web.RequestHandler):
     #def get_current_user(self):
     #    user_json = self.get_secure_cookie("user")

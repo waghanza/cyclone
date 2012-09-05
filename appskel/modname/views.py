@@ -11,19 +11,7 @@ from twisted.python import log
 
 from $modname.utils import BaseHandler
 from $modname.utils import DatabaseMixin
-
-
-class TemplateFields(dict):
-    """Helper class to make sure our
-        template doesn't fail due to an invalid key"""
-    def __getattr__(self, name):
-        try:
-            return self[name]
-        except KeyError:
-            return None
-
-    def __setattr__(self, name, value):
-        self[name] = value
+from $modname.utils import TemplateFields
 
 
 class IndexHandler(BaseHandler):
