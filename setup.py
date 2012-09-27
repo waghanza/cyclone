@@ -33,7 +33,7 @@ else:
 
 setup(
     name="cyclone",
-    version="1.0-rc12",
+    version="1.0-rc13",
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",

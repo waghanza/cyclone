@@ -1,6 +1,6 @@
-# coding: utf-8
+#!/usr/bin/env python
 #
-# Copyright 2010 Alexandre Fiori
+# Copyright 2012 Alexandre Fiori
 # based on the original Tornado by Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -102,6 +102,11 @@ with ``{# ... #}``.
 
         {% apply linkify %}{{name}} said: {{message}}{% end %}
 
+    Note that as an implementation detail apply blocks are implemented
+    as nested functions and thus may interact strangely with variables
+    set via ``{% set %}``, or the use of ``{% break %}`` or ``{% continue %}``
+    within loops.
+
 ``{% autoescape *function* %}``
     Sets the autoescape mode for the current file.  This does not affect
     other files, even those referenced by ``{% include %}``.  Note that
@@ -135,7 +140,8 @@ with ``{# ... #}``.
     tag will be ignored.  For an example, see the ``{% block %}`` tag.
 
 ``{% for *var* in *expr* %}...{% end %}``
-    Same as the python ``for`` statement.
+    Same as the python ``for`` statement.  ``{% break %}`` and
+    ``{% continue %}`` may be used inside the loop.
 
 ``{% from *x* import *y* %}``
     Same as the python ``import`` statement.
@@ -170,7 +176,8 @@ with ``{# ... #}``.
     Same as the python ``try`` statement.
 
 ``{% while *condition* %}... {% end %}``
-    Same as the python ``while`` statement.
+    Same as the python ``while`` statement.  ``{% break %}`` and
+    ``{% continue %}`` may be used inside the loop.
 """
 
 from __future__ import absolute_import, division, with_statement
@@ -183,10 +190,9 @@ import posixpath
 import re
 import threading
 
-from twisted.python import log
-
 from cyclone import escape
 from cyclone.util import bytes_type, ObjectDict
+from twisted.python import log
 
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
@@ -220,12 +226,11 @@ class Template(object):
             # the module name used in __name__ below.
             self.compiled = compile(
                 escape.to_unicode(self.code),
-                "%s.generated.py" % self.name.replace('.', '_'), "exec")
+                "%s.generated.py" % self.name.replace('.', '_'),
+                "exec")
         except Exception:
             formatted_code = _format_code(self.code).rstrip()
-            log.msg("%s code:" % self.name)
-            for line in formatted_code.split("\n"):
-                log.msg(line)
+            log.err("%s code:\n%s", self.name, formatted_code)
             raise
 
     def generate(self, **kwargs):
@@ -253,14 +258,7 @@ class Template(object):
         # we've generated a new template (mainly for this module's
         # unittests, where different tests reuse the same name).
         linecache.clearcache()
-        try:
-            return execute()
-        except Exception:
-            formatted_code = _format_code(self.code).rstrip()
-            log.msg("%s code:" % self.name)
-            for line in formatted_code.split("\n"):
-                log.msg(line)
-            raise
+        return execute()
 
     def _generate_python(self, loader, compress_whitespace):
         buffer = cStringIO.StringIO()
@@ -358,7 +356,7 @@ class Loader(BaseLoader):
 
     def _create_template(self, name):
         path = os.path.join(self.root, name)
-        f = open(path, "r")
+        f = open(path, "rb")
         template = Template(f.read(), name=name, loader=self)
         f.close()
         return template
@@ -500,6 +498,8 @@ class _ControlBlock(_Node):
         writer.write_line("%s:" % self.statement, self.line)
         with writer.indent():
             self.body.generate(writer)
+            # Just in case the body was empty
+            writer.write_line("pass", self.line)
 
 
 class _IntermediateControlBlock(_Node):
@@ -508,6 +508,8 @@ class _IntermediateControlBlock(_Node):
         self.line = line
 
     def generate(self, writer):
+        # In case the previous block was empty
+        writer.write_line("pass", self.line)
         writer.write_line("%s:" % self.statement, self.line,
                           writer.indent_size() - 1)
 
@@ -611,7 +613,7 @@ class _CodeWriter(object):
         return IncludeTemplate()
 
     def write_line(self, line, line_number, indent=None):
-        if indent == None:
+        if indent is None:
             indent = self._indent
         line_comment = '  # %s:%d' % (self.current_template.name, line_number)
         if self.include_stack:
@@ -683,7 +685,7 @@ def _format_code(code):
     return "".join([format % (i + 1, line) for (i, line) in enumerate(lines)])
 
 
-def _parse(reader, template, in_block=None):
+def _parse(reader, template, in_block=None, in_loop=None):
     body = _ChunkList([])
     while True:
         # Find next template directive
@@ -775,7 +777,7 @@ def _parse(reader, template, in_block=None):
                 raise ParseError("%s outside %s block" %
                             (operator, allowed_parents))
             if in_block not in allowed_parents:
-                raise ParseError("%s block cannot be attached to %s block" % \
+                raise ParseError("%s block cannot be attached to %s block" %
                                  (operator, in_block))
             body.chunks.append(_IntermediateControlBlock(contents, line))
             continue
@@ -793,18 +795,18 @@ def _parse(reader, template, in_block=None):
             if operator == "extends":
                 suffix = suffix.strip('"').strip("'")
                 if not suffix:
-                    raise ParseError("extends missing file path on line %d" % \
+                    raise ParseError("extends missing file path on line %d" %
                                      line)
                 block = _ExtendsBlock(suffix)
             elif operator in ("import", "from"):
                 if not suffix:
-                    raise ParseError("import missing statement on line %d" % \
+                    raise ParseError("import missing statement on line %d" %
                                      line)
                 block = _Statement(contents, line)
             elif operator == "include":
                 suffix = suffix.strip('"').strip("'")
                 if not suffix:
-                    raise ParseError("include missing file path on line %d" % \
+                    raise ParseError("include missing file path on line %d" %
                                      line)
                 block = _IncludeBlock(suffix, reader, line)
             elif operator == "set":
@@ -826,10 +828,18 @@ def _parse(reader, template, in_block=None):
 
         elif operator in ("apply", "block", "try", "if", "for", "while"):
             # parse inner body recursively
-            block_body = _parse(reader, template, operator)
+            if operator in ("for", "while"):
+                block_body = _parse(reader, template, operator, operator)
+            elif operator == "apply":
+                # apply creates a nested function so syntactically it's not
+                # in the loop.
+                block_body = _parse(reader, template, operator, None)
+            else:
+                block_body = _parse(reader, template, operator, in_loop)
+
             if operator == "apply":
                 if not suffix:
-                    raise ParseError("apply missing method name on line %d" % \
+                    raise ParseError("apply missing method name on line %d" %
                                      line)
                 block = _ApplyBlock(suffix, line, block_body)
             elif operator == "block":
@@ -839,6 +849,13 @@ def _parse(reader, template, in_block=None):
             else:
                 block = _ControlBlock(contents, line, block_body)
             body.chunks.append(block)
+            continue
+
+        elif operator in ("break", "continue"):
+            if not in_loop:
+                raise ParseError("%s outside %s block" % (operator,
+                                 set(["for", "while"])))
+            body.chunks.append(_Statement(contents, line))
             continue
 
         else:
