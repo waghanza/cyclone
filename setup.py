@@ -16,11 +16,29 @@
 # under the License.
 
 import sys
-
-requires = ["twisted", "pyopenssl"]
-
+import platform
 from distutils import log
 from distutils.core import setup
+from distutils.version import StrictVersion
+
+
+requires = ["twisted"] 
+
+
+pyopenssl = "pyopenssl"
+# avoiding installation problems on old RedHat distributions (ex. CentOS 5)
+# http://stackoverflow.com/questions/7340784/easy-install-pyopenssl-error
+py_version = platform.python_version()
+if StrictVersion(py_version) < StrictVersion('2.6'):
+    distname, version, _id = platform.dist()
+else:
+    distname, version, _id = platform.linux_distribution()
+is_redhat = distname in ["CentOS", "redhat"]
+if is_redhat and version and StrictVersion(version) < StrictVersion('6.0'):
+    pyopenssl = "pyopenssl==0.12"
+
+requires.append(pyopenssl)
+
 
 # PyPy and setuptools don't get along too well, yet.
 if sys.subversion[0].lower().startswith('pypy'):
