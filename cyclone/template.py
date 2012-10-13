@@ -229,8 +229,9 @@ class Template(object):
                 "%s.generated.py" % self.name.replace('.', '_'),
                 "exec")
         except Exception:
-            formatted_code = _format_code(self.code).rstrip()
-            log.err("%s code:\n%s" % (self.name, formatted_code))
+            log.err("%s code:" % self.name)
+            for line in _format_code(self.code).rstrip().split("\n"):
+                log.err(line)
             raise
 
     def generate(self, **kwargs):
