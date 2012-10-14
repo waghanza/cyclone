@@ -452,7 +452,7 @@ class _LogFormatter(logging.Formatter):
         # but don't do it by default so we don't add extra quotes to ascii
         # bytestrings.  This is a bit of a hacky place to do this, but
         # it's worth it since the encoding errors that would otherwise
-        # result are so useless (and tornado is fond of using utf8-encoded
+        # result are so useless (and cyclone is fond of using utf8-encoded
         # byte strings whereever possible).
         try:
             message = _unicode(record.message)
