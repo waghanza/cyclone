@@ -81,7 +81,7 @@ to all templates by default.
 
 Typical applications do not create `Template` or `Loader` instances by
 hand, but instead use the `render` and `render_string` methods of
-`tornado.web.RequestHandler`, which load templates automatically based
+`cyclone.web.RequestHandler`, which load templates automatically based
 on the ``template_path`` `Application` setting.
 
 Syntax Reference
@@ -161,7 +161,7 @@ with ``{# ... #}``.
     to include another template with an isolated namespace.
 
 ``{% module *expr* %}``
-    Renders a `~tornado.web.UIModule`.  The output of the ``UIModule`` is
+    Renders a `~cyclone.web.UIModule`.  The output of the ``UIModule`` is
     not escaped::
 
         {% module Template("foo.html", arg=42) %}

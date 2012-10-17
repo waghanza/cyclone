@@ -177,7 +177,7 @@ class RequestHandler(object):
 
     def clear(self):
         """Resets all headers and content for this response."""
-        # The performance cost of tornado.httputil.HTTPHeaders is significant
+        # The performance cost of cyclone.httputil.HTTPHeaders is significant
         # (slowing down a benchmark with a trivial handler by more than 10%),
         # and its case-normalization is not generally necessary for
         # headers we generate on the server side, so use a plain dict
@@ -933,7 +933,7 @@ class RequestHandler(object):
         """Computes the etag header to be used for this request.
 
         May be overridden to provide custom etag implementations,
-        or may return None to disable tornado's default etag support.
+        or may return None to disable cyclone's default etag support.
         """
         hasher = hashlib.sha1()
         for part in self._write_buffer:
@@ -1615,12 +1615,12 @@ class FallbackHandler(RequestHandler):
     """A RequestHandler that wraps another HTTP server callback.
 
     The fallback is a callable object that accepts an HTTPRequest,
-    such as an Application or tornado.wsgi.WSGIContainer.  This is most
-    useful to use both tornado RequestHandlers and WSGI in the same server.
+    such as an Application or cyclone.wsgi.WSGIContainer.  This is most
+    useful to use both cyclone RequestHandlers and WSGI in the same server.
     Typical usage:
-        wsgi_app = tornado.wsgi.WSGIContainer(
+        wsgi_app = cyclone.wsgi.WSGIContainer(
             django.core.handlers.wsgi.WSGIHandler())
-        application = tornado.web.Application([
+        application = cyclone.web.Application([
             (r"/foo", FooHandler),
             (r".*", FallbackHandler, dict(fallback=wsgi_app),
         ])

@@ -240,8 +240,8 @@ def linkify(text, shorten=False, extra_params="",
             require_protocol=False, permitted_protocols=["http", "https"]):
     """Converts plain text into HTML with links.
 
-    For example: ``linkify("Hello http://tornadoweb.org!")`` would return
-    ``Hello <a href="http://tornadoweb.org">http://tornadoweb.org</a>!``
+    For example: ``linkify("Hello http://cyclone.io!")`` would return
+    ``Hello <a href="http://cyclone.io">http://cyclone.io</a>!``
 
     Parameters:
 
