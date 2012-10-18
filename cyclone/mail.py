@@ -58,7 +58,7 @@ class Message(object):
             content = fd.read()
             fd.close()
         elif not isinstance(content, types.StringType):
-            raise TypeError("Don't know how to attach content: %s" % \
+            raise TypeError("Don't know how to attach content: %s" %
                             repr(content))
 
         part = MIMEBase("application", "octet-stream")
@@ -130,13 +130,16 @@ def sendmail(mailconf, message):
         raise ValueError("mailconf requires a proper 'port' configuration")
 
     result = Deferred()
-    username, password = mailconf.get("username"), mailconf.get("password")
-    factory = ESMTPSenderFactory(
-        username, password,
-        message.from_addr, message.to_addrs, message.render(),
-        result, contextFactory=contextFactory,
-        requireAuthentication=(username and password),
-        requireTransportSecurity=use_tls)
+    u = mailconf.get("username")
+    p = mailconf.get("password")
+    factory = ESMTPSenderFactory(u, p,
+                                 message.from_addr,
+                                 message.to_addrs,
+                                 message.render(),
+                                 result,
+                                 contextFactory=contextFactory,
+                                 requireAuthentication=(u and p),
+                                 requireTransportSecurity=use_tls)
 
     reactor.connectTCP(host, port, factory)
     return result
