@@ -49,6 +49,7 @@ class GoogleHandler(cyclone.web.RequestHandler, cyclone.auth.GoogleMixin):
 from cyclone import escape
 from cyclone import httpclient
 from cyclone.util import b
+from cyclone.httputil import url_concat
 from twisted.python import log
 
 import binascii
@@ -203,6 +204,44 @@ class OpenIdMixin(object):
         if username:
             user["username"] = username
         callback(user)
+
+
+
+class OAuth2Mixin(object):
+    """Abstract implementation of OAuth v 2."""
+
+    def authorize_redirect(self, redirect_uri=None, client_id=None,
+                           client_secret=None, extra_params=None):
+        """Redirects the user to obtain OAuth authorization for this service.
+
+        Some providers require that you register a Callback
+        URL with your application. You should call this method to log the
+        user in, and then call get_authenticated_user() in the handler
+        you registered as your Callback URL to complete the authorization
+        process.
+        """
+        args = {
+          "redirect_uri": redirect_uri,
+          "client_id": client_id
+        }
+        if extra_params:
+            args.update(extra_params)
+        self.redirect(
+                url_concat(self._OAUTH_AUTHORIZE_URL, args))
+
+    def _oauth_request_token_url(self, redirect_uri=None, client_id=None,
+                                 client_secret=None, code=None,
+                                 extra_params=None):
+        url = self._OAUTH_ACCESS_TOKEN_URL
+        args = dict(
+            redirect_uri=redirect_uri,
+            code=code,
+            client_id=client_id,
+            client_secret=client_secret,
+            )
+        if extra_params:
+            args.update(extra_params)
+        return url_concat(url, args)
 
 
 class OAuthMixin(object):
@@ -857,6 +896,145 @@ class FacebookMixin(object):
         if isinstance(body, unicode):
             body = body.encode("utf-8")
         return hashlib.md5(body).hexdigest()
+
+
+class FacebookGraphMixin(OAuth2Mixin):
+    """Facebook authentication using the new Graph API and OAuth2."""
+    _OAUTH_ACCESS_TOKEN_URL = "https://graph.facebook.com/oauth/access_token?"
+    _OAUTH_AUTHORIZE_URL = "https://graph.facebook.com/oauth/authorize?"
+    _OAUTH_NO_CALLBACKS = False
+
+    def get_authenticated_user(self, redirect_uri, client_id, client_secret,
+                              code, callback, extra_fields=None):
+        """Handles the login for the Facebook user, returning a user object.
+
+        Example usage::
+
+            class FacebookGraphLoginHandler(LoginHandler, tornado.auth.FacebookGraphMixin):
+              @tornado.web.asynchronous
+              def get(self):
+                  if self.get_argument("code", False):
+                      self.get_authenticated_user(
+                        redirect_uri='/auth/facebookgraph/',
+                        client_id=self.settings["facebook_api_key"],
+                        client_secret=self.settings["facebook_secret"],
+                        code=self.get_argument("code"),
+                        callback=self.async_callback(
+                          self._on_login))
+                      return
+                  self.authorize_redirect(redirect_uri='/auth/facebookgraph/',
+                                          client_id=self.settings["facebook_api_key"],
+                                          extra_params={"scope": "read_stream,offline_access"})
+
+              def _on_login(self, user):
+                logging.error(user)
+                self.finish()
+
+        """
+        args = {
+          "redirect_uri": redirect_uri,
+          "code": code,
+          "client_id": client_id,
+          "client_secret": client_secret,
+        }
+
+        fields = set(['id', 'name', 'first_name', 'last_name',
+                      'locale', 'picture', 'link'])
+        if extra_fields:
+            fields.update(extra_fields)
+
+        httpclient.fetch(self._oauth_request_token_url(**args)).addCallback(self.async_callback(self._on_access_token, redirect_uri, client_id,
+                                client_secret, callback, fields))
+
+    def _on_access_token(self, redirect_uri, client_id, client_secret,
+                        callback, fields, response):
+        if response.error:
+            log.warning('Facebook auth error: %s' % str(response))
+            callback(None)
+            return
+
+        args = escape.parse_qs_bytes(escape.native_str(response.body))
+        session = {
+            "access_token": args["access_token"][-1],
+            "expires": args.get("expires")
+        }
+
+        self.facebook_request(
+            path="/me",
+            callback=self.async_callback(
+                self._on_get_user_info, callback, session, fields),
+            access_token=session["access_token"],
+            fields=",".join(fields)
+            )
+
+    def _on_get_user_info(self, callback, session, fields, user):
+        if user is None:
+            callback(None)
+            return
+
+        fieldmap = {}
+        for field in fields:
+            fieldmap[field] = user.get(field)
+
+        fieldmap.update({"access_token": session["access_token"], "session_expires": session.get("expires")})
+        callback(fieldmap)
+
+    def facebook_request(self, path, callback, access_token=None,
+                           post_args=None, **args):
+        """Fetches the given relative API path, e.g., "/btaylor/picture"
+
+        If the request is a POST, post_args should be provided. Query
+        string arguments should be given as keyword arguments.
+
+        An introduction to the Facebook Graph API can be found at
+        http://developers.facebook.com/docs/api
+
+        Many methods require an OAuth access token which you can obtain
+        through authorize_redirect() and get_authenticated_user(). The
+        user returned through that process includes an 'access_token'
+        attribute that can be used to make authenticated requests via
+        this method. Example usage::
+
+            class MainHandler(tornado.web.RequestHandler,
+                              tornado.auth.FacebookGraphMixin):
+                @tornado.web.authenticated
+                @tornado.web.asynchronous
+                def get(self):
+                    self.facebook_request(
+                        "/me/feed",
+                        post_args={"message": "I am posting from my Tornado application!"},
+                        access_token=self.current_user["access_token"],
+                        callback=self.async_callback(self._on_post))
+
+                def _on_post(self, new_entry):
+                    if not new_entry:
+                        # Call failed; perhaps missing permission?
+                        self.authorize_redirect()
+                        return
+                    self.finish("Posted a message!")
+
+        """
+        url = "https://graph.facebook.com" + path
+        all_args = {}
+        if access_token:
+            all_args["access_token"] = access_token
+            all_args.update(args)
+
+        if all_args:
+            url += "?" + urllib.urlencode(all_args)
+        callback = self.async_callback(self._on_facebook_request, callback)
+        if post_args is not None:
+            httpclient.fetch(url, method="POST", body=urllib.urlencode(post_args)).addCallback(callback)
+        else:
+            httpclient.fetch(url).addCallback(callback)
+
+    def _on_facebook_request(self, callback, response):
+        if response.error:
+            log.warning("Error response %s fetching %s", response.error,
+                            response.request.url)
+            callback(None)
+            return
+        callback(escape.json_decode(response.body))
 
 
 def _oauth_signature(consumer_token, method, url, parameters={}, token=None):
