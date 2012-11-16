@@ -676,3 +676,7 @@ Thanks to (in no particular order):
 - `Flavio Grossi <https://github.com/flaviogrossi>`_
 
   - Minor code fixes and websockets chat statistics example
+
+- `Gautam Jeyaraman <https://github.com/gautamjeyaraman>`_
+
+  - Minor code fixes and patches

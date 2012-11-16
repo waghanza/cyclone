@@ -65,7 +65,7 @@ class Message(object):
         part.set_payload(content)
         Encoders.encode_base64(part)
         part.add_header("Content-Disposition",
-                        'attachment; filename="%s"' % base)
+                        "attachment", filename=base)
 
         if mime is not None:
             part.set_type(mime)
