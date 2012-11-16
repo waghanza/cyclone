@@ -96,6 +96,12 @@ class Message(object):
 
         return StringIO(self.__cache)
 
+    def add_header(self, key, value, **params):
+        if self.msg is None:
+            self.msg = self.message
+
+        self.msg.add_header(key, value, **params)
+
 
 def sendmail(mailconf, message):
     """Takes a regular dictionary as mailconf, as follows:
