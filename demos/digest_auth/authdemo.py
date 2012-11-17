@@ -42,6 +42,8 @@ class Application(cyclone.web.Application):
 
 
 class MainHandler(digest.DigestAuthMixin, cyclone.web.RequestHandler):
+    # forces this handler to parse only GET / PROPFIND methods
+    SUPPORTED_METHODS = ("GET", "PROPFIND")
     def passwordz(username):
         creds = {
                 'auth_username': 'test',
@@ -53,6 +55,11 @@ class MainHandler(digest.DigestAuthMixin, cyclone.web.RequestHandler):
     @digest.digest_auth('Cyclone', passwordz)
     def get(self):
         self.write("Hello %s" % (self.current_user))
+
+    @digest.digest_auth('Cyclone', passwordz)
+    def propfind(self):
+        self.write("Hello %s" % (self.current_user))
+
 
 def main():
     log.startLogging(sys.stdout)
