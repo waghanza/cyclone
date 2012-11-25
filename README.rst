@@ -196,6 +196,8 @@ and HTML templates.
      -v --version=VERSION   Set project version [default: 0.1]
      -s --set-pkg-version   Set version on package name [default: False]
      -t --target=PATH       Set path where project is created [default: ./]
+     -l --license=FILE      Append the following license file [default: Apache 2]
+     -f --foreman           Create a foreman based project (suited to run on heroku and other PaaS)
 
 Creating new projects can be as simple as running this::
 
@@ -207,6 +209,12 @@ to use it.
 The template ships with Debian init scripts for running ``twistd`` as single,
 or multiple instances (one per CPU core) to help make deployments as simple as
 possible.
+
+If you are into PaaS (heroku for example) or just using foreman to manage your applications, create your application like this ::
+    
+    $ python -m cyclone.app -f -p foobar
+
+and check the README.rst for further instructions.
 
 
 Tips and Tricks
