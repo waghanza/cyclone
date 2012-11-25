@@ -54,14 +54,16 @@ def new_project(**kwargs):
         else:
             ext = n.rsplit(".", 1)[-1]
             fd = open(os.path.join(dst, mod), "w", 0644)
-            if ext in ("conf", "html", "py", "md", "sh"):
+            if ext in ("conf", "html", "py", "md", "sh") or n in ('Procfile'):
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
             else:
                 fd.write(zf.read(n))
             fd.close()
 
     # make sure we can actually run start.sh
-    os.chmod(os.path.join(dst, 'start.sh'), 0755)
+    if os.path.exists(os.path.join(dst, 'start.sh')):
+        os.chmod(os.path.join(dst, 'start.sh'), 0755)
+
     if kwargs["use_git"] is True:
         os.chdir(kwargs["project_path"])
         os.system("git init")
@@ -80,6 +82,8 @@ Options:
  -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
  -l --license=FILE      Append the following license file [default: Apache 2]
+ -f --foreman           Create a foreman based project (suited to run on heroku
+ and other PaaS)
     """ % (version, target))
     sys.exit(0)
 
@@ -92,10 +96,12 @@ def main():
     license_file = None
     default_version, version = "0.1", None
     default_target, target = os.getcwd(), None
+    foreman = False
 
-    shortopts = "hgsp:m:v:t:l:"
+    shortopts = "hgsp:m:v:t:l:f"
     longopts = ["help", "git", "set-pkg-version",
-                 "project=", "modname=", "version=", "target=", "license="]
+                 "project=", "modname=", "version=", "target=", "license=",
+                 "foreman"]
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
     except getopt.GetoptError:
@@ -125,6 +131,10 @@ def main():
 
         elif o in ("-l", "--license"):
             license_file = a
+        
+        elif o in ("-f", "--foreman"):
+            foreman = True
+
 
     if license_file is None:
         license = DEFAULT_LICENSE
@@ -167,6 +177,11 @@ def main():
               "'%s': permission denied" % target)
         sys.exit(1)
 
+    if foreman is False:
+        skel_file = "app_skel.zip"
+    else:
+        skel_file = "foreman_skel.zip"
+
     name = "Foo Bar"
     email = "root@localhost"
     if use_git is True:
@@ -185,7 +200,7 @@ def main():
 
     skel = zipfile.ZipFile(open(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     "appskel.zip"), "rb"))
+                     skel_file), "rb"))
 
     if set_pkg_version is True:
         project_name = "%s-%s" % (project, version)
