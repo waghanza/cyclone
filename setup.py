@@ -19,7 +19,7 @@ import sys
 import platform
 from distutils import log
 from distutils.core import setup
-from distutils.version import StrictVersion
+from distutils.version import StrictVersion, LooseVersion
 
 
 requires = ["twisted"] 
@@ -29,7 +29,7 @@ pyopenssl = "pyopenssl"
 # avoiding installation problems on old RedHat distributions (ex. CentOS 5)
 # http://stackoverflow.com/questions/7340784/easy-install-pyopenssl-error
 py_version = platform.python_version()
-if StrictVersion(py_version) < StrictVersion('2.6'):
+if LooseVersion(py_version) < StrictVersion('2.6'):
     distname, version, _id = platform.dist()
 else:
     distname, version, _id = platform.linux_distribution()
