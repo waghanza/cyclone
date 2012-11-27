@@ -74,6 +74,7 @@ class HTTPClient(object):
         self.headers = self._kwargs.get("headers", {})
         self.body = self._kwargs.get("postdata")
         self.method = self._kwargs.get("method", self.body and "POST" or "GET")
+        agent._connectTimeout = self._kwargs.get("timeout", None)
         if self.method.upper() == "POST" and \
                                   "Content-Type" not in self.headers:
             self.headers["Content-Type"] = \
