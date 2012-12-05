@@ -688,3 +688,7 @@ Thanks to (in no particular order):
 - `Gautam Jeyaraman <https://github.com/gautamjeyaraman>`_
 
   - Minor code fixes and patches
+
+- `DhilipSiva <https://github.com/dhilipsiva>`_
+
+  - Minor patches
