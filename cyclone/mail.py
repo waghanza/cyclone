@@ -65,7 +65,7 @@ class Message(object):
         part.set_payload(content)
         Encoders.encode_base64(part)
         part.add_header("Content-Disposition",
-                        'attachment; filename="%s"' % base)
+                        "attachment", filename=base)
 
         if mime is not None:
             part.set_type(mime)
@@ -95,6 +95,12 @@ class Message(object):
             self.__cache = self.msg.as_string()
 
         return StringIO(self.__cache)
+
+    def add_header(self, key, value, **params):
+        if self.msg is None:
+            self.msg = self.message
+
+        self.msg.add_header(key, value, **params)
 
 
 def sendmail(mailconf, message):

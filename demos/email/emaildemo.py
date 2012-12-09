@@ -75,6 +75,8 @@ class SendmailHandler(cyclone.web.RequestHandler):
         msg.attach("fake.txt", mime="text/plain", charset="utf-8",
                    content="this file is fake!")
 
+        msg.add_header('X-MailTag', 'sampleUpload')  # custom email header
+
         try:
             response = yield cyclone.mail.sendmail(
                                 self.settings.email_settings, msg)
