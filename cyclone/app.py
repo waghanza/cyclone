@@ -83,7 +83,7 @@ Options:
  -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
  -l --license=FILE      Append the following license file [default: Apache 2]
- -s --appskel=SKEL      Set the application skeleton [default: default]
+ -a --appskel=SKEL      Set the application skeleton [default: default]
 
 Appskel:
   default              Basic cyclone project
