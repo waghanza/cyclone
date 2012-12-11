@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### BEGIN INIT INFO
-# Provides:          cyclone
+# Provides:          $modname
 # Required-Start:    $$all
 # Required-Stop:     $$all
 # Default-Start:     2 3 4 5
@@ -13,8 +13,8 @@
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/bin/twistd
 
-SERVICE_DIR=/path/to/foobar
-SERVICE_NAME=foobar
+SERVICE_DIR=/path/to/$modname
+SERVICE_NAME=$modname
 
 PYTHONPATH=$$SERVICE_DIR:$$PYTHON_PATH
 export PYTHONPATH
