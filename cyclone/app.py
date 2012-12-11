@@ -83,7 +83,11 @@ Options:
  -s --set-pkg-version   Set version on package name [default: False]
  -t --target=PATH       Set path where project is created [default: %s]
  -l --license=FILE      Append the following license file [default: Apache 2]
- -f --foreman           Create a foreman based project \
+ -s --appskel=SKEL      Set the application skeleton [default: default]
+
+Appskel:
+  default              Basic cyclone project
+  foreman              Create a foreman based project \
 (suited to run on heroku and other PaaS)
     """ % (version, target))
     sys.exit(0)
@@ -99,7 +103,7 @@ def main():
     license_file = None
     skel = "default"
 
-    shortopts = "hgsp:m:v:t:l:s"
+    shortopts = "hgsp:m:v:t:l:a:"
     longopts = ["help", "git", "set-pkg-version",
                  "project=", "modname=", "version=", "target=", "license=",
                  "appskel="]
@@ -133,7 +137,7 @@ def main():
         elif o in ("-l", "--license"):
             license_file = a
 
-        elif o in ("-s", "--appskel"):
+        elif o in ("-a", "--appskel"):
             if a in ("default", "foreman"):
                 skel = a
             else:
