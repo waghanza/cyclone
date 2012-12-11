@@ -1,3 +1,7 @@
+python-cyclone (1.0-rc15) unstable; urgency=low
+  * Updated app skel
+  * Updated setup.py for pep8 compliance
+
 python-cyclone (1.0-rc11) unstable; urgency=low
 
   * Fix postinst script to install twisted plugin o python2.5 as well as
