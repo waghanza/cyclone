@@ -2,13 +2,13 @@
 #
 $license
 
-
-import cyclone.redis
 try:
     sqlite_ok = True
     import cyclone.sqlite
 except ImportError, sqlite_err:
     sqlite_ok = False
+
+import cyclone.redis
 
 from twisted.enterprise import adbapi
 from twisted.python import log
