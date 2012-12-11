@@ -18,40 +18,41 @@
 import sys
 import platform
 from distutils import log
-from distutils.core import setup
-from distutils.version import StrictVersion, LooseVersion
+from distutils.version import LooseVersion
+from distutils.version import StrictVersion
+
+requires = ["twisted"]
 
 
-requires = ["twisted"] 
-
-
-pyopenssl = "pyopenssl"
-# avoiding installation problems on old RedHat distributions (ex. CentOS 5)
+# Avoid installation problems on old RedHat distributions (ex. CentOS 5)
 # http://stackoverflow.com/questions/7340784/easy-install-pyopenssl-error
 py_version = platform.python_version()
 if LooseVersion(py_version) < StrictVersion('2.6'):
     distname, version, _id = platform.dist()
 else:
     distname, version, _id = platform.linux_distribution()
+
 is_redhat = distname in ["CentOS", "redhat"]
 if is_redhat and version and StrictVersion(version) < StrictVersion('6.0'):
-    pyopenssl = "pyopenssl==0.12"
-
-requires.append(pyopenssl)
+    requires.append("pyopenssl==0.12")
+else:
+    requires.append("pyopenssl")
 
 
 # PyPy and setuptools don't get along too well, yet.
-if sys.subversion[0].lower().startswith('pypy'):
-    from distutils.core import setup
+if sys.subversion[0].lower().startswith("pypy"):
+    import distutils.core
+    setup = distutils.core.setup
     extra = dict(requires=requires)
 else:
-    from setuptools import setup
+    import setuptools
+    setup = setuptools.setup
     extra = dict(install_requires=requires)
 
 
 setup(
     name="cyclone",
-    version="1.0-rc14",
+    version="1.0-rc15",
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
@@ -60,8 +61,9 @@ setup(
                 "A facebook's Tornado on top of Twisted.",
     keywords="python non-blocking web server twisted facebook tornado",
     packages=["cyclone", "twisted.plugins"],
-    package_data={"cyclone": ["appskel.zip", "foreman_skel.zip"],
+    package_data={"cyclone": ["appskel_default.zip", "appskel_foreman.zip"],
                   "twisted": ["plugins/cyclone_plugin.py"]},
+    scripts=["scripts/cyclone"],
     **extra
 )
 
