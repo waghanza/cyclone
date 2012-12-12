@@ -56,6 +56,7 @@ def new_project(**kwargs):
             fd = open(os.path.join(dst, mod), "w", 0644)
             if ext in ("conf", "html", "py", "md", "sh", "d") or \
                     n in ("Procfile"):
+                #print "patching: %s" % n
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
             else:
                 fd.write(zf.read(n))
@@ -87,6 +88,7 @@ Options:
 
 Appskel:
   default              Basic cyclone project
+  signup               Basic sign up/in/out, password reset, etc
   foreman              Create a foreman based project \
 (suited to run on heroku and other PaaS)
     """ % (version, target))
@@ -138,7 +140,7 @@ def main():
             license_file = a
 
         elif o in ("-a", "--appskel"):
-            if a in ("default", "foreman"):
+            if a in ("default", "foreman", "signup"):
                 skel = a
             else:
                 print("Invalid appskel name: %s" % a)

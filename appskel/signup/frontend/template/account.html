@@ -1,0 +1,64 @@
+{% extends "admin.html" %}
+{% block header %}
+<style>
+  body {
+    padding-top: 60px;
+  }
+  .form-account {
+    max-width: 300px;
+    padding: 19px 29px 29px;
+    margin: 0 auto 20px;
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    -webkit-border-radius: 5px;
+       -moz-border-radius: 5px;
+            border-radius: 5px;
+    -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+       -moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .form-account .form-account-heading,
+  .form-account .checkbox {
+    margin-bottom: 10px;
+  }
+  .form-account input[type="text"],
+  .form-account input[type="password"] {
+    font-size: 16px;
+    height: auto;
+    margin-bottom: 15px;
+    padding: 7px 9px;
+  }
+</style>
+{% end %}
+
+{% block page %}
+<form class="form-account" method="post">
+  <h2 class="form-account-heading">{{_("Account settings")}}</h2>
+  <label>{{_("Name")}}</label>
+  <input type="text" class="input-block-level" placeholder="{{_('Full name')}}" name="full_name" id="full_name" value="{% if fields.full_name %}{{fields.full_name}}{% end %}">
+  <label>{{_("Password")}}</label>
+  <input type="password" class="input-block-level" placeholder="{{_('New password')}}" name="passwd_1">
+  <input type="password" class="input-block-level" placeholder="{{_('Confirm')}}" name="passwd_2">
+  {% if fields.err %}
+    <div class="alert alert-error">
+    {% if "invalid_name" in fields.err %}
+      {{_("Invalid name")}}
+    {% elif "invalid_passwd" in fields.err %}
+      {{_("Invalid password")}}
+    {% elif "nomatch" in fields.err %}
+      {{_("Passwords don't match")}}
+    {% end %}
+    <a class="close" data-dismiss="alert">×</a></div>
+  {% elif fields.updated %}
+    <div class="alert alert-success">{{_("Saved!")}}<a class="close" data-dismiss="alert">×</a></div>
+  {% end %}
+  <button class="btn btn-large btn-primary" type="submit">{{_("Update")}}</button>
+</form>
+
+<hr>
+
+<div class="footer">
+  <p>&copy; Company 2012</p>
+</div>
+
+{% end %}

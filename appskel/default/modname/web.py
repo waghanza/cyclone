@@ -5,9 +5,6 @@ $license
 import cyclone.locale
 import cyclone.web
 
-import cyclone.locale
-import cyclone.web
-
 from $modname import views
 from $modname import config
 from $modname.storage import DatabaseMixin

@@ -52,7 +52,7 @@ else:
 
 setup(
     name="cyclone",
-    version="1.0-rc15",
+    version="1.0-rc16",
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
@@ -61,8 +61,10 @@ setup(
                 "A facebook's Tornado on top of Twisted.",
     keywords="python non-blocking web server twisted facebook tornado",
     packages=["cyclone", "twisted.plugins"],
-    package_data={"cyclone": ["appskel_default.zip", "appskel_foreman.zip"],
-                  "twisted": ["plugins/cyclone_plugin.py"]},
+    package_data={"twisted": ["plugins/cyclone_plugin.py"],
+                  "cyclone": ["appskel_default.zip",
+                              "appskel_foreman.zip",
+                              "appskel_signup.zip"]},
     scripts=["scripts/cyclone"],
     **extra
 )

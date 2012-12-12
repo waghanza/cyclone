@@ -69,6 +69,6 @@ class SampleMySQLHandler(BaseHandler, DatabaseMixin):
                 log.msg("MySQL query failed: %s" % str(e))
                 raise cyclone.web.HTTPError(503)  # Service Unavailable
             else:
-                self.write({"response": response})
+                self.write({"response": str(response[0][0])})
         else:
             self.write("MySQL is disabled\r\n")
