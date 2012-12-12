@@ -144,6 +144,7 @@ class SignUpHandler(BaseHandler, storage.DatabaseMixin):
         if (yield storage.users.find_first(where=("user_email=%s", email))):
             f["err"] = ["exists"]
             self.render("signup.html", fields=f)
+            defer.returnValue(None)
 
         # create random password
         random.seed(OpenSSL.rand.bytes(16))
