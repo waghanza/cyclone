@@ -193,3 +193,9 @@ msgstr "Correo electrónico"
 
 msgid "Confirm"
 msgstr "Confirmación"
+
+msgid "Sign up confirmation"
+msgstr "Confirmación de registro"
+
+msgid "Password reset"
+msgstr "Nueva contraseña"

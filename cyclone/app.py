@@ -54,7 +54,7 @@ def new_project(**kwargs):
         else:
             ext = n.rsplit(".", 1)[-1]
             fd = open(os.path.join(dst, mod), "w", 0644)
-            if ext in ("conf", "html", "py", "md", "sh", "d") or \
+            if ext in ("conf", "html", "txt", "py", "md", "sh", "d") or \
                     n in ("Procfile"):
                 #print "patching: %s" % n
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
