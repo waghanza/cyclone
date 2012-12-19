@@ -205,3 +205,6 @@ msgstr "Contraseña anterior"
 
 msgid "This field is mandatory"
 msgstr "Este campo es obligatorio"
+
+msgid "This account is pending confirmation"
+msgstr "Esta cuenta está pendiente de confirmación"
