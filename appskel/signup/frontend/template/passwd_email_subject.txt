@@ -1,1 +1,1 @@
-$project: {{_("Password reset")}}
+$modname: {{_("Password reset")}}

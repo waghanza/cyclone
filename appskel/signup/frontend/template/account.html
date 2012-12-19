@@ -4,7 +4,7 @@
   body {
     padding-top: 60px;
   }
-  .form-account {
+  .form-custom {
     max-width: 300px;
     padding: 19px 29px 29px;
     margin: 0 auto 20px;
@@ -17,12 +17,12 @@
        -moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
             box-shadow: 0 1px 2px rgba(0,0,0,.05);
   }
-  .form-account .form-account-heading,
-  .form-account .checkbox {
+  .form-custom .form-custom-heading,
+  .form-custom .checkbox {
     margin-bottom: 10px;
   }
-  .form-account input[type="text"],
-  .form-account input[type="password"] {
+  .form-custom input[type="text"],
+  .form-custom input[type="password"] {
     font-size: 16px;
     height: auto;
     margin-bottom: 15px;
@@ -32,26 +32,32 @@
 {% end %}
 
 {% block page %}
-<form class="form-account" method="post">
-  <h2 class="form-account-heading">{{_("Account settings")}}</h2>
+<form class="form-custom" method="post">
+  <h2 class="form-custom-heading">{{_("Account settings")}}</h2>
   <label>{{_("Name")}}</label>
-  <input type="text" class="input-block-level" placeholder="{{_('Full name')}}" name="full_name" id="full_name" value="{% if fields.full_name %}{{fields.full_name}}{% end %}">
+  <input type="text" class="input-block-level" placeholder="{{_('Full name')}}" name="full_name" id="full_name" value="{{fields.full_name or ''}}">
+  {% if fields.err and "invalid_name" in fields.err %}
+  <div class="alert alert-error">{{_("Invalid name")}}<a class="close" data-dismiss="alert">×</a></div>
+  {% end %}
+
   <label>{{_("Password")}}</label>
+  <input type="password" class="input-block-level" placeholder="{{_('Old password')}}" name="passwd_0">
+  {% if fields.err and "old_nomatch" in fields.err %}
+  <div class="alert alert-error">{{_("Invalid password")}}<a class="close" data-dismiss="alert">×</a></div>
+  {% elif fields.err and "old_missing" in fields.err %}
+  <div class="alert alert-error">{{_("This field is mandatory")}}<a class="close" data-dismiss="alert">×</a></div>
+  {% end %}
+
   <input type="password" class="input-block-level" placeholder="{{_('New password')}}" name="passwd_1">
   <input type="password" class="input-block-level" placeholder="{{_('Confirm')}}" name="passwd_2">
-  {% if fields.err %}
-    <div class="alert alert-error">
-    {% if "invalid_name" in fields.err %}
-      {{_("Invalid name")}}
-    {% elif "invalid_passwd" in fields.err %}
-      {{_("Invalid password")}}
-    {% elif "nomatch" in fields.err %}
-      {{_("Passwords don't match")}}
-    {% end %}
-    <a class="close" data-dismiss="alert">×</a></div>
+  {% if fields.err and "invalid_passwd" in fields.err %}
+  <div class="alert alert-error">{{_("Invalid password")}}<a class="close" data-dismiss="alert">×</a></div>
+  {% elif fields.err and "nomatch" in fields.err %}
+  <div class="alert alert-error">{{_("Passwords don't match")}}<a class="close" data-dismiss="alert">×</a></div>
   {% elif fields.updated %}
-    <div class="alert alert-success">{{_("Saved!")}}<a class="close" data-dismiss="alert">×</a></div>
+  <div class="alert alert-success">{{_("Saved!")}}<a class="close" data-dismiss="alert">×</a></div>
   {% end %}
+
   <button class="btn btn-large btn-primary" type="submit">{{_("Update")}}</button>
 </form>
 

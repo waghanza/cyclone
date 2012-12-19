@@ -199,3 +199,9 @@ msgstr "Confirmação de registro"
 
 msgid "Password reset"
 msgstr "Nova senha"
+
+msgid "Old password"
+msgstr "Senha antiga"
+
+msgid "This field is mandatory"
+msgstr "Este campo é obrigatório"

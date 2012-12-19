@@ -83,10 +83,15 @@ class AccountHandler(BaseHandler, storage.DatabaseMixin):
             elif full_name != user.user_full_name:
                 user.user_full_name = full_name
 
+        passwd_0 = self.get_argument("passwd_0", None)
         passwd_1 = self.get_argument("passwd_1", None)
         passwd_2 = self.get_argument("passwd_2", None)
-        if passwd_1:
-            if len(passwd_1) < 3 or len(passwd_1) > 20:
+        if passwd_0 and passwd_1:
+            if hashlib.sha1(passwd_0).hexdigest() != user.user_passwd:
+                f["err"] = ["old_nomatch"]
+                self.render("account.html", fields=f)
+                defer.returnValue(None)
+            elif len(passwd_1) < 3 or len(passwd_1) > 20:
                 f["err"] = ["invalid_passwd"]
                 self.render("account.html", fields=f)
                 defer.returnValue(None)
@@ -96,6 +101,10 @@ class AccountHandler(BaseHandler, storage.DatabaseMixin):
                 defer.returnValue(None)
             else:
                 user.user_passwd = hashlib.sha1(passwd_1).hexdigest()
+        elif passwd_1:
+            f["err"] = ["old_missing"]
+            self.render("account.html", fields=f)
+            defer.returnValue(None)
 
         if user.has_changes:
             yield user.save()
@@ -226,9 +235,14 @@ class SignInHandler(BaseHandler, storage.DatabaseMixin):
                 self.render("signin.html", fields=f)
                 defer.returnValue(None)
             else:
-                # create the user in mysql
-                user = storage.users.new()
-                user.user_email = email
+                # check if the user is already in mysql
+                user = yield storage.users.find_first(
+                                            where=("user_email=%s", email))
+
+                if not user:
+                    # create the user in mysql
+                    user = storage.users.new(user_email=email)
+
                 user.user_passwd = hashlib.sha1(pwd).hexdigest()
                 user.user_is_active = True
 
@@ -289,12 +303,15 @@ class PasswdHandler(BaseHandler, storage.DatabaseMixin):
         k = "u:%s" % email
 
         # check if the user exists in redis, or mysql
-        if not (yield self.redis.exists(k)):
-            if not (yield storage.users.find_first(
-                        where=("user_email=%s", email))):
-                f["err"] = ["notfound"]
-                self.render("passwd.html", fields=f)
-                defer.returnValue(None)
+        if (yield self.redis.exists(k)):
+            f["err"] = ["pending"]
+            self.render("passwd.html", fields=f)
+            defer.returnValue(None)
+        elif not (yield storage.users.find_first(
+                                        where=("user_email=%s", email))):
+            f["err"] = ["notfound"]
+            self.render("passwd.html", fields=f)
+            defer.returnValue(None)
 
         # create temporary password and store in redis
         random.seed(OpenSSL.rand.bytes(16))
