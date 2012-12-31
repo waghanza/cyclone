@@ -96,7 +96,7 @@ cyclone can be installed from ``pip`` or ``easy_install``::
     $ pip install cyclone
 
 It has no external dependencies other than Twisted 10 or newer, running
-on Python 2.6 or 2.7, or PyPy 1.8 or 1.9.
+on Python 2.6 or 2.7, or PyPy 1.8, 1.9, or newer.
 
 It runs on Python 2.5 too, but requires the ``simplejson`` module. Also, it
 runs on PyPy 1.8 as long as there's no SSL.
@@ -137,6 +137,10 @@ A dev server can be started like this::
     Log opened.
     reactor class: twisted.internet.selectreactor.SelectReactor.
     cyclone.web.Application starting on 8888
+
+    or
+
+    $ cyclone run -r hello.Application
 
 Due to the power of ``twistd``, cyclone apps can be easily deployed in
 production, with all the basic features of standard daemons::
@@ -185,7 +189,7 @@ and HTML templates.
 
 ::
 
-    $ python -m cyclone.app --help
+    $ cyclone app --help
 
     use: cyclone.app [options]
     Options:
@@ -195,26 +199,36 @@ and HTML templates.
      -m --modname=NAME      Use another name for the module [default: project_name]
      -v --version=VERSION   Set project version [default: 0.1]
      -s --set-pkg-version   Set version on package name [default: False]
-     -t --target=PATH       Set path where project is created [default: ./]
+     -t --target=PATH       Set path where project is created [default: /Users/alef/dev/web/cyclone]
      -l --license=FILE      Append the following license file [default: Apache 2]
-     -f --foreman           Create a foreman based project (suited to run on heroku and other PaaS)
+     -a --appskel=SKEL      Set the application skeleton [default: default]
+
+    Appskel:
+      default              Basic cyclone project
+      signup               Basic sign up/in/out, password reset, etc
+      foreman              Create a foreman based project (suited to run on heroku and other PaaS)
 
 Creating new projects can be as simple as running this::
 
-    $ python -m cyclone.app -p foobar
+    $ cyclone app -g -p foobar
 
-Check README.rst in the new project directory for detailed information on how
+Check README.md in the new project directory for detailed information on how
 to use it.
 
 The template ships with Debian init scripts for running ``twistd`` as single,
 or multiple instances (one per CPU core) to help make deployments as simple as
 possible.
 
-If you are into PaaS (heroku for example) or just using foreman to manage your applications, create your application like this ::
-    
-    $ python -m cyclone.app -f -p foobar
+If you are into PaaS (heroku for example) or just using foreman to manage your
+applications, create your application like this::
 
-and check the README.rst for further instructions.
+    $ cyclone app -g -p foobar -a foreman
+
+and check the README.md for further instructions.
+
+And, for a more complex application with sign up, password reset, use this::
+
+    $ cyclone app -g -p foobar -a signup
 
 
 Tips and Tricks
@@ -418,7 +432,7 @@ There is a complete example of internationalized web application in
 Also, the project template that ships with cyclone is already prepared for
 full translation. Give it a try::
 
-    $ python -m cyclone.app -p foobar
+    $ cyclone app -g -p foobar
 
 Then check the contents of ``foobar/``.
 

@@ -1,23 +1,19 @@
 # cyclone-based project
 
-	This is the source code of $project_name
-	$name <$email>
+    This is the source code of $project_name
+    $name <$email>
 
 ## About
 
-This file has been created automatically by cyclone-tool for $project_name.
-It contains the following files:
+This file has been created automatically by cyclone for $project_name.
+It contains the following:
 
-- ``start.sh``: simple shell script to start the server
+- ``start.sh``: simple shell script to start the development server
 - ``$modname.conf``: configuration file for the web server
-- ``$modname/__init__.py``: information such as author and version of this package
-- ``$modname/web.py``: map of url handlers and main class of the web server
-- ``$modname/config.py``: configuration parser for ``$modname.conf``
-- ``$modname/views.py``: code of url handlers for the web server
-- ``scripts/debian-init.d``: generic debian start/stop init script
-- ``scripts/debian-multicore-init.d``: run one instance per core on debian
-- ``scripts/localefix.py``: script to fix html text before running ``xgettext``
-- ``scripts/cookie_secret.py``: script for generating new secret key for the web server
+- ``$modname/``: web server code
+- ``frontend/``: static files, templates and locales
+- ``scripts/``: debian init scripts and other useful scripts
+
 
 ### Running
 
@@ -26,46 +22,48 @@ For development and testing:
     twistd -n cyclone --help
     twistd -n cyclone -r $modname.web.Application [--help]
 
+    or just run ./start.sh
+
+
 For production:
 
     twistd cyclone \
-    	   --logfile=/var/log/$project.log \
-    	   --pidfile=/var/run/$project.pid \
-	   -r $modname.web.Application
+            --logfile=/var/log/$project.log \
+            --pidfile=/var/run/$project.pid \
+            -r $modname.web.Application
 
+    or check scripts/debian-init.d and scripts/debian-multicore-init.d
 
-### Convert this document to HTML
-
-Well, since this is a web server, it might be a good idea to convert this document
-to HTML before getting into customization details.
-
-This can be done using [markdown](http://daringfireball.net/projects/markdown/).
-
-	brew install markdown
-	markdown README.md > frontend/static/readme.html
-
-And point your browser to <http://localhost:8888/static/readme.html> after this server
-is running.
 
 ## Customization
 
-This section is dedicated to explaining how to customize your brand new package.
+This section is dedicated to explaining how to customize your brand new
+package.
+
 
 ### Databases
 
 cyclone provides built-in support for SQLite and Redis databases.
-It also supports any RDBM supported by the ``twisted.enterprise.adbapi`` module,
-like MySQL or PostgreSQL.
+It also supports any RDBM supported by the ``twisted.enterprise.adbapi``
+module, like MySQL or PostgreSQL.
 
 The default configuration file ``$modname.conf`` ships with pre-configured
 settings for SQLite, Redis and MySQL.
 
-The code for loading all the database settings is in ``$modname/config.py``.
-Feel free to comment or even remove such code, and configuration entries. It
-shouldn't break the web server.
+The code for loading all the database settings is in ``$modname/config.py``
+and is required by this application.
 
-Take a look at ``$modname/utils.py``, which is where persistent database
+Take a look at ``$modname/storage.py``, which is where persistent database
 connections are initialized.
+
+This template uses the experimental ``$modname/txdbapi.py`` for interacting
+with MySQL.
+
+
+### Email
+
+Please edit ``$modname.conf`` and adjust the email settings. This server
+sends email on user sign up, and to reset passwords.
 
 
 ### Internationalization
@@ -89,8 +87,7 @@ If you already use HomeBrew, run:
 For generating translatable files for HTML and Python code of your software,
 run this:
 
-    cat frontend/template/*.html $modname/*.py | python scripts/localefix.py | \
-        xgettext - --language=Python --from-code=utf-8 --keyword=_:1,2 -d $modname
+    cat frontend/template/*.html $modname/*.py | python scripts/localefix.py | xgettext - --language=Python --from-code=utf-8 --keyword=_:1,2 -d $modname
 
 Then translate $modname.po, compile and copy to the appropriate locale
 directory:
