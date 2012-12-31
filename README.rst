@@ -381,7 +381,7 @@ When multiple decorators are applied to a request method, ``@authenticated``
 must always be the first (top of other decorators). The reason for this, is
 because if authentication fails the request shouln't be processed.
 
-For the other two, ``inlineCallbacks`` and ``@authenticated``, sequence doesn't
+For the other two, ``inlineCallbacks`` and ``@asynchronous``, sequence doesn't
 really matter.
 
 ::
