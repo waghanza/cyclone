@@ -23,8 +23,8 @@ class Application(cyclone.web.Application):
         conf = config.parse_config(config_file)
 
         # Initialize locales
-        if "locales" in conf:
-            cyclone.locale.load_gettext_translations(conf["locales"],
+        if "locale_path" in conf:
+            cyclone.locale.load_gettext_translations(conf["locale_path"],
                                                      "$modname")
 
         # Set up database connections
