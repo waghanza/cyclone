@@ -35,6 +35,7 @@ class Options(usage.Options):
     optParameters = [
         ["port", "p", 8888, "tcp port to listen on", int],
         ["listen", "l", "127.0.0.1", "interface to listen on"],
+        ["unix", "u", None, "listen on unix socket instead of ip:port"],
         ["app", "r", None, "cyclone application to run"],
         ["appopts", "c", None, "arguments to your application"],
         ["ssl-port", None, 8443, "port to listen on for ssl", int],
@@ -63,8 +64,13 @@ class ServiceMaker(object):
                 app = appmod(options["appopts"])
             else:
                 app = appmod()
-            s = internet.TCPServer(options["port"], app,
-                                   interface=options["listen"])
+
+            unix = options.get("unix")
+            if unix:
+                s = internet.UNIXServer(unix, app)
+            else:
+                s = internet.TCPServer(options["port"], app,
+                                       interface=options["listen"])
             s.setServiceParent(srv)
 
         # https

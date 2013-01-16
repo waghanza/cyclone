@@ -24,6 +24,7 @@ import urlparse
 
 from twisted.python import log
 from twisted.protocols import basic
+from twisted.internet import address
 from twisted.internet import defer
 from twisted.internet import interfaces
 
@@ -141,9 +142,15 @@ class HTTPConnection(basic.LineReceiver):
                 raise _BadRequestException(
                         "Malformed HTTP version in HTTP Request-Line")
             headers = httputil.HTTPHeaders.parse(data[eol:])
+            peer = self.transport.getPeer()
+            if isinstance(peer, address.UNIXAddress):
+                remote_ip = "unix:%s" % self.transport.getHost().name
+            else:
+                remote_ip = self.transport.getPeer().host
+
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
-                headers=headers, remote_ip=self.transport.getPeer().host)
+                headers=headers, remote_ip=remote_ip)
 
             content_length = int(headers.get("Content-Length", 0))
             if content_length:

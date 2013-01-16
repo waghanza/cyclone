@@ -15,8 +15,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 #
-# Run: twistd -n cyclone -r helloworld_simple.Application
-# For more info: twistd -n cyclone --help
+# Start the server:
+#   cyclone run -r helloworld_simple.Application
+#
+# For more info:
+#   cyclone run --help
+#
+# If this server is reverse proxied by nginx, some headers must be added to
+# the request. Check our sample nginx.conf for details, and set xheaders=True
+# to make cyclone use those headers.
+
 
 import cyclone.web
 
@@ -28,4 +36,5 @@ class MainHandler(cyclone.web.RequestHandler):
 
 class Application(cyclone.web.Application):
     def __init__(self):
-        cyclone.web.Application.__init__(self, [(r"/", MainHandler)])
+        cyclone.web.Application.__init__(self, [(r"/", MainHandler)],
+                                         xheaders=False)
