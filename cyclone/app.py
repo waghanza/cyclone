@@ -24,8 +24,10 @@ import string
 import sys
 import uuid
 import zipfile
+from datetime import datetime
 
-DEFAULT_LICENSE = """# Copyright YEAR Foo Bar
+DEFAULT_LICENSE = """\
+# Copyright %(year)s Foo Bar
 # Powered by cyclone
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -39,6 +41,34 @@ DEFAULT_LICENSE = """# Copyright YEAR Foo Bar
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+"""
+
+SAMPLE_SERVER = """\
+#
+# Start the server:
+#   cyclone run server.py
+
+import cyclone.web
+
+
+class MainHandler(cyclone.web.RequestHandler):
+    def get(self):
+        self.write("Hello, world")
+
+
+class Application(cyclone.web.Application):
+    def __init__(self):
+        handlers = [
+            (r"/", MainHandler),
+        ]
+
+        settings = dict(
+            xheaders=False,
+            static_path="./static",
+            templates_path="./templates",
+        )
+
+        cyclone.web.Application.__init__(self, handlers, **settings)
 """
 
 
@@ -73,10 +103,11 @@ def new_project(**kwargs):
 
 
 def usage(version, target):
-    print("""
-use: cyclone.app [options]
+    print("""\
+use: cyclone app [options]
 Options:
  -h --help              Show this help.
+ -n --new               Dumps a sample server code to stdout.
  -p --project=NAME      Create new cyclone project.
  -g --git               Use in conjunction with -p to make it a git repository.
  -m --modname=NAME      Use another name for the module [default: project_name]
@@ -86,7 +117,7 @@ Options:
  -l --license=FILE      Append the following license file [default: Apache 2]
  -a --appskel=SKEL      Set the application skeleton [default: default]
 
-Appskel:
+SKEL:
   default              Basic cyclone project
   signup               Basic sign up/in/out, password reset, etc
   foreman              Create a foreman based project \
@@ -105,8 +136,8 @@ def main():
     license_file = None
     skel = "default"
 
-    shortopts = "hgsp:m:v:t:l:a:"
-    longopts = ["help", "git", "set-pkg-version",
+    shortopts = "hgsnp:m:v:t:l:a:"
+    longopts = ["help", "new", "git", "set-pkg-version",
                  "project=", "modname=", "version=", "target=", "license=",
                  "appskel="]
     try:
@@ -117,6 +148,11 @@ def main():
     for o, a in opts:
         if o in ("-h", "--help"):
             usage(default_version, default_target)
+
+        if o in ("-n", "--new"):
+            print "%s%s" % (DEFAULT_LICENSE % {"year": datetime.now().year},
+                            SAMPLE_SERVER)
+            sys.exit(1)
 
         if o in ("-g", "--git"):
             use_git = True
@@ -147,7 +183,7 @@ def main():
                 sys.exit(1)
 
     if license_file is None:
-        license = DEFAULT_LICENSE
+        license = DEFAULT_LICENSE % {"year": datetime.now().year}
     else:
         with open(license_file) as f:
             license = f.read()
