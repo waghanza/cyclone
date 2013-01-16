@@ -14,7 +14,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import cyclone.web
+import imp
+import os
 import sys
+import types
 
 from twisted.application import internet
 from twisted.application import service
@@ -32,6 +36,9 @@ else:
 
 
 class Options(usage.Options):
+    # The reason for having app=x and ssl-app=y is to be able to have
+    # different URI routing on HTTP and HTTPS.
+    # Example: A login handler that only exists in HTTPS.
     optParameters = [
         ["port", "p", 8888, "tcp port to listen on", int],
         ["listen", "l", "127.0.0.1", "interface to listen on"],
@@ -46,6 +53,10 @@ class Options(usage.Options):
         ["ssl-appopts", None, None, "arguments to the ssl application"],
     ]
 
+    def parseArgs(self, *args):
+        if args:
+            self["filename"] = args[0]
+
 
 class ServiceMaker(object):
     implements(service.IServiceMaker, IPlugin)
@@ -57,9 +68,24 @@ class ServiceMaker(object):
         srv = service.MultiService()
         s = None
 
+        if "filename" in options and os.path.exists(options["filename"]):
+            n = os.path.splitext(os.path.split(options["filename"])[-1])[0]
+            appmod = imp.load_source(n, options["filename"])
+            for name in dir(appmod):
+                kls = getattr(appmod, name)
+                if isinstance(kls, (type, types.ClassType)):
+                    if issubclass(kls, cyclone.web.Application):
+                        options["app"] = kls
+                        if ssl_support and os.path.exists(options["ssl-cert"]):
+                            options["ssl-app"] = kls
+
         # http
         if options["app"]:
-            appmod = reflect.namedAny(options["app"])
+            if callable(options["app"]):
+                appmod = options["app"]
+            else:
+                appmod = reflect.namedAny(options["app"])
+
             if options["appopts"]:
                 app = appmod(options["appopts"])
             else:
@@ -76,7 +102,11 @@ class ServiceMaker(object):
         # https
         if options["ssl-app"]:
             if ssl_support:
-                appmod = reflect.namedAny(options["ssl-app"])
+                if callable(options["ssl-app"]):
+                    appmod = options["ssl-app"]
+                else:
+                    appmod = reflect.namedAny(options["ssl-app"])
+
                 if options["ssl-appopts"]:
                     app = appmod(options["ssl-appopts"])
                 else:
@@ -88,10 +118,11 @@ class ServiceMaker(object):
                                        interface=options["ssl-listen"])
                 s.setServiceParent(srv)
             else:
-                print("SSL is not supported. Please install PyOpenSSL.")
+                print("SSL support is disabled. "
+                      "Install PyOpenSSL and try again.")
 
         if s is None:
-            print("Nothing to do. Try --help")
+            print("usage: cyclone run [server.py|--help]")
             sys.exit(1)
 
         return srv
