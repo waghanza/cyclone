@@ -68,7 +68,7 @@ class Application(cyclone.web.Application):
             templates_path="./templates",
         )
 
-        cyclone.web.Application.__init__(self, handlers, **settings)
+        cyclone.web.Application.__init__(self, handlers, **settings)\
 """
 
 
@@ -104,7 +104,7 @@ def new_project(**kwargs):
 
 def usage(version, target):
     print("""\
-use: cyclone app [options]
+usage: cyclone app [options]
 Options:
  -h --help              Show this help.
  -n --new               Dumps a sample server code to stdout.
