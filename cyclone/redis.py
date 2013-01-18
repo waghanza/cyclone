@@ -546,7 +546,7 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
     def flush(self, all_dbs=False):
         warnings.warn(DeprecationWarning(
             "redis.flush() has been deprecated, "
-            "use redis.flush() or redis.flushall() instead"))
+            "use redis.flushdb() or redis.flushall() instead"))
         return all_dbs and self.flushall() or self.flushdb()
 
     def flushdb(self):
@@ -586,6 +586,12 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         return self.execute_command("GET", key)
 
+    def getbit(self, key, offset):
+        """
+        Return the bit value at offset in the string value stored at key
+        """
+        return self.execute_command("GETBIT", key, offset)
+
     def getset(self, key, value):
         """
         Set a key to a string returning the old value of the key
@@ -598,6 +604,14 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         keys = list_or_args("mget", keys, args)
         return self.execute_command("MGET", *keys)
+
+    def setbit(self, key, offset, value):
+        """
+        Sets or clears the bit at offset in the string value stored at key
+        """
+        if isinstance(value, bool):
+            value = int(value)
+        return self.execute_command("SETBIT", key, offset, value)
 
     def setnx(self, key, value):
         """
@@ -630,6 +644,42 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
         for pair in mapping.iteritems():
             items.extend(pair)
         return self.execute_command("MSETNX", *items)
+
+    def bitop(self, operation, destkey, *srckeys):
+        """
+        Perform a bitwise operation between multiple keys
+        and store the result in the destination key.
+        """
+        srclen = len(srckeys)
+        if srclen == 0:
+            return defer.fail(RedisError("no ``srckeys`` specified"))
+        if isinstance(operation, (str, unicode)):
+            operation = operation.upper()
+        elif operation is operator.and_ or operation is operator.__and__:
+            operation = 'AND'
+        elif operation is operator.or_ or operation is operator.__or__:
+            operation = 'OR'
+        elif operation is operator.__xor__ or operation is operator.xor:
+            operation = 'XOR'
+        elif operation is operator.__not__ or operation is operator.not_:
+            operation = 'NOT'
+        if operation not in ('AND', 'OR', 'XOR', 'NOT'):
+            return defer.fail(InvalidData(
+                "Invalid operation: %s" % operation))
+        if operation == 'NOT' and srclen > 1:
+            return defer.fail(RedisError(
+                "bitop NOT takes only one ``srckey``"))
+        return self.execute_command('BITOP', operation, destkey, *srckeys)
+
+    def bitcount(self, key, start=None, end=None):
+        if (end is None and start is not None) or \
+                (start is None and end is not None):
+            raise RedisError("``start`` and ``end`` must both be specified")
+        if start is not None:
+            t = (start, end)
+        else:
+            t = ()
+        return self.execute_command("BITCOUNT", key, *t)
 
     def incr(self, key, amount=1):
         """
@@ -679,13 +729,19 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         Append an element to the tail of the List value at key
         """
-        return self.execute_command("RPUSH", key, value)
+        if isinstance(value, tuple) or isinstance(value, list):
+            return self.execute_command("RPUSH", key, *value)
+        else:
+            return self.execute_command("RPUSH", key, value)
 
     def lpush(self, key, value):
         """
         Append an element to the head of the List value at key
         """
-        return self.execute_command("LPUSH", key, value)
+        if isinstance(value, tuple) or isinstance(value, list):
+            return self.execute_command("LPUSH", key, *value)
+        else:
+            return self.execute_command("LPUSH", key, value)
 
     def llen(self, key):
         """
@@ -1962,4 +2018,4 @@ __all__ = [
 ]
 
 __author__ = "Alexandre Fiori"
-__version__ = version = "1.0"
+__version__ = version = "1.1"
