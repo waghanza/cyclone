@@ -19,11 +19,16 @@
 
 from __future__ import absolute_import, division, with_statement
 
-import urllib
 import re
 
+from cyclone.util import b
+from cyclone.util import ObjectDict
+from cyclone.escape import native_str
+from cyclone.escape import parse_qs_bytes
+from cyclone.escape import utf8
+
 from twisted.python import log
-from cyclone.util import b, ObjectDict
+from urllib import urlencode  # py2
 
 
 class HTTPHeaders(dict):
@@ -34,7 +39,7 @@ class HTTPHeaders(dict):
     value per key, with multiple values joined by a comma.
 
     >>> h = HTTPHeaders({"content-type": "text/html"})
-    >>> h.keys()
+    >>> list(h.keys())
     ['Content-Type']
     >>> h["Content-Type"]
     'text/html'
@@ -47,8 +52,8 @@ class HTTPHeaders(dict):
     ['A=B', 'C=D']
 
     >>> for (k,v) in sorted(h.get_all()):
-    ...    print '%s: %s' % (k,v)
-    ...
+    ...    print('%s: %s' % (k,v))
+    ... 
     Content-Type: text/html
     Set-Cookie: A=B
     Set-Cookie: C=D
@@ -92,7 +97,7 @@ class HTTPHeaders(dict):
         If a header has multiple values, multiple pairs will be
         returned with the same name.
         """
-        for name, list in self._as_list.iteritems():
+        for name, list in self._as_list.items():
             for value in list:
                 yield (name, value)
 
@@ -120,7 +125,7 @@ class HTTPHeaders(dict):
 
         >>> h = HTTPHeaders.parse(
             "Content-Type: text/html\\r\\nContent-Length: 42\\r\\n")
-        >>> sorted(h.iteritems())
+        >>> sorted(h.items())
         [('Content-Length', '42'), ('Content-Type', 'text/html')]
         """
         h = cls()
@@ -153,7 +158,7 @@ class HTTPHeaders(dict):
 
     def update(self, *args, **kwargs):
         # dict.update bypasses our __setitem__
-        for k, v in dict(*args, **kwargs).iteritems():
+        for k, v in dict(*args, **kwargs).items():
             self[k] = v
 
     def copy(self):
@@ -194,7 +199,7 @@ def url_concat(url, args):
         return url
     if url[-1] not in ('?', '&'):
         url += '&' if ('?' in url) else '?'
-    return url + urllib.urlencode(args)
+    return url + urlencode(args)
 
 
 class HTTPFile(ObjectDict):
@@ -207,6 +212,31 @@ class HTTPFile(ObjectDict):
         and should not be trusted outright given that it can be easily forged.
     """
     pass
+
+
+def parse_body_arguments(content_type, body, arguments, files):
+    """Parses a form request body.
+
+    Supports "application/x-www-form-urlencoded" and "multipart/form-data".
+    The content_type parameter should be a string and body should be
+    a byte string.  The arguments and files parameters are dictionaries
+    that will be updated with the parsed contents.
+    """
+    if content_type.startswith("application/x-www-form-urlencoded"):
+        uri_arguments = parse_qs_bytes(native_str(body))
+        for name, values in uri_arguments.items():
+            values = [v for v in values if v]
+            if values:
+                arguments.setdefault(name, []).extend(values)
+    elif content_type.startswith("multipart/form-data"):
+        fields = content_type.split(";")
+        for field in fields:
+            k, sep, v = field.strip().partition("=")
+            if k == "boundary" and v:
+                parse_multipart_form_data(utf8(v), body, arguments, files)
+                break
+        else:
+            log.msg("Invalid multipart/form-data")
 
 
 def parse_multipart_form_data(boundary, data, arguments, files):
@@ -278,7 +308,7 @@ def _parse_header(line):
 
     """
     parts = _parseparam(';' + line)
-    key = parts.next()
+    key = next(parts)
     pdict = {}
     for p in parts:
         i = p.find('=')
