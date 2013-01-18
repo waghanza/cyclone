@@ -91,7 +91,9 @@ from cyclone.util import unicode_type
 
 from cStringIO import StringIO as BytesIO  # python 2
 from twisted.python import log
-from twisted.internet import defer, protocol
+from twisted.internet import defer
+from twisted.internet import protocol
+from twisted.internet import reactor
 
 
 class RequestHandler(object):
@@ -329,7 +331,7 @@ class RequestHandler(object):
         args = self.get_arguments(name, strip=strip)
         if not args:
             if default is self._ARG_DEFAULT:
-                raise HTTPError(400, "Missing argument %s" % name)
+                raise HTTPError(400, "Missing argument " + name)
             return default
         return args[-1]
 
@@ -562,16 +564,16 @@ class RequestHandler(object):
                 if path not in unique_paths:
                     paths.append(path)
                     unique_paths.add(path)
-            js = ''.join('<script src="%s" type="text/javascript"></script>' %
-                         escape.xhtml_escape(p) for p in paths)
-
+            js = ''.join('<script src="' + escape.xhtml_escape(p) +
+                         '" type="text/javascript"></script>'
+                         for p in paths)
             sloc = html.rindex('</body>')
-            html = "%s%s\n%s" % (html[:sloc], utf8(js), html[sloc:])
+            html = html[:sloc] + utf8(js) + '\n' + html[sloc:]
         if js_embed:
-            js = '<script type="text/javascript">\n//<![CDATA[\n' \
-                 '%s\n//]]>\n</script>' % '\n'.join(js_embed)
+            js = '<script type="text/javascript">\n//<![CDATA[\n' + \
+                '\n'.join(js_embed) + '\n//]]>\n</script>'
             sloc = html.rindex('</body>')
-            html = "%s%s\n%s" % (html[:sloc], js, html[sloc:])
+            html = html[:sloc] + js + '\n' + html[sloc:]
         if css_files:
             paths = []
             unique_paths = set()
@@ -581,23 +583,23 @@ class RequestHandler(object):
                 if path not in unique_paths:
                     paths.append(path)
                     unique_paths.add(path)
-            css = ''.join('<link href="%s" type="text/css" rel="stylesheet"/>'
-                          % escape.xhtml_escape(p) for p in paths)
+            css = ''.join('<link href="' + escape.xhtml_escape(p) + '" '
+                          'type="text/css" rel="stylesheet"/>'
+                          for p in paths)
             hloc = html.index('</head>')
-            html = "%s%s\n%s" % (html[:hloc], utf8(css), html[hloc:])
+            html = html[:hloc] + utf8(css) + '\n' + html[hloc:]
         if css_embed:
-            css = '<style type="text/css">\n%s\n</style>' % \
-                  '\n'.join(css_embed)
+            css = '<style type="text/css">\n' + '\n'.join(css_embed) + \
+                '\n</style>'
             hloc = html.index('</head>')
-            html = "%s%s\n%s" % (html[:hloc], css, html[hloc:])
+            html = html[:hloc] + css + '\n' + html[hloc:]
         if html_heads:
             hloc = html.index('</head>')
-            html = "%s%s\n%s" % (html[:hloc], ''.join(html_heads), html[hloc:])
+            html = html[:hloc] + ''.join(html_heads) + '\n' + html[hloc:]
         if html_bodies:
             hloc = html.index('</body>')
-            html = "%s%s\n%s" % (html[:hloc], ''.join(html_bodies),
-                                 html[hloc:])
-        return self.finish(html)
+            html = html[:hloc] + ''.join(html_bodies) + '\n' + html[hloc:]
+        self.finish(html)
 
     def render_string(self, template_name, **kwargs):
         """Generate the given template with the given arguments.
@@ -687,7 +689,7 @@ class RequestHandler(object):
             return
 
         if headers or chunk:
-            self.request.write("%s%s" % (headers, chunk))
+            self.request.write(headers + chunk)
 
     def notifyFinish(self):
         """Returns a deferred, which is fired when the request is terminated
@@ -766,7 +768,7 @@ class RequestHandler(object):
         try:
             self.write_error(status_code, **kwargs)
         except Exception, e:
-            log.msg("Uncaught exception in write_error: %s" % e)
+            log.msg("Uncaught exception in write_error: " + str(e))
         if not self._finished:
             self.finish()
 
@@ -957,8 +959,8 @@ class RequestHandler(object):
 
         See check_xsrf_cookie() above for more information.
         """
-        return '<input type="hidden" name="_xsrf" value="%s"/>' % \
-                escape.xhtml_escape(self.xsrf_token)
+        return '<input type="hidden" name="_xsrf" value="' + \
+                escape.xhtml_escape(self.xsrf_token) + '"/>'
 
     def static_url(self, path, include_host=None):
         """Returns a static URL for the given relative static file path.
@@ -986,11 +988,11 @@ class RequestHandler(object):
             include_host = getattr(self, "include_host", False)
 
         if include_host:
-            base = "%s://%s" % (self.request.protocol, self.request.host)
+            base = self.request.protocol + "://" + self.request.host + \
+                   static_handler_class.make_static_url(self.settings, path)
         else:
-            base = ""
-        return "%s%s" % (base,
-                    static_handler_class.make_static_url(self.settings, path))
+            base = static_handler_class.make_static_url(self.settings, path)
+        return base
 
     def async_callback(self, callback, *args, **kwargs):
         """Obsolete - catches exceptions from the wrapped function.
@@ -1007,7 +1009,7 @@ class RequestHandler(object):
                 return callback(*args, **kwargs)
             except Exception, e:
                 if self._headers_written:
-                    log.msg("Exception after headers written: %s" % e)
+                    log.msg("Exception after headers written: " + e)
                 else:
                     self._handle_request_exception(e)
         return wrapper
@@ -1031,7 +1033,7 @@ class RequestHandler(object):
         hasher = hashlib.sha1()
         for part in self._write_buffer:
             hasher.update(part)
-        return '"%s"' % hasher.hexdigest()
+        return '"' + hasher.hexdigest() + '"'
 
     def _execute(self, transforms, *args, **kwargs):
         """Executes this request with the given output transforms."""
@@ -1074,17 +1076,15 @@ class RequestHandler(object):
 
     def _generate_headers(self):
         reason = self._reason
-        lines = ["%s %s %s" % (utf8(self.request.version),
-                               str(self._status_code), reason)]
-
-        lines.extend(["%s: %s" % (utf8(n), utf8(v)) for n, v in
-                      itertools.chain(self._headers.iteritems(),
-                      self._list_headers)])
+        lines = [utf8(self.request.version + " " +
+                      str(self._status_code) +
+                      " " + reason)]
+        lines.extend([(utf8(n) + ": " + utf8(v)) for n, v in
+                  itertools.chain(self._headers.items(), self._list_headers)])
         if hasattr(self, "_new_cookie"):
             for cookie in self._new_cookie.values():
-                lines.append(utf8("Set-Cookie: %s" %
-                             cookie.OutputString(None)))
-        return "%s\r\n\r\n" % "\r\n".join(lines)
+                lines.append(utf8("Set-Cookie: " + cookie.OutputString(None)))
+        return "\r\n".join(lines) + "\r\n\r\n"
 
     def _log(self):
         """Logs the current request.
@@ -1096,33 +1096,36 @@ class RequestHandler(object):
         self.application.log_request(self)
 
     def _request_summary(self):
-        return "%s %s (%s)" % (self.request.method, self.request.uri,
-                                self.request.remote_ip)
+        return self.request.method + " " + self.request.uri + " (" + \
+                self.request.remote_ip + ")"
 
     def _handle_request_exception(self, e):
         try:
-            if isinstance(e.value, (HTTPError, HTTPAuthenticationRequired)):
+            # These are normally twisted.python.failure.Failure
+            if isinstance(e.value, (template.TemplateError,
+                                    HTTPError, HTTPAuthenticationRequired)):
                 e = e.value
         except:
             pass
 
-        if isinstance(e, (HTTPError, HTTPAuthenticationRequired)):
-            if self.settings.get("debug") is True and e.log_message:
-                format = "%d %s: " + e.log_message
-                args = [e.status_code, self._request_summary()] + list(e.args)
-                msg = lambda *args: format % args
-                log.msg(msg(*args))
+        if isinstance(e, template.TemplateError):
+            log.msg(str(e))
+            self.send_error(500, exception=e)
+        elif isinstance(e, (HTTPError, HTTPAuthenticationRequired)):
+            if e.log_message and self.settings.get("debug") is True:
+                log.msg(str(e))
+
             if e.status_code not in httplib.responses:
-                log.msg("Bad HTTP status code: %d" % e.status_code)
-                return self.send_error(500, exception=e)
-            else:
-                return self.send_error(e.status_code, exception=e)
+                log.msg("Bad HTTP status code: " + repr(e.status_code))
+                e.status_code = 500
+
+            self.send_error(e.status_code, exception=e)
         else:
-            if self.settings.get("debug") is True:
-                log.msg(e)
-            log.msg("Uncaught exception %s :: %r" %
-                    (self._request_summary(), self.request))
-            return self.send_error(500, exception=e)
+            log.msg("Uncaught exception\n" + str(e))
+            if self.settings.get("debug"):
+                log.msg(repr(self.request))
+
+            self.send_error(500, exception=e)
 
     def _ui_module(self, name, module):
         def render(*args, **kwargs):
@@ -1154,19 +1157,22 @@ def asynchronous(method):
 
     If this decorator is given, the response is not finished when the
     method returns. It is up to the request handler to call self.finish()
-    to finish the HTTP request. Without this decorator, the request is
+    to terminate the HTTP request. Without this decorator, the request is
     automatically finished when the get() or post() method returns. ::
 
-       class MyRequestHandler(web.RequestHandler):
-           @web.asynchronous
-           def get(self):
-              http = httpclient.AsyncHTTPClient()
-              http.fetch("http://friendfeed.com/", self._on_download)
+        from twisted.internet import reactor
 
-           def _on_download(self, response):
-              self.write("Downloaded!")
-              self.finish()
+        class MyRequestHandler(web.RequestHandler):
+            @web.asynchronous
+            def get(self):
+                self.write("Processing your request...")
+                reactor.callLater(5, self.do_something)
 
+            def do_something(self):
+                self.finish("done!")
+
+    It may be used for Comet and similar push techniques.
+    http://en.wikipedia.org/wiki/Comet_(programming)
     """
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
@@ -1189,7 +1195,7 @@ def removeslash(method):
                 uri = self.request.path.rstrip("/")
                 if uri:  # don't try to redirect '/' to ''
                     if self.request.query:
-                        uri = "%s?%s" % (uri, self.request.query)
+                        uri = uri + "?" + self.request.query
                 self.redirect(uri, permanent=True)
                 return
             else:
@@ -1209,9 +1215,9 @@ def addslash(method):
     def wrapper(self, *args, **kwargs):
         if not self.request.path.endswith("/"):
             if self.request.method in ("GET", "HEAD", "POST", "PUT", "DELETE"):
-                uri = "%s/" % self.request.path
+                uri = self.request.path + "/"
                 if self.request.query:
-                    uri = "%s?%s" % (uri, self.request.query)
+                    uri = uri + "?" + self.request.query
                 self.redirect(uri, permanent=True)
                 return
             raise HTTPError(404)
@@ -1332,7 +1338,13 @@ class Application(protocol.ServerFactory):
                 if isinstance(handler, types.StringType):
                     # import the Module and instantiate the class
                     # Must be a fully qualified name (module.ClassName)
-                    handler = import_object(handler)
+                    try:
+                        handler = import_object(handler)
+                    except ImportError, e:
+                        reactor.callWhenRunning(log.msg,
+                            "Unable to load handler '%s' for "
+                            "'%s': %s" % (handler, pattern, e))
+                        continue
 
                 if len(spec) == 3:
                     kwargs = spec[2]
@@ -1401,7 +1413,7 @@ class Application(protocol.ServerFactory):
         handlers = self._get_host_handlers(request)
         if not handlers:
             handler = RedirectHandler(self, request,
-                                      url="http://%s/" % self.default_host)
+                                      url="http://" + self.default_host + "/")
         else:
             for spec in handlers:
                 match = spec.regex.match(request.path)
@@ -1467,8 +1479,9 @@ class Application(protocol.ServerFactory):
             return
 
         request_time = 1000.0 * handler.request.request_time()
-        log.msg("[%s] %d %s %.2fms" % (handler.request.protocol or "-",
-            handler.get_status(), handler._request_summary(), request_time))
+        log.msg("[" + handler.request.protocol + "] " +
+                str(handler.get_status()) + " " + handler._request_summary() +
+                " %.2fms" % request_time)
 
 
 class HTTPError(Exception):
@@ -1492,13 +1505,11 @@ class HTTPError(Exception):
         self.reason = kwargs.get("reason", None)
 
     def __str__(self):
-        message = "HTTP %d: %s" % (
-            self.status_code,
-            self.reason or httplib.responses.get(self.status_code, "Unknown"))
         if self.log_message:
-            return "%s (%s)" % (message, self.log_message % self.args)
+            return self.log_message % self.args
         else:
-            return message
+            return self.reason or \
+                   httplib.responses.get(self.status_code, "Unknown")
 
 
 class HTTPAuthenticationRequired(HTTPError):
@@ -1712,8 +1723,8 @@ class StaticFileHandler(RequestHandler):
 class FallbackHandler(RequestHandler):
     """A RequestHandler that wraps another HTTP server callback.
 
-    On Tornado, this is useful to use both RequestHandlers and WSGI, but this
-    is not supported in cyclone.
+    Tornado has this to combine RequestHandlers and WSGI handlers, but it's
+    not supported in cyclone and is just here for compatibily purposes.
     """
     def initialize(self, fallback):
         self.fallback = fallback

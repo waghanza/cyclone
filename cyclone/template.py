@@ -182,17 +182,21 @@ with ``{# ... #}``.
 
 from __future__ import absolute_import, division, with_statement
 
-import cStringIO
 import datetime
 import linecache
 import os.path
 import posixpath
 import re
+import sys
 import threading
+import traceback
+import types
 
+from cStringIO import StringIO
 from cyclone import escape
-from cyclone.util import bytes_type, ObjectDict
-from twisted.python import log
+from cyclone.util import ObjectDict
+from cyclone.util import bytes_type
+from cyclone.util import unicode_type
 
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
@@ -218,8 +222,13 @@ class Template(object):
             self.autoescape = _DEFAULT_AUTOESCAPE
         self.namespace = loader.namespace if loader else {}
         reader = _TemplateReader(name, escape.native_str(template_string))
-        self.file = _File(self, _parse(reader, self))
-        self.code = self._generate_python(loader, compress_whitespace)
+        try:
+            self.file = _File(self, _parse(reader, self))
+            self.code = self._generate_python(loader, compress_whitespace)
+        except ParseError, e:
+            raise TemplateError("Error parsing template %s, line %d: %s" %
+                                                (name, reader.line, str(e)))
+
         self.loader = loader
         try:
             # Under python2.5, the fake filename used here must match
@@ -229,10 +238,8 @@ class Template(object):
                 "%s.generated.py" % self.name.replace('.', '_'),
                 "exec")
         except Exception:
-            log.err("%s code:" % self.name)
-            for line in _format_code(self.code).rstrip().split("\n"):
-                log.err(line)
-            raise
+            raise TemplateError("Error compiling template " + name + ":\n" +
+                                 _format_code(self.code).rstrip())
 
     def generate(self, **kwargs):
         """Generate this template with the given arguments."""
@@ -245,7 +252,7 @@ class Template(object):
             "linkify": escape.linkify,
             "datetime": datetime,
             "_utf8": escape.utf8,  # for internal use
-            "_string_types": (unicode, bytes_type),
+            "_string_types": (unicode_type, bytes_type),
             # __name__ and __loader__ allow the traceback mechanism to find
             # the generated source code.
             "__name__": self.name.replace('.', '_'),
@@ -259,10 +266,14 @@ class Template(object):
         # we've generated a new template (mainly for this module's
         # unittests, where different tests reuse the same name).
         linecache.clearcache()
-        return execute()
+        try:
+            return execute()
+        except:
+            raise TemplateError("Error executing template " + self.name +
+            ":\n" + _format_code(traceback.format_exception(*sys.exc_info())))
 
     def _generate_python(self, loader, compress_whitespace):
-        buffer = cStringIO.StringIO()
+        buffer = StringIO()
         try:
             # named_blocks maps from names to _NamedBlock objects
             named_blocks = {}
@@ -482,7 +493,7 @@ class _ApplyBlock(_Node):
             writer.write_line("_append = _buffer.append", self.line)
             self.body.generate(writer)
             writer.write_line("return _utf8('').join(_buffer)", self.line)
-        writer.write_line("_append(%s(%s()))" % (
+        writer.write_line("_append(_utf8(%s(%s())))" % (
             self.method, method_name), self.line)
 
 
@@ -573,6 +584,10 @@ class ParseError(Exception):
     pass
 
 
+class TemplateError(Exception):
+    pass
+
+
 class _CodeWriter(object):
     def __init__(self, file, named_blocks, loader, current_template,
                  compress_whitespace):
@@ -621,7 +636,7 @@ class _CodeWriter(object):
             ancestors = ["%s:%d" % (tmpl.name, lineno)
                          for (tmpl, lineno) in self.include_stack]
             line_comment += ' (via %s)' % ', '.join(reversed(ancestors))
-        print >> self.file, "    " * indent + line + line_comment
+        self.file.write("    " * indent + line + line_comment + "\n")
 
 
 class _TemplateReader(object):
@@ -681,7 +696,7 @@ class _TemplateReader(object):
 
 
 def _format_code(code):
-    lines = code.splitlines()
+    lines = code if isinstance(code, types.ListType) else code.splitlines()
     format = "%%%dd  %%s\n" % len(repr(len(lines) + 1))
     return "".join([format % (i + 1, line) for (i, line) in enumerate(lines)])
 
