@@ -1058,7 +1058,7 @@ class RequestHandler(object):
             # If XSRF cookies are turned on, reject form submissions without
             # the proper cookie
             if self.request.method not in ("GET", "HEAD", "OPTIONS") and \
-                "xsrf_cookies" in self.application.settings:
+                    self.application.settings.get("xsrf_cookies"):  # is True
                 if not getattr(self, "no_xsrf", False):
                     self.check_xsrf_cookie()
             defer.maybeDeferred(self.prepare).addCallbacks(
@@ -1482,8 +1482,8 @@ class Application(protocol.ServerFactory):
             return
 
         request_time = 1000.0 * handler.request.request_time()
-        log.msg("%d %s %.2fms" % (handler.get_status(),
-                handler._request_summary(), request_time))
+        log.msg("[%s] %d %s %.2fms" % (handler.request.protocol or "-",
+            handler.get_status(), handler._request_summary(), request_time))
 
 
 class HTTPError(Exception):
