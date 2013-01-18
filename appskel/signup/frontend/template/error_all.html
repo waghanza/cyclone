@@ -32,7 +32,7 @@
 
   {% if "exception" in fields and handler.settings.debug is True %}
     <p>Debug:</p>
-    <pre>{{fields["exception"]}}</pre>
+    <pre>{{escape(str(fields["exception"]))}}</pre>
   {% end %}
 <hr>
 
