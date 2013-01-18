@@ -30,7 +30,7 @@ from twisted.internet import interfaces
 
 from cyclone.escape import utf8, native_str, parse_qs_bytes
 from cyclone import httputil
-from cyclone.util import b, bytes_type
+from cyclone.util import bytes_type
 
 
 class _BadRequestException(Exception):
@@ -49,7 +49,7 @@ class HTTPConnection(basic.LineReceiver):
     These headers are useful when running Tornado behind a reverse proxy or
     load balancer.
     """
-    delimiter = b("\r\n")
+    delimiter = "\r\n"
 
     def connectionMade(self):
         self._headersbuffer = []
