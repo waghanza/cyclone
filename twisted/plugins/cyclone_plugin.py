@@ -68,6 +68,9 @@ class ServiceMaker(object):
         srv = service.MultiService()
         s = None
 
+        if "app" in options and (options["app"] or "")[-3:].lower() == ".py":
+            options["filename"] = options["app"]
+
         if "filename" in options and os.path.exists(options["filename"]):
             n = os.path.splitext(os.path.split(options["filename"])[-1])[0]
             appmod = imp.load_source(n, options["filename"])
