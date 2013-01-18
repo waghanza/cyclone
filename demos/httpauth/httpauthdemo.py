@@ -37,19 +37,22 @@ class Application(cyclone.web.Application):
 def HTTPBasic(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
-        try:
-            auth_type, auth_data = \
-                self.request.headers["Authorization"].split()
-            assert auth_type == "Basic"
-            usr, pwd = base64.b64decode(auth_data).split(":", 1)
-            assert usr == "root@localhost"
-            assert pwd == "123"
-        except:
-            # All arguments are optional. Defaults are:
-            # log_message=None, auth_type="Basic", realm="Restricted Access"
+        msg = None
+        if "Authorization" in self.request.headers:
+            auth_type, data = self.request.headers["Authorization"].split()
+            try:
+                assert auth_type == "Basic"
+                usr, pwd = base64.b64decode(data).split(":", 1)
+                assert usr == "root@localhost"
+                assert pwd == "123"
+            except AssertionError:
+                msg = "Authentication failed"
+        else:
+            msg = "Authentication required"
+
+        if msg:
             raise cyclone.web.HTTPAuthenticationRequired(
-                                log_message="Authentication failed!",
-                                auth_type="Basic", realm="DEMO")
+                            log_message=msg, auth_type="Basic", realm="DEMO")
         else:
             self._current_user = usr
             return method(self, *args, **kwargs)
@@ -64,7 +67,7 @@ class IndexHandler(cyclone.web.RequestHandler):
 
 def main():
     log.startLogging(sys.stdout)
-    reactor.listenTCP(8888, Application(), interface="127.0.0.1")
+    reactor.listenTCP(8888, Application(), interface="0.0.0.0")
     reactor.run()
 
 

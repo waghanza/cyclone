@@ -42,25 +42,30 @@ def HTTPBasic(method):
     @defer.inlineCallbacks
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
-        try:
-            auth_type, auth_data = \
-                self.request.headers["Authorization"].split()
-            assert auth_type == "Basic"
-            usr, pwd = base64.b64decode(auth_data).split(":", 1)
-        except:
-            raise cyclone.web.HTTPAuthenticationRequired
+        msg = None
+        if "Authorization" in self.request.headers:
+            auth_type, data = self.request.headers["Authorization"].split()
+            try:
+                assert auth_type == "Basic"
+                usr, pwd = base64.b64decode(data).split(":", 1)
+                redis_pwd = yield self.redisdb.get("cyclone:%s" % usr)
+                assert pwd == str(redis_pwd)  # it may come back as an int!
+            except AssertionError:
+                msg = "Authentication failed"
+            except cyclone.redis.ConnectionError, e:
+                # There's nothing we can do here. Just wait for the
+                # connection to resume.
+                log.msg("Redis is unavailable: %s" % e)
+                raise cyclone.web.HTTPError(503)  # Service Unavailable
+        else:
+            msg = "Authentication required"
 
-        try:
-            redis_pwd = yield self.redisdb.get("cyclone:%s" % usr)
-        except Exception, e:
-            log.msg("Redis failed to get('cyclone:%s'): %s" % (usr, str(e)))
-            raise cyclone.web.HTTPError(503)  # Service Unavailable
-
-        if pwd != str(redis_pwd):
-            raise cyclone.web.HTTPAuthenticationRequired
+        if msg:
+            raise cyclone.web.HTTPAuthenticationRequired(
+                            log_message=msg, auth_type="Basic", realm="DEMO")
         else:
             self._current_user = usr
-            defer.returnValue(method(self, *args, **kwargs))
+            yield defer.maybeDeferred(method, self, *args, **kwargs)
     return wrapper
 
 
