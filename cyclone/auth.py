@@ -29,21 +29,20 @@ They all take slightly different arguments due to the fact all these
 services implement authentication and authorization slightly differently.
 See the individual service classes below for complete documentation.
 
-Example usage for Google OpenID:
+Example usage for Google OpenID::
 
-class GoogleHandler(cyclone.web.RequestHandler, cyclone.auth.GoogleMixin):
-    @cyclone.web.asynchronous
-    def get(self):
-        if self.get_argument("openid.mode", None):
-            self.get_authenticated_user(self.async_callback(self._on_auth))
-            return
-        self.authenticate_redirect()
+    class GoogleHandler(cyclone.web.RequestHandler, cyclone.auth.GoogleMixin):
+        @cyclone.web.asynchronous
+        def get(self):
+            if self.get_argument("openid.mode", None):
+                self.get_authenticated_user(self.async_callback(self._on_auth))
+                return
+            self.authenticate_redirect()
 
-    def _on_auth(self, user):
-        if not user:
-            raise cyclone.web.HTTPError(500, "Google auth failed")
-        # Save the user with, e.g., set_secure_cookie()
-
+        def _on_auth(self, user):
+            if not user:
+                raise cyclone.web.HTTPError(500, "Google auth failed")
+            # Save the user with, e.g., set_secure_cookie()
 """
 
 from cyclone import escape
@@ -150,7 +149,7 @@ class OpenIdMixin(object):
 
     def _on_authentication_verified(self, callback, response):
         if response.error or b("is_valid:true") not in response.body:
-            log.msg("Invalid OpenID response: %s" % \
+            log.msg("Invalid OpenID response: %s" %
                     (response.error or response.body))
             callback(None)
             return
@@ -204,7 +203,6 @@ class OpenIdMixin(object):
         if username:
             user["username"] = username
         callback(user)
-
 
 
 class OAuth2Mixin(object):
@@ -390,21 +388,22 @@ class TwitterMixin(OAuthMixin):
     you registered as your application's Callback URL.
 
     When your application is set up, you can use this Mixin like this
-    to authenticate the user with Twitter and get access to their stream:
+    to authenticate the user with Twitter and get access to their stream::
 
-    class TwitterHandler(cyclone.web.RequestHandler,
-                         cyclone.auth.TwitterMixin):
-        @cyclone.web.asynchronous
-        def get(self):
-            if self.get_argument("oauth_token", None):
-                self.get_authenticated_user(self.async_callback(self._on_auth))
-                return
-            self.authorize_redirect()
+        class TwitterHandler(cyclone.web.RequestHandler,
+                             cyclone.auth.TwitterMixin):
+            @cyclone.web.asynchronous
+            def get(self):
+                if self.get_argument("oauth_token", None):
+                    self.get_authenticated_user(
+                                        self.async_callback(self._on_auth))
+                    return
+                self.authorize_redirect()
 
-        def _on_auth(self, user):
-            if not user:
-                raise cyclone.web.HTTPError(500, "Twitter auth failed")
-            # Save the user using, e.g., set_secure_cookie()
+            def _on_auth(self, user):
+                if not user:
+                    raise cyclone.web.HTTPError(500, "Twitter auth failed")
+                # Save the user using, e.g., set_secure_cookie()
 
     The user object returned by get_authenticated_user() includes the
     attributes 'username', 'name', and all of the custom Twitter user
@@ -447,26 +446,25 @@ class TwitterMixin(OAuthMixin):
         through authorize_redirect() and get_authenticated_user(). The
         user returned through that process includes an 'access_token'
         attribute that can be used to make authenticated requests via
-        this method. Example usage:
+        this method. Example usage::
 
-        class MainHandler(cyclone.web.RequestHandler,
-                          cyclone.auth.TwitterMixin):
-            @cyclone.web.authenticated
-            @cyclone.web.asynchronous
-            def get(self):
-                self.twitter_request(
-                    "/statuses/update",
-                    post_args={"status": "Testing cyclone Web Server"},
-                    access_token=user["access_token"],
-                    callback=self.async_callback(self._on_post))
+            class MainHandler(cyclone.web.RequestHandler,
+                              cyclone.auth.TwitterMixin):
+                @cyclone.web.authenticated
+                @cyclone.web.asynchronous
+                def get(self):
+                    self.twitter_request(
+                        "/statuses/update",
+                        post_args={"status": "Testing cyclone Web Server"},
+                        access_token=user["access_token"],
+                        callback=self.async_callback(self._on_post))
 
-            def _on_post(self, new_entry):
-                if not new_entry:
-                    # Call failed; perhaps missing permission?
-                    self.authorize_redirect()
-                    return
-                self.finish("Posted a message!")
-
+                def _on_post(self, new_entry):
+                    if not new_entry:
+                        # Call failed; perhaps missing permission?
+                        self.authorize_redirect()
+                        return
+                    self.finish("Posted a message!")
         """
         # Add the OAuth resource request signature if we have credentials
         url = "http://twitter.com" + path + ".json"
@@ -529,21 +527,22 @@ class FriendFeedMixin(OAuthMixin):
     application's Callback URL.
 
     When your application is set up, you can use this Mixin like this
-    to authenticate the user with FriendFeed and get access to their feed:
+    to authenticate the user with FriendFeed and get access to their feed::
 
-    class FriendFeedHandler(cyclone.web.RequestHandler,
-                            cyclone.auth.FriendFeedMixin):
-        @cyclone.web.asynchronous
-        def get(self):
-            if self.get_argument("oauth_token", None):
-                self.get_authenticated_user(self.async_callback(self._on_auth))
-                return
-            self.authorize_redirect()
+        class FriendFeedHandler(cyclone.web.RequestHandler,
+                                cyclone.auth.FriendFeedMixin):
+            @cyclone.web.asynchronous
+            def get(self):
+                if self.get_argument("oauth_token", None):
+                    self.get_authenticated_user(
+                                        self.async_callback(self._on_auth))
+                    return
+                self.authorize_redirect()
 
-        def _on_auth(self, user):
-            if not user:
-                raise cyclone.web.HTTPError(500, "FriendFeed auth failed")
-            # Save the user using, e.g., set_secure_cookie()
+            def _on_auth(self, user):
+                if not user:
+                    raise cyclone.web.HTTPError(500, "FriendFeed auth failed")
+                # Save the user using, e.g., set_secure_cookie()
 
     The user object returned by get_authenticated_user() includes the
     attributes 'username', 'name', and 'description' in addition to
@@ -572,26 +571,25 @@ class FriendFeedMixin(OAuthMixin):
         through authorize_redirect() and get_authenticated_user(). The
         user returned through that process includes an 'access_token'
         attribute that can be used to make authenticated requests via
-        this method. Example usage:
+        this method. Example usage::
 
-        class MainHandler(cyclone.web.RequestHandler,
-                          cyclone.auth.FriendFeedMixin):
-            @cyclone.web.authenticated
-            @cyclone.web.asynchronous
-            def get(self):
-                self.friendfeed_request(
-                    "/entry",
-                    post_args={"body": "Testing cyclone Web Server"},
-                    access_token=self.current_user["access_token"],
-                    callback=self.async_callback(self._on_post))
+            class MainHandler(cyclone.web.RequestHandler,
+                              cyclone.auth.FriendFeedMixin):
+                @cyclone.web.authenticated
+                @cyclone.web.asynchronous
+                def get(self):
+                    self.friendfeed_request(
+                        "/entry",
+                        post_args={"body": "Testing cyclone Web Server"},
+                        access_token=self.current_user["access_token"],
+                        callback=self.async_callback(self._on_post))
 
-            def _on_post(self, new_entry):
-                if not new_entry:
-                    # Call failed; perhaps missing permission?
-                    self.authorize_redirect()
-                    return
-                self.finish("Posted a message!")
-
+                def _on_post(self, new_entry):
+                    if not new_entry:
+                        # Call failed; perhaps missing permission?
+                        self.authorize_redirect()
+                        return
+                    self.finish("Posted a message!")
         """
         # Add the OAuth resource request signature if we have credentials
         url = "http://friendfeed-api.com/v2" + path
@@ -651,21 +649,22 @@ class GoogleMixin(OpenIdMixin, OAuthMixin):
     Google, redirect with authenticate_redirect(). On return, parse the
     response with get_authenticated_user(). We send a dict containing the
     values for the user, including 'email', 'name', and 'locale'.
-    Example usage:
+    Example usage::
 
-    class GoogleHandler(cyclone.web.RequestHandler, cyclone.auth.GoogleMixin):
-       @cyclone.web.asynchronous
-       def get(self):
-           if self.get_argument("openid.mode", None):
-               self.get_authenticated_user(self.async_callback(self._on_auth))
-               return
-        self.authenticate_redirect()
+        class GoogleHandler(cyclone.web.RequestHandler,
+                            cyclone.auth.GoogleMixin):
+           @cyclone.web.asynchronous
+           def get(self):
+               if self.get_argument("openid.mode", None):
+                   self.get_authenticated_user(
+                                        self.async_callback(self._on_auth))
+                   return
+            self.authenticate_redirect()
 
-        def _on_auth(self, user):
-            if not user:
-                raise cyclone.web.HTTPError(500, "Google auth failed")
-            # Save the user with, e.g., set_secure_cookie()
-
+            def _on_auth(self, user):
+                if not user:
+                    raise cyclone.web.HTTPError(500, "Google auth failed")
+                # Save the user with, e.g., set_secure_cookie()
     """
     _OPENID_ENDPOINT = "https://www.google.com/accounts/o8/ud"
     _OAUTH_ACCESS_TOKEN_URL = \
@@ -726,21 +725,22 @@ class FacebookMixin(object):
     'facebook_api_key' and 'facebook_secret'.
 
     When your application is set up, you can use this Mixin like this
-    to authenticate the user with Facebook:
+    to authenticate the user with Facebook::
 
-    class FacebookHandler(cyclone.web.RequestHandler,
-                          cyclone.auth.FacebookMixin):
-        @cyclone.web.asynchronous
-        def get(self):
-            if self.get_argument("session", None):
-                self.get_authenticated_user(self.async_callback(self._on_auth))
-                return
-            self.authenticate_redirect()
+        class FacebookHandler(cyclone.web.RequestHandler,
+                              cyclone.auth.FacebookMixin):
+            @cyclone.web.asynchronous
+            def get(self):
+                if self.get_argument("session", None):
+                    self.get_authenticated_user(
+                                        self.async_callback(self._on_auth))
+                    return
+                self.authenticate_redirect()
 
-        def _on_auth(self, user):
-            if not user:
-                raise cyclone.web.HTTPError(500, "Facebook auth failed")
-            # Save the user using, e.g., set_secure_cookie()
+            def _on_auth(self, user):
+                if not user:
+                    raise cyclone.web.HTTPError(500, "Facebook auth failed")
+                # Save the user using, e.g., set_secure_cookie()
 
     The user object returned by get_authenticated_user() includes the
     attributes 'facebook_uid' and 'name' in addition to session attributes
@@ -807,7 +807,7 @@ class FacebookMixin(object):
                 self._on_get_user_info, callback, session),
             session_key=session["session_key"],
             uids=session["uid"],
-            fields="uid,first_name,last_name,name,locale,pic_square," \
+            fields="uid,first_name,last_name,name,locale,pic_square,"
                    "profile_url,username")
 
     def facebook_request(self, method, callback, **args):
@@ -820,25 +820,24 @@ class FacebookMixin(object):
         The available Facebook methods are documented here:
         http://wiki.developers.facebook.com/index.php/API
 
-        Here is an example for the stream.get() method:
+        Here is an example for the stream.get() method::
 
-        class MainHandler(cyclone.web.RequestHandler,
-                          cyclone.auth.FacebookMixin):
-            @cyclone.web.authenticated
-            @cyclone.web.asynchronous
-            def get(self):
-                self.facebook_request(
-                    method="stream.get",
-                    callback=self.async_callback(self._on_stream),
-                    session_key=self.current_user["session_key"])
+            class MainHandler(cyclone.web.RequestHandler,
+                              cyclone.auth.FacebookMixin):
+                @cyclone.web.authenticated
+                @cyclone.web.asynchronous
+                def get(self):
+                    self.facebook_request(
+                        method="stream.get",
+                        callback=self.async_callback(self._on_stream),
+                        session_key=self.current_user["session_key"])
 
-            def _on_stream(self, stream):
-                if stream is None:
-                   # Not authorized to read the stream yet?
-                   self.redirect(self.authorize_redirect("read_stream"))
-                   return
-                self.render("stream.html", stream=stream)
-
+                def _on_stream(self, stream):
+                    if stream is None:
+                       # Not authorized to read the stream yet?
+                       self.redirect(self.authorize_redirect("read_stream"))
+                       return
+                    self.render("stream.html", stream=stream)
         """
         self.require_setting("facebook_api_key", "Facebook Connect")
         self.require_setting("facebook_secret", "Facebook Connect")
@@ -884,7 +883,7 @@ class FacebookMixin(object):
             callback(None)
             return
         if isinstance(json, dict) and json.get("error_code"):
-            log.msg("Facebook error: %d: %r" % \
+            log.msg("Facebook error: %d: %r" %
                     (json["error_code"], json.get("error_msg")))
             callback(None)
             return
@@ -910,7 +909,8 @@ class FacebookGraphMixin(OAuth2Mixin):
 
         Example usage::
 
-            class FacebookGraphLoginHandler(LoginHandler, tornado.auth.FacebookGraphMixin):
+            class FacebookGraphLoginHandler(LoginHandler,
+                                            tornado.auth.FacebookGraphMixin):
               @tornado.web.asynchronous
               def get(self):
                   if self.get_argument("code", False):
@@ -922,9 +922,10 @@ class FacebookGraphMixin(OAuth2Mixin):
                         callback=self.async_callback(
                           self._on_login))
                       return
-                  self.authorize_redirect(redirect_uri='/auth/facebookgraph/',
-                                          client_id=self.settings["facebook_api_key"],
-                                          extra_params={"scope": "read_stream,offline_access"})
+                  self.authorize_redirect(
+                        redirect_uri='/auth/facebookgraph/',
+                        client_id=self.settings["facebook_api_key"],
+                        extra_params={"scope": "read_stream,offline_access"})
 
               def _on_login(self, user):
                 logging.error(user)
@@ -943,8 +944,10 @@ class FacebookGraphMixin(OAuth2Mixin):
         if extra_fields:
             fields.update(extra_fields)
 
-        httpclient.fetch(self._oauth_request_token_url(**args)).addCallback(self.async_callback(self._on_access_token, redirect_uri, client_id,
-                                client_secret, callback, fields))
+        httpclient.fetch(self._oauth_request_token_url(**args))\
+        .addCallback(self.async_callback(
+                            self._on_access_token, redirect_uri, client_id,
+                            client_secret, callback, fields))
 
     def _on_access_token(self, redirect_uri, client_id, client_secret,
                         callback, fields, response):
@@ -976,7 +979,8 @@ class FacebookGraphMixin(OAuth2Mixin):
         for field in fields:
             fieldmap[field] = user.get(field)
 
-        fieldmap.update({"access_token": session["access_token"], "session_expires": session.get("expires")})
+        fieldmap.update({"access_token": session["access_token"],
+                         "session_expires": session.get("expires")})
         callback(fieldmap)
 
     def facebook_request(self, path, callback, access_token=None,
@@ -1002,7 +1006,7 @@ class FacebookGraphMixin(OAuth2Mixin):
                 def get(self):
                     self.facebook_request(
                         "/me/feed",
-                        post_args={"message": "I am posting from my Tornado application!"},
+                        post_args={"message": "Posting from my cyclone app!"},
                         access_token=self.current_user["access_token"],
                         callback=self.async_callback(self._on_post))
 
@@ -1024,7 +1028,8 @@ class FacebookGraphMixin(OAuth2Mixin):
             url += "?" + urllib.urlencode(all_args)
         callback = self.async_callback(self._on_facebook_request, callback)
         if post_args is not None:
-            httpclient.fetch(url, method="POST", body=urllib.urlencode(post_args)).addCallback(callback)
+            httpclient.fetch(url, method="POST",
+                    body=urllib.urlencode(post_args)).addCallback(callback)
         else:
             httpclient.fetch(url).addCallback(callback)
 
