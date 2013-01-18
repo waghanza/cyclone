@@ -82,13 +82,11 @@ import cyclone
 from cyclone import escape
 from cyclone import httpserver
 from cyclone import locale
-from cyclone import stack_context
 from cyclone import template
 from cyclone.escape import utf8, _unicode
 from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
 from cyclone.util import import_object
-from cyclone.util import raise_exc_info
 from cyclone.util import unicode_type
 
 from cStringIO import StringIO as BytesIO  # python 2
@@ -797,7 +795,7 @@ class RequestHandler(object):
                 kwargs['exception'] = exc_info[1]
                 try:
                     # Put the traceback into sys.exc_info()
-                    raise_exc_info(exc_info)
+                    raise exc_info[0], exc_info[1], exc_info[2]
                 except Exception:
                     self.finish(self.get_error_html(status_code, **kwargs))
             else:
@@ -1035,17 +1033,6 @@ class RequestHandler(object):
             hasher.update(part)
         return '"%s"' % hasher.hexdigest()
 
-    def _stack_context_handle_exception(self, type, value, traceback):
-        try:
-            # For historical reasons _handle_request_exception only takes
-            # the exception value instead of the full triple,
-            # so re-raise the exception to ensure that it's in
-            # sys.exc_info()
-            raise_exc_info((type, value, traceback))
-        except Exception:
-            self._handle_request_exception(value)
-        return True
-
     def _execute(self, transforms, *args, **kwargs):
         """Executes this request with the given output transforms."""
         self._transforms = transforms
@@ -1184,9 +1171,7 @@ def asynchronous(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         self._auto_finish = False
-        with stack_context.ExceptionStackContext(
-                                        self._stack_context_handle_exception):
-            return method(self, *args, **kwargs)
+        return method(self, *args, **kwargs)
     return wrapper
 
 
