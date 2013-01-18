@@ -16,6 +16,26 @@
 # under the License.
 
 import zlib
+from twisted.python import log
+
+
+def _emit(self, eventDict):
+    text = log.textFromEventDict(eventDict)
+    if not text:
+        return
+
+    #print "hello? '%s'" % repr(text)
+    timeStr = self.formatTime(eventDict['time'])
+    #fmtDict = {'system': eventDict['system'],
+    #            'text': text.replace("\n", "\n\t")}
+    #msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
+
+    log.util.untilConcludes(self.write, "%s %s\n" % (timeStr,
+                                            text.replace("\n", "\n\t")))
+    log.util.untilConcludes(self.flush)  # Hoorj!
+
+
+log.FileLogObserver.emit = _emit
 
 
 class ObjectDict(dict):
