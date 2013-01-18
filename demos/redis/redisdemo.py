@@ -30,13 +30,12 @@ from twisted.internet import defer, reactor
 class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
+            (r"/", IndexHandler),
             (r"/text/(.+)", TextHandler),
             (r"/queue/(.+)", QueueHandler),
         ]
         settings = dict(
             debug=True,
-            static_path="./frontend/static",
-            template_path="./frontend/template",
         )
         RedisMixin.setup("127.0.0.1", 6379, 0, 10)
         cyclone.web.Application.__init__(self, handlers, **settings)
@@ -71,7 +70,7 @@ class RedisMixin(object):
                 RedisMixin.psconn.subscribe(channel)
 
         RedisMixin.channels[channel].append(self)
-        log.msg("Client %s subscribed to %s" % \
+        log.msg("Client %s subscribed to %s" %
                 (self.request.remote_ip, channel))
 
     def unsubscribe_all(self, ign):
@@ -82,7 +81,7 @@ class RedisMixin(object):
             except:
                 continue
 
-            log.msg("Client %s unsubscribed from %s" % \
+            log.msg("Client %s unsubscribed from %s" %
                     (self.request.remote_ip, channel))
 
             # Unsubscribe from channel if no peers are listening
@@ -105,6 +104,14 @@ class RedisMixin(object):
             peer.flush()
 
 
+class IndexHandler(cyclone.web.RequestHandler):
+    readme = open("README").read().replace("\n", "\r\n")
+
+    def get(self):
+        self.set_header("Content-Type", "text/plain")
+        self.write(self.readme)
+
+
 # Provide GET, SET and DELETE redis operations via HTTP
 class TextHandler(cyclone.web.RequestHandler, RedisMixin):
     @defer.inlineCallbacks
@@ -124,7 +131,7 @@ class TextHandler(cyclone.web.RequestHandler, RedisMixin):
         try:
             yield self.dbconn.set(key, value)
         except Exception, e:
-            log.err("Redis failed to set('%s', '%s'): %s" % \
+            log.err("Redis failed to set('%s', '%s'): %s" %
                     (key, value, str(e)))
             raise cyclone.web.HTTPError(503)
 
@@ -170,7 +177,7 @@ class QueueHandler(cyclone.web.RequestHandler, RedisMixin):
         try:
             n = yield self.dbconn.publish(channel, message.encode("utf-8"))
         except Exception, e:
-            log.msg("Redis failed to publish('%s', '%s'): %s" % \
+            log.msg("Redis failed to publish('%s', '%s'): %s" %
                     (channel, repr(message), str(e)))
             raise cyclone.web.HTTPError(503)
 
