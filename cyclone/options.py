@@ -18,9 +18,9 @@
 # cyclone notice
 # drop in from tornado to cyclone by Gleicon (2012) to help porting some
 # applications that depends on it. I'd also recommend to look over
-# http://twistedmatrix.com/documents/current/core/howto/options.html or straight
-# getopt so you can move your code over other frameworks (nothing negative
-# related to this module or its code)
+# http://twistedmatrix.com/documents/current/core/howto/options.html or
+# straight getopt so you can move your code over other frameworks (nothing
+# negative related to this module or its code)
 
 """A command line parsing module that lets modules define their own options.
 
@@ -151,7 +151,8 @@ class _Options(dict):
 
         # Set up log level and pretty console logging by default
         if self.logging != 'none':
-            logging.getLogger().setLevel(getattr(logging, self.logging.upper()))
+            logging.getLogger().setLevel(
+                                getattr(logging, self.logging.upper()))
             enable_pretty_logging()
 
         return remaining
@@ -192,8 +193,9 @@ class _Options(dict):
 
 
 class _Option(object):
-    def __init__(self, name, default=None, type=basestring, help=None, metavar=None,
-                 multiple=False, file_name=None, group_name=None):
+    def __init__(self, name, default=None, type=basestring, help=None,
+                 metavar=None, multiple=False, file_name=None,
+                 group_name=None):
         if default is None and multiple:
             default = []
         self.name = name
@@ -237,11 +239,11 @@ class _Option(object):
                 raise Error("Option %r is required to be a list of %s" %
                             (self.name, self.type.__name__))
             for item in value:
-                if item != None and not isinstance(item, self.type):
+                if item is not None and not isinstance(item, self.type):
                     raise Error("Option %r is required to be a list of %s" %
                                 (self.name, self.type.__name__))
         else:
-            if value != None and not isinstance(value, self.type):
+            if value is not None and not isinstance(value, self.type):
                 raise Error("Option %r is required to be a %s (%s given)" %
                             (self.name, self.type.__name__, type(value)))
         self._value = value
