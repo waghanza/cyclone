@@ -55,7 +55,7 @@ def route(path=None, method="GET", callback=None, **kwargs):
 def run(**settings):
     global _handlers, _BaseHandler
     port = settings.get("port", 8888)
-    interface = settings.get("host", "127.0.0.1")
+    interface = settings.get("host", "0.0.0.0")
     log.startLogging(settings.pop("log", sys.stdout))
     _BaseHandler = settings.pop("base_handler", cyclone.web.RequestHandler)
 
