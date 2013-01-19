@@ -91,7 +91,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
 
     def forbidConnection(self, message):
         self.transport.write(
-            "HTTP/1.1 403 Forbidden\r\nContent-Length: %s\r\n\r\n%s" % \
+            "HTTP/1.1 403 Forbidden\r\nContent-Length: %s\r\n\r\n%s" %
             (str(len(message)), message))
         return self.transport.loseConnection()
 
@@ -142,7 +142,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             origin = self.request.headers['Sec-Websocket-Origin']
 
         key = self.request.headers['Sec-Websocket-Key']
-        accept = base64.b64encode(hashlib.sha1("%s%s" % \
+        accept = base64.b64encode(hashlib.sha1("%s%s" %
             (key, '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')).digest())
 
         self.transport.write(
@@ -152,7 +152,7 @@ class WebSocketProtocol17(WebSocketProtocol):
             "Sec-WebSocket-Accept: %s\r\n"
             "Server: cyclone/%s\r\n"
             "WebSocket-Origin: %s\r\n"
-            "WebSocket-Location: ws://%s%s\r\n\r\n" % \
+            "WebSocket-Location: ws://%s%s\r\n\r\n" %
             (accept, cyclone.version, origin,
              self.request.host, self.request.path))
 
@@ -287,7 +287,7 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "Connection: Upgrade\r\n"
                 "Server: cyclone/%s\r\n"
                 "WebSocket-Origin: %s\r\n"
-                "WebSocket-Location: ws://%s%s\r\n\r\n" % \
+                "WebSocket-Location: ws://%s%s\r\n\r\n" %
                 (cyclone.version, self.request.headers["Origin"],
                  self.request.host, self.request.path))
             self._protocol = 75
@@ -299,7 +299,7 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._postheader = True
 
     def rawDataReceived(self, data):
-        if self._postheader == True and \
+        if self._postheader is True and \
            self._protocol >= 76 and len(data) == 8:
             self._nonce = data.strip()
             token = self._calculate_token(self._k1, self._k2, self._nonce)
@@ -309,7 +309,7 @@ class WebSocketProtocol76(WebSocketProtocol):
                 "Connection: Upgrade\r\n"
                 "Server: cyclone/%s\r\n"
                 "Sec-WebSocket-Origin: %s\r\n"
-                "Sec-WebSocket-Location: ws://%s%s\r\n\r\n%s\r\n\r\n" % \
+                "Sec-WebSocket-Location: ws://%s%s\r\n\r\n%s\r\n\r\n" %
                 (cyclone.version, self.request.headers["Origin"],
                  self.request.host, self.request.path, token))
             self._postheader = False
