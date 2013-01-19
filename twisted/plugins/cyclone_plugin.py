@@ -41,12 +41,12 @@ class Options(usage.Options):
     # Example: A login handler that only exists in HTTPS.
     optParameters = [
         ["port", "p", 8888, "tcp port to listen on", int],
-        ["listen", "l", "127.0.0.1", "interface to listen on"],
+        ["listen", "l", "0.0.0.0", "interface to listen on"],
         ["unix", "u", None, "listen on unix socket instead of ip:port"],
         ["app", "r", None, "cyclone application to run"],
         ["appopts", "c", None, "arguments to your application"],
         ["ssl-port", None, 8443, "port to listen on for ssl", int],
-        ["ssl-listen", None, "127.0.0.1", "interface to listen on for ssl"],
+        ["ssl-listen", None, "0.0.0.0", "interface to listen on for ssl"],
         ["ssl-cert", None, "server.crt", "ssl certificate"],
         ["ssl-key", None, "server.key", "ssl server key"],
         ["ssl-app", None, None, "ssl application (same as --app)"],
