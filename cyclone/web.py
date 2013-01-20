@@ -47,7 +47,7 @@ In general, methods on RequestHandler and elsewhere in cyclone are not
 thread-safe.  In particular, methods such as write(), finish(), and
 flush() must only be called from the main thread.  For more information on
 using threads, please check the twisted documentation:
-    http://twistedmatrix.com/documents/current/core/howto/threading.html
+http://twistedmatrix.com/documents/current/core/howto/threading.html
 """
 
 from __future__ import absolute_import, division, with_statement
@@ -90,6 +90,7 @@ from cyclone.util import import_object
 from cyclone.util import unicode_type
 
 from cStringIO import StringIO as BytesIO  # python 2
+from twisted.python import failure
 from twisted.python import log
 from twisted.internet import defer
 from twisted.internet import protocol
@@ -1057,13 +1058,38 @@ class RequestHandler(object):
         except Exception, e:
             self._handle_request_exception(e)
 
+    def _deferred_handler(self, function, *args, **kwargs):
+        try:
+            result = function(*args, **kwargs)
+        except:
+            return defer.fail(failure.Failure(
+                              captureVars=defer.Deferred.debug))
+        else:
+            if isinstance(result, defer.Deferred):
+                return result
+            elif isinstance(result, types.GeneratorType):
+                # This may degrade performance a bit, but at least avoid the
+                # server from breaking when someone call yield without
+                # decorating their handler with @inlineCallbacks.
+                log.msg("[warning] %s.%s() returned a generator. "
+                        "Perhaps it should be decorated with "
+                        "@inlineCallbacks." % (self.__class__.__name__,
+                                               self.request.method.lower()))
+                return self._deferred_handler(defer.inlineCallbacks(function),
+                                              *args, **kwargs)
+            elif isinstance(result, failure.Failure):
+                return defer.fail(result)
+            else:
+                return defer.succeed(result)
+
     def _execute_handler(self, r, args, kwargs):
         if not self._finished:
             args = [self.decode_argument(arg) for arg in args]
             kwargs = dict((k, self.decode_argument(v, name=k))
                             for (k, v) in kwargs.iteritems())
             function = getattr(self, self.request.method.lower())
-            d = defer.maybeDeferred(function, *args, **kwargs)
+            #d = defer.maybeDeferred(function, *args, **kwargs)
+            d = self._deferred_handler(function, *args, **kwargs)
             d.addCallbacks(self._execute_success, self._execute_failure)
             self.notifyFinish().addCallback(self.on_connection_close)
 
