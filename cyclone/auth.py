@@ -47,12 +47,13 @@ Example usage for Google OpenID::
 
 from cyclone import escape
 from cyclone import httpclient
-from cyclone.util import b
+from cyclone.util import bytes_type
+from cyclone.util import unicode_type
 from cyclone.httputil import url_concat
 from twisted.python import log
 
+import base64
 import binascii
-import functools
 import hashlib
 import hmac
 import time
@@ -91,7 +92,7 @@ class OpenIdMixin(object):
         methods.
         """
         # Verify the OpenID response via direct request to the OP
-        args = dict((k, v[-1]) for k, v in self.request.arguments.iteritems())
+        args = dict((k, v[-1]) for k, v in self.request.arguments.items())
         args["openid.mode"] = u"check_authentication"
         url = self._OPENID_ENDPOINT
         callback = self.async_callback(self._on_authentication_verified,
@@ -148,7 +149,7 @@ class OpenIdMixin(object):
         return args
 
     def _on_authentication_verified(self, callback, response):
-        if response.error or b("is_valid:true") not in response.body:
+        if response.error or "is_valid:true" not in response.body:
             log.msg("Invalid OpenID response: %s" %
                     (response.error or response.body))
             callback(None)
@@ -156,7 +157,7 @@ class OpenIdMixin(object):
 
         # Make sure we got back at least an email from attribute exchange
         ax_ns = None
-        for name in self.request.arguments.iterkeys():
+        for name in self.request.arguments.keys():
             if name.startswith("openid.ns.") and \
                self.get_argument(name) == u"http://openid.net/srv/ax/1.0":
                 ax_ns = name[10:]
@@ -167,7 +168,7 @@ class OpenIdMixin(object):
                 return u""
             prefix = "openid." + ax_ns + ".type."
             ax_name = None
-            for name in self.request.arguments.iterkeys():
+            for name in self.request.arguments.keys():
                 if self.get_argument(name) == uri and name.startswith(prefix):
                     part = name[len(prefix):]
                     ax_name = "openid." + ax_ns + ".value." + part
@@ -202,7 +203,181 @@ class OpenIdMixin(object):
             user["locale"] = locale
         if username:
             user["username"] = username
+        claimed_id = self.get_argument("openid.claimed_id", None)
+        if claimed_id:
+            user["claimed_id"] = claimed_id
         callback(user)
+
+
+class OAuthMixin(object):
+    """Abstract implementation of OAuth.
+
+    See TwitterMixin and FriendFeedMixin below for example implementations.
+    """
+    def authorize_redirect(self, callback_uri=None):
+        """Redirects the user to obtain OAuth authorization for this service.
+
+        Twitter and FriendFeed both require that you register a Callback
+        URL with your application. You should call this method to log the
+        user in, and then call get_authenticated_user() in the handler
+        you registered as your Callback URL to complete the authorization
+        process.
+
+        This method sets a cookie called _oauth_request_token which is
+        subsequently used (and cleared) in get_authenticated_user for
+        security purposes.
+        """
+        if callback_uri and getattr(self, "_OAUTH_NO_CALLBACKS", False):
+            raise Exception("This service does not support oauth_callback")
+        callback = self.async_callback(
+            self._on_request_token, self._OAUTH_AUTHORIZE_URL, callback_uri)
+        httpclient.fetch(self._oauth_request_token_url()).addCallback(callback)
+
+    def get_authenticated_user(self, callback):
+        """Gets the OAuth authorized user and access token on callback.
+
+        This method should be called from the handler for your registered
+        OAuth Callback URL to complete the registration process. We call
+        callback with the authenticated user, which in addition to standard
+        attributes like 'name' includes the 'access_key' attribute, which
+        contains the OAuth access you can use to make authorized requests
+        to this service on behalf of the user.
+        """
+        request_key = escape.utf8(self.get_argument("oauth_token"))
+        oauth_verifier = self.get_argument("oauth_verifier", None)
+        request_cookie = self.get_cookie("_oauth_request_token")
+        if not request_cookie:
+            log.msg("Missing OAuth request token cookie")
+            callback(None)
+            return
+        self.clear_cookie("_oauth_request_token")
+        cookie_key, cookie_secret = [base64.b64decode(escape.utf8(i))
+                                     for i in request_cookie.split("|")]
+        if cookie_key != request_key:
+            log.msg("Request token does not match cookie")
+            callback(None)
+            return
+        token = dict(key=cookie_key, secret=cookie_secret)
+        if oauth_verifier:
+            token["verifier"] = oauth_verifier
+        d = httpclient.fetch(self._oauth_access_token_url(token))
+        d.addCallback(self.async_callback(self._on_access_token, callback))
+
+    def _oauth_request_token_url(self, callback_uri=None, extra_params=None):
+        consumer_token = self._oauth_consumer_token()
+        url = self._OAUTH_REQUEST_TOKEN_URL
+        args = dict(
+            oauth_consumer_key=escape.to_basestring(consumer_token["key"]),
+            oauth_signature_method="HMAC-SHA1",
+            oauth_timestamp=str(int(time.time())),
+            oauth_nonce=escape.to_basestring(binascii.b2a_hex(
+                                             uuid.uuid4().bytes)),
+            oauth_version=getattr(self, "_OAUTH_VERSION", "1.0a"),
+        )
+        if getattr(self, "_OAUTH_VERSION", "1.0a") == "1.0a":
+            if callback_uri == "oob":
+                args["oauth_callback"] = "oob"
+            elif callback_uri:
+                args["oauth_callback"] = urlparse.urljoin(
+                    self.request.full_url(), callback_uri)
+            if extra_params:
+                args.update(extra_params)
+            signature = _oauth10a_signature(consumer_token, "GET", url, args)
+        else:
+            signature = _oauth_signature(consumer_token, "GET", url, args)
+
+        args["oauth_signature"] = signature
+        return url + "?" + urllib.urlencode(args)
+
+    def _on_request_token(self, authorize_url, callback_uri, response):
+        if response.error:
+            raise Exception("Could not get request token")
+        request_token = _oauth_parse_response(response.body)
+        data = (base64.b64encode(request_token["key"]) + "|" +
+                base64.b64encode(request_token["secret"]))
+        self.set_cookie("_oauth_request_token", data)
+        args = dict(oauth_token=request_token["key"])
+        if callback_uri == "oob":
+            self.finish(authorize_url + "?" + urllib.urlencode(args))
+            return
+        elif callback_uri:
+            args["oauth_callback"] = urlparse.urljoin(
+                self.request.full_url(), callback_uri)
+        self.redirect(authorize_url + "?" + urllib.urlencode(args))
+
+    def _oauth_access_token_url(self, request_token):
+        consumer_token = self._oauth_consumer_token()
+        url = self._OAUTH_ACCESS_TOKEN_URL
+        args = dict(
+            oauth_consumer_key=escape.to_basestring(consumer_token["key"]),
+            oauth_token=escape.to_basestring(request_token["key"]),
+            oauth_signature_method="HMAC-SHA1",
+            oauth_timestamp=str(int(time.time())),
+            oauth_nonce=escape.to_basestring(binascii.b2a_hex(
+                                             uuid.uuid4().bytes)),
+            oauth_version=getattr(self, "_OAUTH_VERSION", "1.0a"),
+        )
+        if "verifier" in request_token:
+            args["oauth_verifier"] = request_token["verifier"]
+
+        if getattr(self, "_OAUTH_VERSION", "1.0a") == "1.0a":
+            signature = _oauth10a_signature(consumer_token, "GET", url, args,
+                                            request_token)
+        else:
+            signature = _oauth_signature(consumer_token, "GET", url, args,
+                                         request_token)
+
+        args["oauth_signature"] = signature
+        return url + "?" + urllib.urlencode(args)
+
+    def _on_access_token(self, callback, response):
+        if response.error:
+            log.msg("Could not fetch access token")
+            callback(None)
+            return
+
+        access_token = _oauth_parse_response(response.body)
+        self._oauth_get_user(access_token, self.async_callback(
+             self._on_oauth_get_user, access_token, callback))
+
+    def _oauth_get_user(self, access_token, callback):
+        raise NotImplementedError()
+
+    def _on_oauth_get_user(self, access_token, callback, user):
+        if not user:
+            callback(None)
+            return
+        user["access_token"] = access_token
+        callback(user)
+
+    def _oauth_request_parameters(self, url, access_token, parameters={},
+                                  method="GET"):
+        """Returns the OAuth parameters as a dict for the given request.
+
+        parameters should include all POST arguments and query string arguments
+        that will be sent with the request.
+        """
+        consumer_token = self._oauth_consumer_token()
+        base_args = dict(
+            oauth_consumer_key=escape.to_basestring(consumer_token["key"]),
+            oauth_token=escape.to_basestring(access_token["key"]),
+            oauth_signature_method="HMAC-SHA1",
+            oauth_timestamp=str(int(time.time())),
+            oauth_nonce=escape.to_basestring(binascii.b2a_hex(
+                                             uuid.uuid4().bytes)),
+            oauth_version=getattr(self, "_OAUTH_VERSION", "1.0a"),
+        )
+        args = {}
+        args.update(base_args)
+        args.update(parameters)
+        if getattr(self, "_OAUTH_VERSION", "1.0a") == "1.0a":
+            signature = _oauth10a_signature(consumer_token, method, url, args,
+                                         access_token)
+        else:
+            signature = _oauth_signature(consumer_token, method, url, args,
+                                         access_token)
+        base_args["oauth_signature"] = signature
+        return base_args
 
 
 class OAuth2Mixin(object):
@@ -242,142 +417,6 @@ class OAuth2Mixin(object):
         return url_concat(url, args)
 
 
-class OAuthMixin(object):
-    """Abstract implementation of OAuth.
-
-    See TwitterMixin and FriendFeedMixin below for example implementations.
-    """
-    def authorize_redirect(self, callback_uri=None):
-        """Redirects the user to obtain OAuth authorization for this service.
-
-        Twitter and FriendFeed both require that you register a Callback
-        URL with your application. You should call this method to log the
-        user in, and then call get_authenticated_user() in the handler
-        you registered as your Callback URL to complete the authorization
-        process.
-
-        This method sets a cookie called _oauth_request_token which is
-        subsequently used (and cleared) in get_authenticated_user for
-        security purposes.
-        """
-        if callback_uri and getattr(self, "_OAUTH_NO_CALLBACKS", False):
-            raise Exception("This service does not support oauth_callback")
-        callback = self.async_callback(
-            self._on_request_token, self._OAUTH_AUTHORIZE_URL, callback_uri)
-        httpclient.fetch(self._oauth_request_token_url()).addCallback(callback)
-
-    def get_authenticated_user(self, callback):
-        """Gets the OAuth authorized user and access token on callback.
-
-        This method should be called from the handler for your registered
-        OAuth Callback URL to complete the registration process. We call
-        callback with the authenticated user, which in addition to standard
-        attributes like 'name' includes the 'access_key' attribute, which
-        contains the OAuth access you can use to make authorized requests
-        to this service on behalf of the user.
-        """
-        request_key = self.get_argument("oauth_token")
-        request_cookie = self.get_cookie("_oauth_request_token")
-        if not request_cookie:
-            log.msg("Missing OAuth request token cookie")
-            callback(None)
-            return
-
-        cookie_key, cookie_secret = request_cookie.split("|")
-        if cookie_key != request_key:
-            log.msg("Request token does not match cookie")
-            callback(None)
-            return
-        token = dict(key=cookie_key, secret=cookie_secret)
-        d = httpclient.fetch(self._oauth_access_token_url(token))
-        d.addCallback(self.async_callback(self._on_access_token, callback))
-
-    def _oauth_request_token_url(self):
-        consumer_token = self._oauth_consumer_token()
-        url = self._OAUTH_REQUEST_TOKEN_URL
-        args = dict(
-            oauth_consumer_key=consumer_token["key"],
-            oauth_signature_method="HMAC-SHA1",
-            oauth_timestamp=str(int(time.time())),
-            oauth_nonce=binascii.b2a_hex(uuid.uuid4().bytes),
-            oauth_version="1.0",
-        )
-        signature = _oauth_signature(consumer_token, "GET", url, args)
-        args["oauth_signature"] = signature
-        return url + "?" + urllib.urlencode(args)
-
-    def _on_request_token(self, authorize_url, callback_uri, response):
-        if response.error:
-            raise Exception("Could not get request token")
-        request_token = _oauth_parse_response(response.body)
-        data = "|".join([request_token["key"], request_token["secret"]])
-        self.set_cookie("_oauth_request_token", data)
-        args = dict(oauth_token=request_token["key"])
-        if callback_uri:
-            args["oauth_callback"] = urlparse.urljoin(
-                self.request.full_url(), callback_uri)
-        self.redirect(authorize_url + "?" + urllib.urlencode(args))
-
-    def _oauth_access_token_url(self, request_token):
-        consumer_token = self._oauth_consumer_token()
-        url = self._OAUTH_ACCESS_TOKEN_URL
-        args = dict(
-            oauth_consumer_key=consumer_token["key"],
-            oauth_token=request_token["key"],
-            oauth_signature_method="HMAC-SHA1",
-            oauth_timestamp=str(int(time.time())),
-            oauth_nonce=binascii.b2a_hex(uuid.uuid4().bytes),
-            oauth_version="1.0",
-        )
-        signature = _oauth_signature(consumer_token, "GET", url, args,
-                                     request_token)
-        args["oauth_signature"] = signature
-        return url + "?" + urllib.urlencode(args)
-
-    def _on_access_token(self, callback, response):
-        if response.error:
-            log.msg("Could not fetch access token")
-            callback(None)
-            return
-        access_token = _oauth_parse_response(response.body)
-        self._oauth_get_user(access_token, self.async_callback(
-             self._on_oauth_get_user, access_token, callback))
-
-    def _oauth_get_user(self, access_token, callback):
-        raise NotImplementedError()
-
-    def _on_oauth_get_user(self, access_token, callback, user):
-        if not user:
-            callback(None)
-            return
-        user["access_token"] = access_token
-        callback(user)
-
-    def _oauth_request_parameters(self, url, access_token, parameters={},
-                                  method="GET"):
-        """Returns the OAuth parameters as a dict for the given request.
-
-        parameters should include all POST arguments and query string arguments
-        that will be sent with the request.
-        """
-        consumer_token = self._oauth_consumer_token()
-        base_args = dict(
-            oauth_consumer_key=consumer_token["key"],
-            oauth_token=access_token["key"],
-            oauth_signature_method="HMAC-SHA1",
-            oauth_timestamp=str(int(time.time())),
-            oauth_nonce=binascii.b2a_hex(uuid.uuid4().bytes),
-            oauth_version="1.0",
-        )
-        args = {}
-        args.update(base_args)
-        args.update(parameters)
-        signature = _oauth_signature(consumer_token, method, url, args,
-                                     access_token)
-        base_args["oauth_signature"] = signature
-        return base_args
-
-
 class TwitterMixin(OAuthMixin):
     """Twitter OAuth authentication.
 
@@ -413,11 +452,12 @@ class TwitterMixin(OAuthMixin):
     the user; it is required to make requests on behalf of the user later
     with twitter_request().
     """
-    _OAUTH_REQUEST_TOKEN_URL = "http://twitter.com/oauth/request_token"
-    _OAUTH_ACCESS_TOKEN_URL = "http://twitter.com/oauth/access_token"
-    _OAUTH_AUTHORIZE_URL = "http://twitter.com/oauth/authorize"
-    _OAUTH_AUTHENTICATE_URL = "http://twitter.com/oauth/authenticate"
-    _OAUTH_NO_CALLBACKS = True
+    _OAUTH_REQUEST_TOKEN_URL = "http://api.twitter.com/oauth/request_token"
+    _OAUTH_ACCESS_TOKEN_URL = "http://api.twitter.com/oauth/access_token"
+    _OAUTH_AUTHORIZE_URL = "http://api.twitter.com/oauth/authorize"
+    _OAUTH_AUTHENTICATE_URL = "http://api.twitter.com/oauth/authenticate"
+    _OAUTH_NO_CALLBACKS = False
+    _TWITTER_BASE_URL = "http://api.twitter.com/1"
 
     def authenticate_redirect(self):
         """Just like authorize_redirect(), but auto-redirects if authorized.
@@ -465,7 +505,14 @@ class TwitterMixin(OAuthMixin):
                         self.authorize_redirect()
                         return
                     self.finish("Posted a message!")
+
         """
+        if path.startswith('http:') or path.startswith('https:'):
+            # Raw urls are useful for e.g. search which doesn't follow the
+            # usual pattern: http://search.twitter.com/search.json
+            url = path
+        else:
+            url = self._TWITTER_BASE_URL + path + ".json"
         # Add the OAuth resource request signature if we have credentials
         url = "http://twitter.com" + path + ".json"
         if access_token:
@@ -505,9 +552,9 @@ class TwitterMixin(OAuthMixin):
             secret=self.settings["twitter_consumer_secret"])
 
     def _oauth_get_user(self, access_token, callback):
-        callback = functools.partial(self._parse_user_response, callback)
+        callback = self.async_callback(self._parse_user_response, callback)
         self.twitter_request(
-            "/users/show/" + access_token["screen_name"],
+            "/users/show/" + escape.native_str(access_token["screen_name"]),
             access_token=access_token, callback=callback)
 
     def _parse_user_response(self, callback, user):
@@ -550,6 +597,7 @@ class FriendFeedMixin(OAuthMixin):
     it is required to make requests on behalf of the user later with
     friendfeed_request().
     """
+    _OAUTH_VERSION = "1.0"
     _OAUTH_REQUEST_TOKEN_URL = \
         "https://friendfeed.com/account/oauth/request_token"
     _OAUTH_ACCESS_TOKEN_URL = \
@@ -597,7 +645,6 @@ class FriendFeedMixin(OAuthMixin):
             all_args = {}
             all_args.update(args)
             all_args.update(post_args or {})
-            self._oauth_consumer_token()
             method = "POST" if post_args is not None else "GET"
             oauth = self._oauth_request_parameters(
                 url, access_token, all_args, method=method)
@@ -629,7 +676,7 @@ class FriendFeedMixin(OAuthMixin):
             secret=self.settings["friendfeed_consumer_secret"])
 
     def _oauth_get_user(self, access_token, callback):
-        callback = functools.partial(self._parse_user_response, callback)
+        callback = self.async_callback(self._parse_user_response, callback)
         self.friendfeed_request(
             "/feedinfo/" + access_token["username"],
             include="id,name,description", access_token=access_token,
@@ -719,6 +766,9 @@ class GoogleMixin(OpenIdMixin, OAuthMixin):
 class FacebookMixin(object):
     """Facebook Connect authentication.
 
+    New applications should consider using `FacebookGraphMixin` below instead
+    of this class.
+
     To authenticate with Facebook, register your application with
     Facebook at http://www.facebook.com/developers/apps.php. Then
     copy your API Key and Application Secret to the application settings
@@ -765,7 +815,7 @@ class FacebookMixin(object):
             args["cancel_url"] = urlparse.urljoin(
                 self.request.full_url(), cancel_uri)
         if extended_permissions:
-            if isinstance(extended_permissions, basestring):
+            if isinstance(extended_permissions, (unicode_type, bytes_type)):
                 extended_permissions = [extended_permissions]
             args["req_perms"] = ",".join(extended_permissions)
         self.redirect("http://www.facebook.com/login.php?" +
@@ -779,10 +829,10 @@ class FacebookMixin(object):
         http://wiki.developers.facebook.com/index.php/Extended_permission.
         The most common resource types include:
 
-            publish_stream
-            read_stream
-            email
-            sms
+        * publish_stream
+        * read_stream
+        * email
+        * sms
 
         extended_permissions can be a single permission name or a list of
         names. To get the session secret and session key, call
@@ -803,7 +853,7 @@ class FacebookMixin(object):
         session = escape.json_decode(self.get_argument("session"))
         self.facebook_request(
             method="facebook.users.getInfo",
-            callback=functools.partial(
+            callback=self.async_callback(
                 self._on_get_user_info, callback, session),
             session_key=session["session_key"],
             uids=session["uid"],
@@ -868,7 +918,7 @@ class FacebookMixin(object):
             "profile_url": users[0]["profile_url"],
             "username": users[0].get("username"),
             "session_key": session["session_key"],
-            "session_expires": session["expires"],
+            "session_expires": session.get("expires"),
         })
 
     def _parse_response(self, callback, response):
@@ -1058,22 +1108,49 @@ def _oauth_signature(consumer_token, method, url, parameters={}, token=None):
                                for k, v in sorted(parameters.items())))
     base_string = "&".join(_oauth_escape(e) for e in base_elems)
 
-    key_elems = [consumer_token["secret"]]
-    key_elems.append(token["secret"] if token else "")
+    key_elems = [escape.utf8(consumer_token["secret"])]
+    key_elems.append(escape.utf8(token["secret"] if token else ""))
     key = "&".join(key_elems)
 
-    hash = hmac.new(key, base_string, hashlib.sha1)
+    hash = hmac.new(key, escape.utf8(base_string), hashlib.sha1)
+    return binascii.b2a_base64(hash.digest())[:-1]
+
+
+def _oauth10a_signature(consumer_token,
+                        method, url, parameters={}, token=None):
+    """Calculates the HMAC-SHA1 OAuth 1.0a signature for the given request.
+
+    See http://oauth.net/core/1.0a/#signing_process
+    """
+    parts = urlparse.urlparse(url)
+    scheme, netloc, path = parts[:3]
+    normalized_url = scheme.lower() + "://" + netloc.lower() + path
+
+    base_elems = []
+    base_elems.append(method.upper())
+    base_elems.append(normalized_url)
+    base_elems.append("&".join("%s=%s" % (k, _oauth_escape(str(v)))
+                               for k, v in sorted(parameters.items())))
+
+    base_string = "&".join(_oauth_escape(e) for e in base_elems)
+    key_elems = [escape.utf8(
+                 urllib.quote(consumer_token["secret"], safe='~'))]
+    key_elems.append(escape.utf8(
+                     urllib.quote(token["secret"], safe='~') if token else ""))
+    key = "&".join(key_elems)
+
+    hash = hmac.new(key, escape.utf8(base_string), hashlib.sha1)
     return binascii.b2a_base64(hash.digest())[:-1]
 
 
 def _oauth_escape(val):
-    if isinstance(val, unicode):
+    if isinstance(val, unicode_type):
         val = val.encode("utf-8")
     return urllib.quote(val, safe="~")
 
 
 def _oauth_parse_response(body):
-    p = urlparse.parse_qs(body, keep_blank_values=False)
+    p = escape.parse_qs(body, keep_blank_values=False)
     token = dict(key=p["oauth_token"][0], secret=p["oauth_token_secret"][0])
 
     # Add the extra parameters the Provider included to the token
