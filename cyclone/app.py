@@ -15,6 +15,40 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""
+Command-line tool for creating cyclone applications out of the box. ::
+
+    usage: cyclone app [options]
+    Options:
+     -h --help              Show this help.
+     -n --new               Dumps a sample server code to stdout.
+     -p --project=NAME      Create new cyclone project.
+     -g --git               Use in conjunction with -p to make it a git \
+repository.
+     -m --modname=NAME      Use another name for the module \
+[default: project_name]
+     -v --version=VERSION   Set project version [default: 0.1]
+     -s --set-pkg-version   Set version on package name [default: False]
+     -t --target=PATH       Set path where project is created \
+[default: current directory]
+     -l --license=FILE      Append the following license file \
+[default: Apache 2]
+     -a --appskel=SKEL      Set the application skeleton [default: default]
+
+    SKEL:
+      default              Basic cyclone project
+      signup               Basic sign up/in/out, password reset, etc
+      foreman              Create a foreman based project \
+(suited to run on heroku and other PaaS)
+
+    Examples:
+     For a simple hello world:
+     $ cyclone app -n > hello.py
+
+     For a project that requires sign up:
+     $ cyclone app --project=foobar --appskel=signup
+"""
+
 from __future__ import with_statement
 import base64
 import getopt
@@ -102,7 +136,7 @@ def new_project(**kwargs):
         os.system("git add .gitignore")
 
 
-def usage(version, target):
+def usage(version):
     print("""\
 usage: cyclone app [options]
 Options:
@@ -113,7 +147,8 @@ Options:
  -m --modname=NAME      Use another name for the module [default: project_name]
  -v --version=VERSION   Set project version [default: %s]
  -s --set-pkg-version   Set version on package name [default: False]
- -t --target=PATH       Set path where project is created [default: %s]
+ -t --target=PATH       Set path where project is created \
+[default: current directory]
  -l --license=FILE      Append the following license file [default: Apache 2]
  -a --appskel=SKEL      Set the application skeleton [default: default]
 
@@ -122,7 +157,13 @@ SKEL:
   signup               Basic sign up/in/out, password reset, etc
   foreman              Create a foreman based project \
 (suited to run on heroku and other PaaS)
-    """ % (version, target))
+
+Examples:
+ For a simple hello world:
+ $ cyclone app -n > hello.py
+
+ For a project that requires sign up:
+ $ cyclone app --project=foobar --appskel=signup""" % (version))
     sys.exit(0)
 
 
@@ -143,11 +184,11 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
     except getopt.GetoptError:
-        usage(default_version, default_target)
+        usage(default_version)
 
     for o, a in opts:
         if o in ("-h", "--help"):
-            usage(default_version, default_target)
+            usage(default_version)
 
         if o in ("-n", "--new"):
             print "%s%s" % (DEFAULT_LICENSE % {"year": datetime.now().year},
@@ -189,7 +230,7 @@ def main():
             license = f.read()
 
     if project is None:
-        usage(default_version, default_target)
+        usage(default_version)
     elif not re.match(r"^[0-9a-z][0-9a-z_-]+$", project, re.I):
         print("Invalid project name.")
         sys.exit(1)
