@@ -15,12 +15,25 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""A non-blocking, single-threaded HTTP server.
+
+Typical applications have little direct interaction with the `HTTPConnection`
+class, which is the HTTP parser executed on incoming connections.
+
+It is a protocol class that inherits Twisted's `LineReceiver
+<http://twistedmatrix.com/documents/current/api/
+twisted.protocols.basic.LineReceiver.html>`_, and is usually created by
+`cyclone.web.Application`, our connection factory.
+
+This module also defines the `HTTPRequest` class which is exposed via
+`cyclone.web.RequestHandler.request`.
+"""
+
 from __future__ import absolute_import, division, with_statement
 
 import Cookie
 import socket
 import time
-import urlparse
 
 from twisted.python import log
 from twisted.protocols import basic
@@ -229,14 +242,15 @@ class HTTPRequest(object):
 
     .. attribute:: remote_ip
 
-       Client's IP address as a string.  If `HTTPServer.xheaders` is set,
+       Client's IP address as a string.  If `HTTPConnection.xheaders` is set,
        will pass along the real IP address provided by a load balancer
        in the ``X-Real-Ip`` header
 
     .. attribute:: protocol
 
-       The protocol used, either "http" or "https".  If `HTTPServer.xheaders`
-       is set, will pass along the protocol used by a load balancer if
+       The protocol used, either "http" or "https".
+       If `HTTPConnection.xheaders` is set, will pass along the protocol used
+       by a load balancer if
        reported via an ``X-Scheme`` header.
 
     .. attribute:: host
@@ -296,16 +310,8 @@ class HTTPRequest(object):
         self._start_time = time.time()
         self._finish_time = None
 
-        scheme, netloc, path, query, fragment = \
-            urlparse.urlsplit(native_str(uri))
-        self.path = path
-        self.query = query
-        arguments = parse_qs_bytes(query)
-        self.arguments = {}
-        for name, values in arguments.iteritems():
-            values = [v for v in values if v]
-            if values:
-                self.arguments[name] = values
+        self.path, sep, self.query = uri.partition("?")
+        self.arguments = parse_qs_bytes(self.query, keep_blank_values=True)
 
     def supports_http_1_1(self):
         """Returns True if this request supports HTTP/1.1 semantics"""
@@ -346,6 +352,9 @@ class HTTPRequest(object):
             return self._finish_time - self._start_time
 
     def notifyFinish(self):
+        """Returns a Deferred object, which is fired when the request is
+        finished and the connection is closed.
+        """
         return self.connection.notifyFinish()
 
     def __repr__(self):
