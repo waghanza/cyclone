@@ -18,6 +18,7 @@
 
 import cyclone.web
 import sys
+
 from twisted.internet import reactor
 from twisted.python import log
 
@@ -27,15 +28,11 @@ class MainHandler(cyclone.web.RequestHandler):
         self.write("Hello, world")
 
 
-def main():
-    log.startLogging(sys.stdout)
+if __name__ == "__main__":
     application = cyclone.web.Application([
         (r"/", MainHandler)
     ])
 
+    log.startLogging(sys.stdout)
     reactor.listenTCP(8888, application, interface="127.0.0.1")
     reactor.run()
-
-
-if __name__ == "__main__":
-    main()
