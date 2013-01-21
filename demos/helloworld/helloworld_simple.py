@@ -16,7 +16,7 @@
 # under the License.
 #
 # Start the server:
-#   cyclone run -r helloworld_simple.Application
+#   cyclone run helloworld_simple.py
 #
 # For more info:
 #   cyclone run --help
