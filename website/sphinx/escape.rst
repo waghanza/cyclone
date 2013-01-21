@@ -17,10 +17,8 @@
 
    Byte/unicode conversions
    ------------------------
-   These functions are used extensively within Tornado itself,
-   but should not be directly needed by most applications.  Note that 
-   much of the complexity of these functions comes from the fact that
-   Tornado supports both Python 2 and Python 3.
+   These functions are used extensively within Cyclone itself,
+   but should not be directly needed by most applications.
 
    .. autofunction:: utf8
    .. autofunction:: to_unicode

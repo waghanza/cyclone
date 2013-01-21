@@ -15,6 +15,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""Non-blocking HTTP client"""
+
 import functools
 import types
 
@@ -131,10 +133,63 @@ class HTTPClient(object):
 
 
 def fetch(url, *args, **kwargs):
+    """A non-blocking HTTP client.
+
+    Example::
+
+        d = httpclient.fetch("http://google.com")
+        d.addCallback(on_response)
+
+    By default the client does not follow redirects on HTTP 301, 302, 303
+    or 307.
+
+    Parameters:
+
+    followRedirect: Boolean, to tell the client whether to follow redirects
+                    or not. [default: False]
+
+    maxRedirects: Maximum number of redirects to follow. This is to avoid
+                  infinite loops cause by misconfigured servers.
+
+    postdata: Data that accompanies the request. If a request ``method`` is not
+              set but ``postdata`` is, then it is automatically turned into
+              a ``POST`` and the ``Content-Type`` is set to
+              ``application/x-www-form-urlencoded``.
+
+    headers: A python dictionary containing HTTP headers for this request.
+             Note that all values must be lists::
+
+                 headers={"Content-Type": ["application/json"]}
+
+    The response is an object with the following attributes:
+
+    code: HTTP server response code.
+
+    phrase: Text that describe the response code. e.g.: 302 ``See Other``
+
+    headers: Response headers
+
+    length: Content length
+
+    body: The data, untouched
+    """
     return HTTPClient(escape.utf8(url), *args, **kwargs).fetch()
 
 
 class JsonRPC:
+    """JSON-RPC client.
+
+    Once instantiated, may be used to make multiple calls to the server.
+
+    Example::
+
+        cli = httpclient.JsonRPC("http://localhost:8888/jsonrpc")
+        response1 = yield cli.echo("foobar")
+        response2 = yield cli.sort(["foo", "bar"])
+
+    Note that in the example above, ``echo`` and ``sort`` are remote methods
+    provided by the server.
+    """
     def __init__(self, url):
         self.__rpcId = 0
         self.__rpcUrl = url
