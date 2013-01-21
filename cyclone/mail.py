@@ -141,11 +141,11 @@ def sendmail(mailconf, message):
     Example::
 
         mailconf = dict(
-            host="smtp.gmail.com"  # required
-            port=25                # optional, default 25 or 587 for SSL/TLS
-            username=foo           # optional, no default
-            password=bar           # optional, no default
-            tls=True               # optional, default False
+            host="smtp.gmail.com",  # required
+            port=25,                # optional, default 25 or 587 for SSL/TLS
+            username=foo,           # optional, no default
+            password=bar,           # optional, no default
+            tls=True,               # optional, default False
         )
 
         d = mail.sendmail(mailconf, msg)
