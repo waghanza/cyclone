@@ -32,7 +32,7 @@
    .. automethod:: RequestHandler.decode_argument
    .. attribute:: RequestHandler.request
 
-      The `tornado.httpserver.HTTPRequest` object containing additional
+      The `cyclone.httpserver.HTTPRequest` object containing additional
       request parameters including e.g. headers and body data.
 
    .. attribute:: RequestHandler.path_args
@@ -111,13 +111,13 @@
          Additional keyword arguments passed to the constructor are
          saved in the `settings` dictionary, and are often referred to
          in documentation as "application settings".  Settings are
-         used to customize various aspects of Tornado (although in
+         used to customize various aspects of Cyclone (although in
          some cases richer customization is possible by overriding
          methods in a subclass of `RequestHandler`).  Some
          applications also like to use the `settings` dictionary as a
          way to make application-specific settings available to
          handlers without using global variables.  Settings used in
-         Tornado are described below.
+         Cyclone are described below.
 
          General settings:
 
@@ -150,7 +150,7 @@
            ``friendfeed_consumer_key``, ``friendfeed_consumer_secret``,
            ``google_consumer_key``, ``google_consumer_secret``,
            ``facebook_api_key``, ``facebook_secret``:  Used in the
-           `tornado.auth` module to authenticate to various APIs.
+           `cyclone.auth` module to authenticate to various APIs.
 
          Template settings:
 
@@ -162,7 +162,7 @@
          * ``template_path``: Directory containing template files.  Can be
            further customized by overriding `RequestHandler.get_template_path`
          * ``template_loader``: Assign to an instance of
-           `tornado.template.BaseLoader` to customize template loading.
+           `cyclone.template.BaseLoader` to customize template loading.
            If this setting is used the ``template_path`` and ``autoescape``
            settings are ignored.  Can be further customized by overriding
            `RequestHandler.create_template_loader`.
@@ -175,13 +175,13 @@
            defaults to ``"/static/"``.
          * ``static_handler_class``, ``static_handler_args``: May be set to
            use a different handler for static files instead of the default
-           `tornado.web.StaticFileHandler`.  ``static_handler_args``, if set,
+           `cyclone.web.StaticFileHandler`.  ``static_handler_args``, if set,
            should be a dictionary of keyword arguments to be passed to the
            handler's ``initialize`` method.
 
    .. autoclass:: URLSpec
 
-      The ``URLSpec`` class is also available under the name ``tornado.web.url``.
+      The ``URLSpec`` class is also available under the name ``cyclone.web.url``.
 
    Decorators
    ----------

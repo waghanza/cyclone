@@ -10,4 +10,5 @@ Core web framework
    template
    escape
    locale
+   bottle
    sqlite

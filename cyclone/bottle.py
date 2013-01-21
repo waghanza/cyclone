@@ -78,7 +78,9 @@ def run(**settings):
     Parameters:
 
     host: Interface to listen on. [default: 0.0.0.0]
+
     port: TCP port to listen on. [default: 8888]
+
     more_handlers: A regular list of tuples containing regex -> handler
 
     All other parameters are passed directly to the `cyclone.web.Application`
