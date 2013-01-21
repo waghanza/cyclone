@@ -15,6 +15,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""Support for Bootle application style.
+
+http://bottlepy.com
+
+For more information see the bottle demo:
+https://github.com/fiorix/cyclone/tree/master/demos/bottle
+"""
+
 import cyclone.web
 import functools
 import sys
@@ -42,6 +50,18 @@ class Router:
 
 
 def route(path=None, method="GET", callback=None, **kwargs):
+    """Use this decorator to route requests to the handler.
+
+    Example::
+
+        @route("/")
+        def index(cli):
+            cli.write("Hello, world")
+
+        @route("/foobar", method="post")
+        def whatever(cli):
+            ...
+    """
     if callable(path):
         path, callback = None, path
 
@@ -53,6 +73,18 @@ def route(path=None, method="GET", callback=None, **kwargs):
 
 
 def run(**settings):
+    """Start the application.
+
+    Parameters:
+
+    host: Interface to listen on. [default: 0.0.0.0]
+    port: TCP port to listen on. [default: 8888]
+    more_handlers: A regular list of tuples containing regex -> handler
+
+    All other parameters are passed directly to the `cyclone.web.Application`
+    constructor.
+    """
+
     global _handlers, _BaseHandler
     port = settings.get("port", 8888)
     interface = settings.get("host", "0.0.0.0")
