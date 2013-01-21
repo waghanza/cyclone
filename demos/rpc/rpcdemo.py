@@ -41,7 +41,7 @@ class XmlrpcHandler(cyclone.xmlrpc.XmlrpcRequestHandler):
     @defer.inlineCallbacks
     def xmlrpc_geoip_lookup(self, address):
         result = yield cyclone.httpclient.fetch(
-            "http://freegeoip.net/xml/%s" % address)
+            "http://freegeoip.net/xml/%s" % address.encode("utf-8"))
         defer.returnValue(result.body)
 
 

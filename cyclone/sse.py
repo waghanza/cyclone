@@ -15,12 +15,25 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""`Server-sent events <http://en.wikipedia.org/wiki/Server-sent_events>`_
+is a technology for providing push notifications from a server to a browser
+client in the form of DOM events.
+
+For more information, check out the `SEE demo
+<https://github.com/fiorix/cyclone/tree/master/demos/sse>`_.
+"""
+
 from cyclone import escape
 from cyclone.web import RequestHandler
 from twisted.python import log
 
 
 class SSEHandler(RequestHandler):
+    """Subclass this class and define `bind` and `unbind` to get
+    notified when a new client connects or disconnects, respectively.
+
+    Once connected, you may send events to the browser via `sendEvent`.
+    """
     def __init__(self, application, request):
         RequestHandler.__init__(self, application, request)
         self.transport = request.connection.transport
@@ -29,10 +42,16 @@ class SSEHandler(RequestHandler):
     def sendEvent(self, message, event=None, eid=None, retry=None):
         """
         sendEvent is the single method to send events to clients.
+
+        Parameters:
+
         message: the event itself
+
         event: optional event name
+
         eid: optional event id to be used as Last-Event-ID header or
              e.lastEventId property
+
         retry: set the retry timeout in ms. default 3 secs.
         """
         if isinstance(message, dict):
@@ -68,7 +87,9 @@ class SSEHandler(RequestHandler):
         self.unbind()
 
     def bind(self):
+        """Gets called when a new client connects."""
         pass
 
     def unbind(self):
+        """Gets called when an existing client disconnects."""
         pass

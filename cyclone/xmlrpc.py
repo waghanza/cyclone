@@ -15,6 +15,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""Server-side implementation of the XML-RPC protocol.
+
+`XML-RPC <http://en.wikipedia.org/wiki/XML-RPC>`_ is a remote procedure call
+protocol which uses XML to encode its calls and HTTP as a transport mechanism.
+
+For more information, check out the `RPC demo
+<https://github.com/fiorix/cyclone/tree/master/demos/rpc>`_.
+"""
+
 import xmlrpclib
 
 from twisted.internet import defer
@@ -22,6 +31,26 @@ from cyclone.web import RequestHandler
 
 
 class XmlrpcRequestHandler(RequestHandler):
+    """Subclass this class and define xmlrpc_* to make a handler.
+
+    Example::
+
+        class MyRequestHandler(XmlrpcRequestHandler):
+            allowNone = True
+
+            def xmlrpc_echo(self, text):
+                return text
+
+            def xmlrpc_sort(self, items):
+                return sorted(items)
+
+            @defer.inlineCallbacks
+            def xmlrpc_geoip_lookup(self, address):
+                response = yield cyclone.httpclient.fetch(
+                    "http://freegeoip.net/xml/%s" % address.encode("utf-8"))
+                defer.returnValue(response.body)
+    """
+
     FAILURE = 8002
     NOT_FOUND = 8001
     separator = "."

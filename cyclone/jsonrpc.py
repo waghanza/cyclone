@@ -15,6 +15,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""Server-side implementation of the JSON-RPC protocol.
+
+`JSON-RPC <http://json-rpc.org/wiki/specification>`_  is a lightweight remote
+procedure call protocol, designed to be simple.
+
+For more information, check out the `RPC demo
+<https://github.com/fiorix/cyclone/tree/master/demos/rpc>`_.
+"""
+
 import types
 
 import cyclone.escape
@@ -25,6 +34,23 @@ from twisted.python import log, failure
 
 
 class JsonrpcRequestHandler(RequestHandler):
+    """Subclass this class and define jsonrpc_* to make a handler.
+
+    Example::
+
+        class MyRequestHandler(JsonrpcRequestHandler):
+            def jsonrpc_echo(self, text):
+                return text
+
+            def jsonrpc_sort(self, items):
+                return sorted(items)
+
+            @defer.inlineCallbacks
+            def jsonrpc_geoip_lookup(self, address):
+                response = yield cyclone.httpclient.fetch(
+                    "http://freegeoip.net/json/%s" % address.encode("utf-8"))
+                defer.returnValue(response.body)
+    """
     def post(self, *args):
         self._auto_finish = False
         try:

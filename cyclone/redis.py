@@ -44,10 +44,12 @@ from twisted.python.failure import Failure
 
 
 class RedisError(Exception):
+    """Base class for Redis errors"""
     pass
 
 
 class ConnectionError(RedisError):
+    """Raised when commands are issued on a disconnected instance"""
     pass
 
 
@@ -242,14 +244,12 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
             self.replyReceived(ConnectionError("Lost connection"))
 
     def lineReceived(self, line):
-        """
-        Reply types:
-          "-" error message
-          "+" single line status reply
-          ":" integer number (protocol level only?)
-          "$" bulk data
-          "*" multi-bulk data
-        """
+        # Reply types:
+        #   "-" error message
+        #   "+" single line status reply
+        #   ":" integer number (protocol level only?)
+        #   "$" bulk data
+        #   "*" multi-bulk data
         if line:
             self.resetTimeout()
             token, data = line[0], line[1:]
@@ -313,9 +313,7 @@ class RedisProtocol(LineReceiver, policies.TimeoutMixin):
                 self.replyReceived(reply)
 
     def rawDataReceived(self, data):
-        """
-        Process and dispatch to bulkDataReceived.
-        """
+        # Process and dispatch to bulkDataReceived.
         if self.bulk_length:
             data, rest = data[:self.bulk_length], data[self.bulk_length:]
             self.bulk_length -= len(data)

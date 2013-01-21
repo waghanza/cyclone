@@ -15,6 +15,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+"""Server-side implementation of the WebSocket protocol.
+
+`WebSocket <http://en.wikipedia.org/wiki/WebSocket>`_  is a web technology
+providing full-duplex communications channels over a single TCP connection.
+
+For more information, check out the `WebSocket demos
+<https://github.com/fiorix/cyclone/tree/master/demos/websocket>`_.
+"""
 import base64
 import functools
 import hashlib
@@ -32,6 +40,45 @@ class _NotEnoughFrame(Exception):
 
 
 class WebSocketHandler(cyclone.web.RequestHandler):
+    """Subclass this class to create a basic WebSocket handler.
+
+    Override messageReceived to handle incoming messages.
+
+    See http://dev.w3.org/html5/websockets/ for details on the
+    JavaScript interface.  The protocol is specified at
+    http://tools.ietf.org/html/rfc6455.
+
+    Here is an example Web Socket handler that echos back all received messages
+    back to the client::
+
+      class EchoWebSocket(websocket.WebSocketHandler):
+          def connectionMade(self):
+              print "WebSocket connected"
+
+          def messageReceived(self, message):
+              self.sendMessage(u"You said: " + message)
+
+          def connectionLost(self):
+              print "WebSocket disconnected"
+
+    Web Sockets are not standard HTTP connections. The "handshake" is HTTP,
+    but after the handshake, the protocol is message-based. Consequently,
+    most of the Cyclone HTTP facilities are not available in handlers of this
+    type. The only communication methods available to you is sendMessage().
+
+    If you map the handler above to "/websocket" in your application, you can
+    invoke it in JavaScript with::
+
+      var ws = new WebSocket("ws://localhost:8888/websocket");
+      ws.onopen = function() {
+         ws.send("Hello, world");
+      };
+      ws.onmessage = function (evt) {
+         alert(evt.data);
+      };
+
+    This script pops up an alert box that says "You said: Hello, world".
+    """
     def __init__(self, application, request, **kwargs):
         cyclone.web.RequestHandler.__init__(self, application, request,
                                             **kwargs)
@@ -50,9 +97,15 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         pass
 
     def messageReceived(self, message):
+        """Gets called when a message is received from the peer."""
         pass
 
     def sendMessage(self, message):
+        """Sends the given message to the client of this Web Socket.
+
+        The message may be either a string or a dict (which will be
+        encoded as json).
+        """
         if isinstance(message, dict):
             message = cyclone.escape.json_encode(message)
         if isinstance(message, unicode):
