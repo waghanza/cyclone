@@ -1539,8 +1539,14 @@ class HTTPError(Exception):
 
 
 class HTTPAuthenticationRequired(HTTPError):
-    """An exception that will turn into an
-    HTTP Authentication Required response"""
+    """An exception that will turn into an HTTP 401, Authentication Required.
+
+    The arguments are used to compose the ``WWW-Authenticate`` header.
+    See http://en.wikipedia.org/wiki/Basic_access_authentication for details.
+
+    :arg string auth_type: Authentication type (``Basic``, ``Digest``, etc)
+    :arg string realm: Realm (Usually displayed by the browser)
+    """
     def __init__(self, log_message=None,
                  auth_type="Basic", realm="Restricted Access", **kwargs):
         self.status_code = 401

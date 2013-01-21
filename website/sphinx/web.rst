@@ -193,6 +193,7 @@
    Everything else
    ---------------
    .. autoexception:: HTTPError
+   .. autoexception:: HTTPAuthenticationRequired
    .. autoclass:: UIModule
       :members:
 
