@@ -8,9 +8,8 @@ for Python, that implements the Tornado API as a Twisted protocol.
 
 `Twisted <http://twistedmatrix.com>`_ is an event-driven network programming
 framework for Python, that dates back from 2002. It's one of the most mature
-libraries for non-blocking I/O available to the public.
-
-`Tornado <http://tornadoweb.org>`_ is the open source version of FriendFeed's
+libraries for non-blocking I/O available to the public. `Tornado
+<http://tornadoweb.org>`_ is the open source version of FriendFeed's
 web server, one of the most popular and fast web servers for Python, with
 a very decent API for building web applications.
 
