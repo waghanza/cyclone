@@ -15,7 +15,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-"""Implementation of e-mail Message and SMTP with and without SSL"""
+"""Support for sending e-mails with attachments to SMTP servers over
+plain text, SSL or TLS.
+
+For more information, check out the `e-mail demo
+<https://github.com/fiorix/cyclone/tree/master/demos/email>`_.
+"""
 
 import types
 import os.path
@@ -36,6 +41,17 @@ from twisted.mail.smtp import ESMTPSenderFactory
 
 
 class Message(object):
+    """Create new e-mail messages.
+
+    Example::
+
+        msg = mail.Message(
+                from_addr="root@localhost",
+                to_addrs=["user1", "user2", "user3"],
+                subject="Test, 123",
+                mime="text/html")
+    """
+
     def __init__(self, from_addr, to_addrs, subject, message,
                  mime="text/plain", charset="utf-8"):
         self.subject = subject
@@ -52,6 +68,16 @@ class Message(object):
         self.message.set_type(mime)
 
     def attach(self, filename, mime=None, charset=None, content=None):
+        """Attach files to this message.
+
+        Example::
+
+            msg.attach("me.png", mime="image/png")
+
+        It also supports fake attachments::
+
+            msg.attach("fake.txt", mime="text/plain", content="gotcha")
+        """
         base = os.path.basename(filename)
         if content is None:
             fd = open(filename)
@@ -97,6 +123,12 @@ class Message(object):
         return StringIO(self.__cache)
 
     def add_header(self, key, value, **params):
+        """Adds custom headers to this message.
+
+        Example::
+
+            msg.add_header("X-MailTag", "foobar")
+        """
         if self.msg is None:
             self.msg = self.message
 
@@ -104,13 +136,20 @@ class Message(object):
 
 
 def sendmail(mailconf, message):
-    """Takes a regular dictionary as mailconf, as follows:
+    """Takes a regular dictionary as mailconf, as follows.
 
-    mailconf["host"] = "your.smtp.com" (required)
-    mailconf["port"] = 25 (optional, default 25 or 587 for TLS)
-    mailconf["username"] = "username" (optional)
-    mailconf["password"] = "password" (optional)
-    mailconf["tls"] = True | False (optional, default False)
+    Example::
+
+        mailconf = dict(
+            host="smtp.gmail.com"  # required
+            port=25                # optional, default 25 or 587 for SSL/TLS
+            username=foo           # optional, no default
+            password=bar           # optional, no default
+            tls=True               # optional, default False
+        )
+
+        d = mail.sendmail(mailconf, msg)
+        d.addCallback(on_response)
     """
     if not isinstance(mailconf, types.DictType):
         raise TypeError("mailconf must be a regular python dictionary")

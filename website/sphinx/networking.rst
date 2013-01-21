@@ -5,3 +5,4 @@ Asynchronous networking
 
    redis
    httpclient
+   e-mail
