@@ -36,13 +36,16 @@ Servers can be started like this::
 
     $ cyclone run hello.py
 
-As long as there's at least one class that inherits `cyclone.web.Application`
-in the Python file - like the ``hello.py`` above.
+As long as there's at least one class that inherits from
+`cyclone.web.Application` in the Python file - like the ``hello.py`` above.
+You can also specify it using the absolute Python module path::
+
+    $ cyclone run --app=hello.Application
 
 Always set ``debug=True`` in `cyclone.web.Application.settings` to get more
-detailed log messages, useful for development.
+detailed log messages, for development.
 
-For more complex setups, like chosing different pid and log files, as well
+For more complex setups, like choosing different pid and log files, as well
 as daemonizing your server, use ``twistd``::
 
     $ twistd --pidfile=/var/run/cyclone.pid --logfile=/var/log/cyclone.log \
