@@ -68,7 +68,7 @@
       <hr>
 
       <p><a href="https://github.com/fiorix/cyclone">Cyclone</a> is a web server framework
-      for Python, that implements the Tornado API as a Twisted protocol.</p>
+      for Python that implements the Tornado API as a Twisted protocol.</p>
 
       <p><a href="http://twistedmatrix.com">Twisted</a> is an event-driven network programming
       framework for Python, that dates back from 2002. It&#8217;s one of the most mature
@@ -77,21 +77,20 @@
       web server, one of the most popular and fast web servers for Python, with
       a very decent API for building web applications.</p>
 
-      <p>The idea is that applications built with Cyclone look like Tornado, which is
-      a very nice and straightforward way of structuring web applications, but
-      on the other hand leverage all protocols supported by twisted.</p>
+      <p>The idea is to bridge Tornado's elegant and straightforward API to Twisted's
+      Event-Loop, enabling a vast number of supported protocols.</p>
 
-      <p>This combination provides the ground for building up hybrid servers that not
-      only can handle http clients very efficiently, but also serve or use e-mail,
+      <p>This combination provides the ground for building up hybrid servers capable
+      of handling HTTP very efficiently while also serve or use e-mail,
       ssh, sip, irc, etc, all concurrently.</p>
 
-      <p>Besides the rich feature set, there&#8217;s also an effort for addressing the C10K
+      <p>On top of this rich feature set, Cyclone also addresses the C10K
       problem. For more information check <a class="reference external" href="http://www.kegel.com/c10k.html">http://www.kegel.com/c10k.html</a>.</p>
 
       <h3>Installation</h3>
       <p>Cyclone is listed in <a href="http://pypi.python.org/pypi/cyclone">PyPI</a> and can be installed
       with <i>pip</i> or <i>easy_install</i>. Note that the source distribution includes demo applications
-      that are not present when Cyclone is installed in this way, so you may with to download
+      that are not present when Cyclone is installed via packages, so you may want to download
       a copy of the source tarball as well.</p>
 
       <p>Download the latest version from <a href="http://pypi.python.org/pypi/cyclone">http://pypi.python.org/pypi/cyclone</a>
@@ -108,15 +107,15 @@ sudo python setup.py install</pre>
         <li>pyOpenSSL: <a href="https://launchpad.net/pyopenssl">https://launchpad.net/pyopenssl</a> (only if you want SSL/TLS)</li>
       </ul>
 
-      <p>On Python 2.5, simplejson is required too.</p>
+      <p><span class="label label-info">Heads up!</span> On Python 2.5, simplejson is required too.</p>
 
       <h3>Demos</h3>
       <p>Get up to speed with our comprehensive demo applications:</p>
       <ul>
-        <li>Tornado or Bottle application styles:
+        <li>Tornado / Bottle application style:
       <a href="https://github.com/fiorix/cyclone/tree/master/demos/helloworld">helloworld.py</a></li>
 
-        <li>Make your software translatable. See the <a href="https://github.com/fiorix/cyclone/tree/master/demos/locale">locale demo</a>,
+        <li>Localization ? See the <a href="https://github.com/fiorix/cyclone/tree/master/demos/locale">locale demo</a>,
       amigo.</li>
 
         <li>E-mails with attachments: <a href="https://github.com/fiorix/cyclone/tree/master/demos/email">email demo</a></li>
@@ -135,7 +134,7 @@ sudo python setup.py install</pre>
 
       <hr>
 
-      <p>Contribute with code, pizza, gifts, or donations.</p>
+      <p>Contribute with code, pizza, gifts or donations.</p>
       <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
       <input type="hidden" name="cmd" value="_s-xclick">
       <input type="hidden" name="encrypted" value="-----BEGIN PKCS7-----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-----END PKCS7-----
