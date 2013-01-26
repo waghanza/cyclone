@@ -5,7 +5,10 @@ Inspiration from fbgraphdemo and (http://casbon.me/connecting-to-githubs-oauth2-
 
 To test the demo app that lists the description of all your gists:
 
-    - [Register new app](register_new_app.png)
-    - Change github_client_id and github_secret with the respective values after your register the new app.
-    - $ python github_auth_example.py
-    - [Authorize your login](auth_screen.png)
+[Register new app](register_new_app.png)
+
+Change github_client_id and github_secret with the respective values after your register the new app.
+
+$ python github_auth_example.py
+
+[Authorize your login](auth_screen.png)
