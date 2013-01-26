@@ -6,3 +6,4 @@ build
 dist
 cyclone.egg-info
 dropin.cache
+*DS_Store*
