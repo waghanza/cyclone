@@ -155,15 +155,9 @@ class HTTPConnection(basic.LineReceiver):
                 raise _BadRequestException(
                         "Malformed HTTP version in HTTP Request-Line")
             headers = httputil.HTTPHeaders.parse(data[eol:])
-            peer = self.transport.getPeer()
-            if isinstance(peer, address.UNIXAddress):
-                remote_ip = "unix:%s" % self.transport.getHost().name
-            else:
-                remote_ip = self.transport.getPeer().host
-
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
-                headers=headers, remote_ip=remote_ip)
+                headers=headers, remote_ip=self._remote_ip())
 
             content_length = int(headers.get("Content-Length", 0))
             if content_length:
@@ -175,7 +169,7 @@ class HTTPConnection(basic.LineReceiver):
 
             self.request_callback(self._request)
         except _BadRequestException, e:
-            log.msg("Malformed HTTP request from %s: %s", remote_ip, e)
+            log.msg("Malformed HTTP request from %s: %s", self._remote_ip(), e)
             self.transport.loseConnection()
 
     def _on_request_body(self, data):
@@ -203,6 +197,13 @@ class HTTPConnection(basic.LineReceiver):
                     log.msg("Invalid multipart/form-data")
         self.request_callback(self._request)
 
+    def _remote_ip(self):
+        peer = self.transport.getPeer()
+        if isinstance(peer, address.UNIXAddress):
+            remote_ip = "unix:%s" % self.transport.getHost().name
+        else:
+            remote_ip = self.transport.getPeer().host
+        return remote_ip
 
 class HTTPRequest(object):
     """A single HTTP request.
