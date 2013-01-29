@@ -175,8 +175,7 @@ class HTTPConnection(basic.LineReceiver):
 
             self.request_callback(self._request)
         except _BadRequestException, e:
-            log.msg("Malformed HTTP request from %s: %s",
-                    self.transport.getPeer().host, e)
+            log.msg("Malformed HTTP request from %s: %s", remote_ip, e)
             self.transport.loseConnection()
 
     def _on_request_body(self, data):
