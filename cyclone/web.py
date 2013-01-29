@@ -108,6 +108,7 @@ class RequestHandler(object):
                          "OPTIONS")
 
     no_keep_alive = False
+    xsrf_cookie_name = "_xsrf"
     _template_loaders = {}  # {path: template.BaseLoader}
     _template_loader_lock = threading.Lock()
 
@@ -912,11 +913,11 @@ class RequestHandler(object):
         See http://en.wikipedia.org/wiki/Cross-site_request_forgery
         """
         if not hasattr(self, "_xsrf_token"):
-            token = self.get_cookie("_xsrf")
+            token = self.get_cookie(self.xsrf_cookie_name)
             if not token:
                 token = binascii.b2a_hex(uuid.uuid4().bytes)
                 expires_days = 30 if self.current_user else None
-                self.set_cookie("_xsrf", token, expires_days=expires_days)
+                self.set_cookie(self.xsrf_cookie_name, token, expires_days=expires_days)
             self._xsrf_token = token
         return self._xsrf_token
 
@@ -942,7 +943,7 @@ class RequestHandler(object):
         http://weblog.rubyonrails.org/2011/2/8/\
             csrf-protection-bypass-in-ruby-on-rails
         """
-        token = (self.get_argument("_xsrf", None) or
+        token = (self.get_argument(self.xsrf_cookie_name, None) or
                  self.request.headers.get("X-Xsrftoken") or
                  self.request.headers.get("X-Csrftoken"))
         if not token:
@@ -960,8 +961,8 @@ class RequestHandler(object):
 
         See check_xsrf_cookie() above for more information.
         """
-        return '<input type="hidden" name="_xsrf" value="' + \
-                escape.xhtml_escape(self.xsrf_token) + '"/>'
+        return '<input type="hidden" name="' + self.xsrf_cookie_name + \
+                '" value="' + escape.xhtml_escape(self.xsrf_token) + '"/>'
 
     def static_url(self, path, include_host=None):
         """Returns a static URL for the given relative static file path.
