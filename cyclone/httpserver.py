@@ -157,7 +157,7 @@ class HTTPConnection(basic.LineReceiver):
             headers = httputil.HTTPHeaders.parse(data[eol:])
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
-                headers=headers, remote_ip=self._remote_ip())
+                headers=headers, remote_ip=self._remote_ip)
 
             content_length = int(headers.get("Content-Length", 0))
             if content_length:
@@ -169,7 +169,7 @@ class HTTPConnection(basic.LineReceiver):
 
             self.request_callback(self._request)
         except _BadRequestException, e:
-            log.msg("Malformed HTTP request from %s: %s", self._remote_ip(), e)
+            log.msg("Malformed HTTP request from %s: %s", self._remote_ip, e)
             self.transport.loseConnection()
 
     def _on_request_body(self, data):
@@ -197,6 +197,7 @@ class HTTPConnection(basic.LineReceiver):
                     log.msg("Invalid multipart/form-data")
         self.request_callback(self._request)
 
+    @property
     def _remote_ip(self):
         peer = self.transport.getPeer()
         if isinstance(peer, address.UNIXAddress):
