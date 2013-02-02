@@ -58,7 +58,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
           def messageReceived(self, message):
               self.sendMessage(u"You said: " + message)
 
-          def connectionLost(self):
+          def connectionLost(self, reason):
               print "WebSocket disconnected"
 
     Web Sockets are not standard HTTP connections. The "handshake" is HTTP,
