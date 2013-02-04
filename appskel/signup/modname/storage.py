@@ -27,7 +27,7 @@ def DatabaseSafe(method):
      errors. It returns an HTTP 503 when either redis or mysql are temporarily
      disconnected.
 
-     @database_safe
+     @DatabaseSafe
      def get(self):
         now = yield self.mysql.runQuery("select now()")
         print now
