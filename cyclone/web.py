@@ -103,10 +103,18 @@ class RequestHandler(object):
     If you want to support more methods than the standard GET/HEAD/POST, you
     should override the class variable SUPPORTED_METHODS in your
     RequestHandler class.
+
+    If you want lists to be serialized when calling self.write() set
+    serialize_lists to True.
+    This may have some security implications if you are not protecting against
+    XSRF with other means (such as a XSRF token).
+    More details on this vulnerability here:
+    http://haacked.com/archive/2008/11/20/anatomy-of-a-subtle-json-vulnerability.aspx
     """
     SUPPORTED_METHODS = ("GET", "HEAD", "POST", "DELETE", "PATCH", "PUT",
                          "OPTIONS")
 
+    serialize_lists = False
     no_keep_alive = False
     xsrf_cookie_name = "_xsrf"
     _template_loaders = {}  # {path: template.BaseLoader}
@@ -511,7 +519,8 @@ class RequestHandler(object):
             raise RuntimeError("Cannot write() after finish().  May be caused "
                                "by using async operations without the "
                                "@asynchronous decorator.")
-        if isinstance(chunk, types.DictType):
+        if isinstance(chunk, types.DictType) or \
+                (self.serialize_lists and isinstance(chunk, types.ListType)):
             chunk = escape.json_encode(chunk)
             self.set_header("Content-Type", "application/json")
         chunk = utf8(chunk)
