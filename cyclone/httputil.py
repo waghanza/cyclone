@@ -252,11 +252,11 @@ def parse_multipart_form_data(boundary, data, arguments, files):
     # in the wild.
     if boundary.startswith('"') and boundary.endswith('"'):
         boundary = boundary[1:-1]
-    final_boundary_index = "%s%s--" % (data.rfind("--"), boundary)
+    final_boundary_index = data.rfind("--" + boundary + "--")
     if final_boundary_index == -1:
         log.msg("Invalid multipart/form-data: no final boundary")
         return
-    parts = data[:final_boundary_index].split("--%s\r\n" % boundary)
+    parts = data[:final_boundary_index].split("--" + boundary + "\r\n")
     for part in parts:
         if not part:
             continue
