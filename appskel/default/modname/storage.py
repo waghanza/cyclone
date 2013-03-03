@@ -11,6 +11,8 @@ except ImportError, sqlite_err:
 import cyclone.redis
 
 from twisted.enterprise import adbapi
+from twisted.internet import defer
+from twisted.internet import reactor
 from twisted.python import log
 
 
@@ -55,3 +57,24 @@ class DatabaseMixin(object):
                                   cp_max=conf["mysql_settings"].poolsize,
                                   cp_reconnect=True,
                                   cp_noisy=conf["mysql_settings"].debug)
+
+            # Ping MySQL to avoid timeouts. On timeouts, the first query
+            # responds with the following error, before it reconnects:
+            #   mysql.Error: (2006, 'MySQL server has gone away')
+            #
+            # There's no way differentiate this from the server shutting down
+            # and write() failing. To avoid the timeout, we ping.
+            @defer.inlineCallbacks
+            def _ping_mysql():
+                try:
+                    yield cls.mysql.runQuery("select 1")
+                except Exception, e:
+                    log.msg("MySQL ping error:", e)
+                else:
+                    if conf["mysql_settings"].debug:
+                        log.msg("MySQL ping: OK")
+
+                reactor.callLater(conf["mysql_settings"].ping, _ping_mysql)
+
+            if conf["mysql_settings"].ping > 1:
+                _ping_mysql()

@@ -64,7 +64,8 @@ def my_parse_config(filename):
                     password=tryget(cp.get, "mysql", "password"),
                     database=tryget(cp.get, "mysql", "database"),
                     poolsize=tryget(cp.getint, "mysql", "poolsize", 10),
-                    debug=tryget(cp.getboolean, "mysql", "debug", False))
+                    debug=tryget(cp.getboolean, "mysql", "debug", False),
+                    ping=tryget(cp.getint, "mysql", "ping_interval"))
     else:
         raise ValueError("MySQL is mandatory, but is currently disabled "
                             "in $modname.conf. Not running.")
