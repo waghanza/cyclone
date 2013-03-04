@@ -1138,12 +1138,16 @@ class RequestHandler(object):
     def _handle_request_exception(self, e):
         try:
             # These are normally twisted.python.failure.Failure
-            if isinstance(e.value, (template.TemplateError,
+            f = e
+            while isinstance(f.value, defer.FirstError):
+                f = f.value.subFailure
+                
+            if isinstance(f.value, (template.TemplateError,
                                     HTTPError, HTTPAuthenticationRequired)):
-                e = e.value
+                e = f.value
         except:
             pass
-
+            
         if isinstance(e, template.TemplateError):
             log.msg(str(e))
             self.send_error(500, exception=e)
