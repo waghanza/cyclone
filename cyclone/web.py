@@ -1139,6 +1139,11 @@ class RequestHandler(object):
         try:
             # These are normally twisted.python.failure.Failure
             f = e
+            
+            # This covers the case when an incoming failure.Failure
+            # wraps a defer.FirstError exception, which in turn wraps
+            # another failure.Failure.  This can go on any number of
+            # levels deep until we reach the originating failure.Failure.
             while isinstance(f.value, defer.FirstError):
                 f = f.value.subFailure
                 
