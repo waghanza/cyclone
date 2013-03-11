@@ -35,6 +35,8 @@ import Cookie
 import socket
 import time
 
+from io import BytesIO as StringIO
+from tempfile import TemporaryFile
 from twisted.python import log
 from twisted.protocols import basic
 from twisted.internet import address
@@ -66,7 +68,7 @@ class HTTPConnection(basic.LineReceiver):
 
     def connectionMade(self):
         self._headersbuffer = []
-        self._contentbuffer = []
+        self._contentbuffer = None
         self._finish_callback = None
         self.no_keep_alive = False
         self.content_length = None
@@ -100,12 +102,11 @@ class HTTPConnection(basic.LineReceiver):
         else:
             rest = ''
 
-        self._contentbuffer.append(data)
+        self._contentbuffer.write(data)
         if self.content_length == 0:
-            buff = "".join(self._contentbuffer)
-            self._contentbuffer = []
-            self.content_length = None
-            self._on_request_body(buff)
+            self._contentbuffer.seek(0, 0)
+            self._on_request_body(self._contentbuffer.read())
+            self.content_length = self._contentbuffer = None
             self.setLineMode(rest)
 
     def write(self, chunk):
@@ -163,6 +164,12 @@ class HTTPConnection(basic.LineReceiver):
             if content_length:
                 if headers.get("Expect") == "100-continue":
                     self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
+
+                if content_length < 100000:
+                    self._contentbuffer = StringIO()
+                else:
+                    self._contentbuffer = TemporaryFile()
+
                 self.content_length = content_length
                 self.setRawMode()
                 return
