@@ -77,7 +77,7 @@ else:
 
 setup(
     name="cyclone",
-    version="git-2013030201",
+    version="git-2013031101",
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
