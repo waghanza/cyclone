@@ -86,6 +86,7 @@ class WebSocketHandler(cyclone.web.RequestHandler):
         self.request = request
         self.transport = request.connection.transport
         self.ws_protocol = None
+        self.notifyFinish().addCallback(self.connectionLost)
 
     def headersReceived(self):
         pass
@@ -228,7 +229,7 @@ class WebSocketProtocol17(WebSocketProtocol):
         if self._frame_fin:
             if self._frame_ops == 8:
                 self.sendMessage(self._message_buffer, code=0x88)
-                self.handler.connectionLost(self._message_buffer)
+                #self.handler.connectionLost(self._message_buffer)
             elif self._frame_ops == 9:
                 self.sendMessage(self._message_buffer, code=0x8A)
             else:
