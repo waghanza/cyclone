@@ -1138,21 +1138,12 @@ class RequestHandler(object):
     def _handle_request_exception(self, e):
         try:
             # These are normally twisted.python.failure.Failure
-            f = e
-            
-            # This covers the case when an incoming failure.Failure
-            # wraps a defer.FirstError exception, which in turn wraps
-            # another failure.Failure.  This can go on any number of
-            # levels deep until we reach the originating failure.Failure.
-            while isinstance(f.value, defer.FirstError):
-                f = f.value.subFailure
-                
-            if isinstance(f.value, (template.TemplateError,
+            if isinstance(e.value, (template.TemplateError,
                                     HTTPError, HTTPAuthenticationRequired)):
-                e = f.value
+                e = e.value
         except:
             pass
-            
+
         if isinstance(e, template.TemplateError):
             log.msg(str(e))
             self.send_error(500, exception=e)
