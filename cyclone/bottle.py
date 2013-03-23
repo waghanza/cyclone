@@ -72,14 +72,13 @@ def route(path=None, method="GET", callback=None, **kwargs):
     return decorator
 
 
-def run(**settings):
-    """Start the application.
+def create_app(**settings):
+    """Return an application which will serve the bottle-defined routes.
 
     Parameters:
 
-    host: Interface to listen on. [default: 0.0.0.0]
-
-    port: TCP port to listen on. [default: 8888]
+    base_handler: The class or factory for request handlers. The default
+                  is cyclone.web.RequestHandler.
 
     more_handlers: A regular list of tuples containing regex -> handler
 
@@ -88,9 +87,7 @@ def run(**settings):
     """
 
     global _handlers, _BaseHandler
-    port = settings.get("port", 8888)
-    interface = settings.get("host", "0.0.0.0")
-    log.startLogging(settings.pop("log", sys.stdout))
+
     _BaseHandler = settings.pop("base_handler", cyclone.web.RequestHandler)
 
     handlers = {}
@@ -102,6 +99,32 @@ def run(**settings):
     _handlers = None
 
     handlers = handlers.items() + settings.pop("more_handlers", [])
-    application = cyclone.web.Application(handlers, **settings)
-    reactor.listenTCP(port, application, interface=interface)
+
+    return cyclone.web.Application(handlers, **settings)
+
+
+def run(**settings):
+    """Start the application.
+
+    Parameters:
+
+    host: Interface to listen on. [default: 0.0.0.0]
+
+    port: TCP port to listen on. [default: 8888]
+
+    log: The log file to use, the default is sys.stdout.
+
+    base_handler: The class or factory for request handlers. The default
+                  is cyclone.web.RequestHandler.
+
+    more_handlers: A regular list of tuples containing regex -> handler
+
+    All other parameters are passed directly to the `cyclone.web.Application`
+    constructor.
+    """
+
+    port = settings.get("port", 8888)
+    interface = settings.get("host", "0.0.0.0")
+    log.startLogging(settings.pop("log", sys.stdout))
+    reactor.listenTCP(port, create_app(**settings), interface=interface)
     reactor.run()
