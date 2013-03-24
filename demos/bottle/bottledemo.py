@@ -127,7 +127,7 @@ run(host="127.0.0.1", port=8888,
     base_handler=BaseHandler,
     db_handlers=cyclone.util.ObjectDict(
         #sqlite=cyclone.sqlite.InlineSQLite(":memory:"),
-        redis=cyclone.redis.lazyRedisConnectionPool(),
+        redis=cyclone.redis.lazyConnectionPool(),
     ),
     more_handlers=[
         (r"/websocket", WebSocketHandler),
