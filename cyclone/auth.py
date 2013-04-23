@@ -960,8 +960,8 @@ class FacebookGraphMixin(OAuth2Mixin):
         Example usage::
 
             class FacebookGraphLoginHandler(LoginHandler,
-                                            tornado.auth.FacebookGraphMixin):
-              @tornado.web.asynchronous
+                                            cyclone.auth.FacebookGraphMixin):
+              @cyclone.web.asynchronous
               def get(self):
                   if self.get_argument("code", False):
                       self.get_authenticated_user(
@@ -1049,10 +1049,10 @@ class FacebookGraphMixin(OAuth2Mixin):
         attribute that can be used to make authenticated requests via
         this method. Example usage::
 
-            class MainHandler(tornado.web.RequestHandler,
-                              tornado.auth.FacebookGraphMixin):
-                @tornado.web.authenticated
-                @tornado.web.asynchronous
+            class MainHandler(cyclone.web.RequestHandler,
+                              cyclone.auth.FacebookGraphMixin):
+                @cyclone.web.authenticated
+                @cyclone.web.asynchronous
                 def get(self):
                     self.facebook_request(
                         "/me/feed",

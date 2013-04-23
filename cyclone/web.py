@@ -26,12 +26,12 @@ Here is the canonical "Hello, world" example app::
     import cyclone.web
     from twisted.internet import reactor
 
-    class MainHandler(tornado.web.RequestHandler):
+    class MainHandler(cyclone.web.RequestHandler):
         def get(self):
             self.write("Hello, world")
 
     if __name__ == "__main__":
-        application = tornado.web.Application([
+        application = cyclone.web.Application([
             (r"/", MainHandler),
         ])
         reactor.listenTCP(8888, application)
