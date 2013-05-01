@@ -34,8 +34,8 @@ class SSEHandler(RequestHandler):
 
     Once connected, you may send events to the browser via `sendEvent`.
     """
-    def __init__(self, application, request):
-        RequestHandler.__init__(self, application, request)
+    def __init__(self, application, request, **kwargs):
+        RequestHandler.__init__(self, application, request, **kwargs)
         self.transport = request.connection.transport
         self._auto_finish = False
 
