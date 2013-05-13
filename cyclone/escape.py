@@ -292,8 +292,8 @@ def linkify(text, shorten=False, extra_params="",
                     # have a status bar, such as Safari by default)
                     params += ' title="%s"' % href
 
-        return ('<a href="%s"%s>%s</a>' %
-                (href, params, url)).decode("unicode_escape")
+        return ('<a href="%s"%s>%s</a>'.decode("unicode_escape") %
+                (href, params, url))
 
     # First HTML-escape so that our strings are all safe.
     # The regex is modified to avoid character entites other than &amp; so
