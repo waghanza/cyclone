@@ -61,6 +61,12 @@ def route(path=None, method="GET", callback=None, **kwargs):
         @route("/foobar", method="post")
         def whatever(cli):
             ...
+
+    Set method to "ANY" to have the route be called on method.::
+
+        @route("/foobar", method="any")
+        def all_routes(cli):
+            ...
     """
     if callable(path):
         path, callback = None, path

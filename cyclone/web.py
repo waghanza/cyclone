@@ -172,6 +172,17 @@ class RequestHandler(object):
         return self.application.settings
 
     def default(self, *args, **kwargs):
+        """Called when a request does not match any implemented methods.
+
+        Example::
+
+            class ExampleHandler(RequestHandler):
+                def get(self):
+                    self.write('That was a GET request!')
+
+                def default(self):
+                    self.write('That was anything but a GET request!')
+        """
         raise HTTPError(405)
 
     def prepare(self):
