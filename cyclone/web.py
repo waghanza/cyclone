@@ -171,25 +171,7 @@ class RequestHandler(object):
         """An alias for `self.application.settings`."""
         return self.application.settings
 
-    def head(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def get(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def post(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def delete(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def patch(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def put(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def options(self, *args, **kwargs):
+    def default(self, *args, **kwargs):
         raise HTTPError(405)
 
     def prepare(self):
@@ -1097,8 +1079,7 @@ class RequestHandler(object):
             args = [self.decode_argument(arg) for arg in args]
             kwargs = dict((k, self.decode_argument(v, name=k))
                             for (k, v) in kwargs.iteritems())
-            function = getattr(self, self.request.method.lower())
-            #d = defer.maybeDeferred(function, *args, **kwargs)
+            function = getattr(self, self.request.method.lower(), self.default)
             d = self._deferred_handler(function, *args, **kwargs)
             d.addCallbacks(self._execute_success, self._execute_failure)
             self.notifyFinish().addCallback(self.on_connection_close)
