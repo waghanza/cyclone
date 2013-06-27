@@ -66,7 +66,12 @@ def route(path=None, method="GET", callback=None, **kwargs):
         path, callback = None, path
 
     def decorator(callback):
-        _handlers.append((path, method.lower(), callback, kwargs))
+        name = method.lower()
+
+        # Bottle lets users specify method="ANY" in order to catch any route.
+        name = 'default' if name == 'any' else name
+
+        _handlers.append((path, name, callback, kwargs))
         return callback
 
     return decorator
