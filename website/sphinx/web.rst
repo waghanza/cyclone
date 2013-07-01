@@ -17,12 +17,13 @@
    Implement any of the following methods to handle the corresponding
    HTTP method.
 
-   .. automethod:: RequestHandler.get
-   .. automethod:: RequestHandler.post
-   .. automethod:: RequestHandler.put
-   .. automethod:: RequestHandler.delete
-   .. automethod:: RequestHandler.head
-   .. automethod:: RequestHandler.options
+   .. method:: RequestHandler.get(*args, **kwargs)
+   .. method:: RequestHandler.post(*args, **kwargs)
+   .. method:: RequestHandler.put(*args, **kwargs)
+   .. method:: RequestHandler.delete(*args, **kwargs)
+   .. method:: RequestHandler.head(*args, **kwargs)
+   .. method:: RequestHandler.options(*args, **kwargs)
+   .. automethod:: RequestHandler.default
 
    Input
    ^^^^^

@@ -171,25 +171,18 @@ class RequestHandler(object):
         """An alias for `self.application.settings`."""
         return self.application.settings
 
-    def head(self, *args, **kwargs):
-        raise HTTPError(405)
+    def default(self, *args, **kwargs):
+        """Called when a request does not match any implemented methods.
 
-    def get(self, *args, **kwargs):
-        raise HTTPError(405)
+        Example::
 
-    def post(self, *args, **kwargs):
-        raise HTTPError(405)
+            class ExampleHandler(RequestHandler):
+                def get(self):
+                    self.write('That was a GET request!')
 
-    def delete(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def patch(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def put(self, *args, **kwargs):
-        raise HTTPError(405)
-
-    def options(self, *args, **kwargs):
+                def default(self):
+                    self.write('That was anything but a GET request!')
+        """
         raise HTTPError(405)
 
     def prepare(self):
@@ -1097,8 +1090,7 @@ class RequestHandler(object):
             args = [self.decode_argument(arg) for arg in args]
             kwargs = dict((k, self.decode_argument(v, name=k))
                             for (k, v) in kwargs.iteritems())
-            function = getattr(self, self.request.method.lower())
-            #d = defer.maybeDeferred(function, *args, **kwargs)
+            function = getattr(self, self.request.method.lower(), self.default)
             d = self._deferred_handler(function, *args, **kwargs)
             d.addCallbacks(self._execute_success, self._execute_failure)
             self.notifyFinish().addCallback(self.on_connection_close)
