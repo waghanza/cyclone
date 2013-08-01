@@ -26,14 +26,17 @@ from cyclone.web import HTTPError
 from twisted.internet import defer
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
+from twisted.internet.endpoints import TCP4ClientEndpoint
 
-from twisted.web.client import Agent
+from twisted.web.client import Agent, ProxyAgent
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 
 from zope.interface import implements
 
+
 agent = Agent(reactor)
+proxy_agent = ProxyAgent(None, reactor)
 
 
 class StringProducer(object):
@@ -75,8 +78,19 @@ class HTTPClient(object):
         self.maxRedirects = self._kwargs.get("maxRedirects", 3)
         self.headers = self._kwargs.get("headers", {})
         self.body = self._kwargs.get("postdata")
+        self.proxyConfig = self._kwargs.get("proxy", None)
+        self.timeout = self._kwargs.get("timeout", None)
+        if self.proxyConfig:
+            proxyEndpoint = TCP4ClientEndpoint(
+                reactor, *self.proxyConfig,
+                timeout=self.timeout
+            )
+            self.agent = proxy_agent
+            self.agent._proxyEndpoint = proxyEndpoint
+        else:
+            agent._connectTimeout = self.timeout
+            self.agent = agent
         self.method = self._kwargs.get("method", self.body and "POST" or "GET")
-        agent._connectTimeout = self._kwargs.get("timeout", None)
         if self.method.upper() == "POST" and \
                                   "Content-Type" not in self.headers:
             self.headers["Content-Type"] = \
@@ -91,7 +105,7 @@ class HTTPClient(object):
     @defer.inlineCallbacks
     def fetch(self):
         request_headers = Headers(self.headers)
-        response = yield agent.request(
+        response = yield self.agent.request(
             self.method,
             self.url,
             request_headers,
@@ -108,7 +122,7 @@ class HTTPClient(object):
                         location = location[0]
 
                     #print("redirecting to:", location)
-                    response = yield agent.request(
+                    response = yield self.agent.request(
                         "GET",  # self.method,
                         location,
                         request_headers,
@@ -172,6 +186,10 @@ def fetch(url, *args, **kwargs):
     length: Content length
 
     body: The data, untouched
+
+    proxy: A python tuple containing host string as first member and
+                        port string as second member;
+                        describing which proxy to use when making request
     """
     return HTTPClient(escape.utf8(url), *args, **kwargs).fetch()
 
