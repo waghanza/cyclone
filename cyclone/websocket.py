@@ -367,7 +367,6 @@ class WebSocketProtocol76(WebSocketProtocol):
                 (cyclone.version, self.request.headers["Origin"],
                  self.request.host, self.request.path, token))
             self._postheader = False
-            self.handler.flush()
             self.handler._connectionMade()
             return
 
