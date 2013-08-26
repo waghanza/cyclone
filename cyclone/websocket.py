@@ -355,7 +355,7 @@ class WebSocketProtocol76(WebSocketProtocol):
     def rawDataReceived(self, data):
         if self._postheader is True and \
            self._protocol >= 76 and len(data) == 8:
-            self._nonce = data.strip()
+            self._nonce = data
             token = self._calculate_token(self._k1, self._k2, self._nonce)
             self.transport.write(
                 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
