@@ -331,55 +331,91 @@ class WebSocketProtocol76(WebSocketProtocol):
         self._postheader = False
         self._protocol = None
 
+        self._frame_decoder = Hixie76FrameDecoder()
+
     def acceptConnection(self):
         if "Sec-Websocket-Key1" not in self.request.headers or \
             "Sec-Websocket-Key2" not in self.request.headers:
             log.msg('Using old ws spec (draft 75)')
-            self.transport.write(
-                "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                "Upgrade: WebSocket\r\n"
-                "Connection: Upgrade\r\n"
-                "Server: cyclone/%s\r\n"
-                "WebSocket-Origin: %s\r\n"
-                "WebSocket-Location: ws://%s%s\r\n\r\n" %
-                (cyclone.version, self.request.headers["Origin"],
-                 self.request.host, self.request.path))
+            ws_origin_header = "WebSocket-Origin"
+            ws_location_header = "WebSocket-Location"
             self._protocol = 75
         else:
             log.msg('Using ws draft 76 header exchange')
             self._k1 = self.request.headers["Sec-WebSocket-Key1"]
             self._k2 = self.request.headers["Sec-WebSocket-Key2"]
+            ws_origin_header = "Sec-WebSocket-Origin"
+            ws_location_header = "Sec-WebSocket-Location"
             self._protocol = 76
+
+        self.transport.write(
+            "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
+            "Upgrade: WebSocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Server: cyclone/%s\r\n"
+            "%s: %s\r\n"
+            "%s: ws://%s%s\r\n\r\n" %
+            (cyclone.version, ws_origin_header, self.request.headers["Origin"],
+             ws_location_header, self.request.host, self.request.path))
         self._postheader = True
 
-    def rawDataReceived(self, data):
-        if self._postheader is True and \
-           self._protocol >= 76 and len(data) == 8:
-            self._nonce = data
-            token = self._calculate_token(self._k1, self._k2, self._nonce)
-            self.transport.write(
-                "HTTP/1.1 101 Web Socket Protocol Handshake\r\n"
-                "Upgrade: WebSocket\r\n"
-                "Connection: Upgrade\r\n"
-                "Server: cyclone/%s\r\n"
-                "Sec-WebSocket-Origin: %s\r\n"
-                "Sec-WebSocket-Location: ws://%s%s\r\n\r\n%s" %
-                (cyclone.version, self.request.headers["Origin"],
-                 self.request.host, self.request.path, token))
-            self._postheader = False
-            self.handler._connectionMade()
-            return
+    def _handleClientChallenge(self, data):
+        # accumulate data until the challenge token from client is complete
+        # return None if not enough data to form the challenge has been passed,
+        # a string (eventually empty) of the rest of the bytes not used for the
+        # challenge
+        if self._nonce is None:
+            self._nonce = data[:8]
+            rest = data[8:]
+        else:
+            bytes_remaining = 8 - len(self._nonce)
+            self._nonce += data[:bytes_remaining]
+            rest = data[bytes_remaining:]
 
+        # if self._nonce is complete, return the remaining data (eventually '')
+        # else, return None to signal that nonce has not yet been completely
+        # received
+        return rest if len(self._nonce) == 8 else None
+
+    def rawDataReceived(self, data):
+        if self._postheader is True and self._protocol >= 76:
+            rest = self._handleClientChallenge(data)
+            if rest is None:
+                # not enough bytes for the challenge data, process later
+                return
+            else:
+                # process challenge and (eventually) process remaining data by
+                # calling rawDataReceived with the rest of data
+                token = self._calculate_token(self._k1, self._k2,
+                                              self._nonce)
+                self.transport.write(token)
+                self._postheader = False
+                self.handler._connectionMade()
+                self.rawDataReceived(rest)
+                return
+
+        # process websocket frames
         try:
-            messages = data.split('\xff')
-            for message in messages[:-1]:
-                self.handler.messageReceived(message[1:])
-        except Exception, e:
-            log.msg("Invalid WebSocket Message '%s': %s" % (repr(data), e))
+            frames = self._frame_decoder.feed(data)
+            for message in frames:
+                if message is None:
+                    # incomplete frame, wait for more data
+                    return
+                elif message is self._frame_decoder.CLOSING_FRAME:
+                    self.close()
+                else:
+                    self.handler.messageReceived(message)
+        except Exception as e:
+            log.msg("Invalid WebSocket data: %r" % e)
             self.handler._handle_request_exception(e)
+            self.transport.loseConnection()
+
+    def close(self):
+        self.transport.write('\xff\x00')
+        self.transport.loseConnection()
 
     def sendMessage(self, message):
-        self.transport.write("\x00" + message + "\xff")
+        self.transport.write("\x00%s\xff" % message)
 
     def _calculate_token(self, k1, k2, k3):
         token = struct.pack('>II8s', self._filterella(k1),
@@ -396,3 +432,79 @@ class WebSocketProtocol76(WebSocketProtocol):
                 spaces = spaces + 1
         x = int(''.join(nums)) / spaces
         return x
+
+
+class FrameDecodeError(Exception):
+    """ Frame Decode Error """
+
+
+class Hixie76FrameDecoder(object):
+    """
+    Hixie76 Frame Decoder
+    """
+
+    # represents a closing frame
+    CLOSING_FRAME = object()
+
+    # possible states for the frame decoder
+    WAIT_FOR_FRAME_TYPE = 0   # waiting for the frame type byte
+    INSIDE_FRAME = 1          # inside a frame and accumulating bytes until the
+                              # end of it
+    WAIT_FOR_CLOSE = 2        # frame type was \xff, waiting for \x00 to form a
+                              # closing frame
+
+    def __init__(self):
+        self._state = self.WAIT_FOR_FRAME_TYPE  # current state
+        self._frame = []  # accumulates frame message
+
+    def feed(self, data):
+        """
+        Feed the frame decode with new data. Returns a list of the resulting
+        frames or [] if the input data is insufficient to form a valid frame.
+        """
+        res = []
+        for b in data:
+            frame = self._feed_byte(b)
+            if frame is not None:
+                res.append(frame)
+                if frame is self.CLOSING_FRAME:
+                    break  # no need to process data which will be discarded
+        return res
+
+    def _feed_byte(self, b):
+        if self._state == self.WAIT_FOR_FRAME_TYPE:
+            if b == '\x00':
+                # start of a new frame
+                self._state = self.INSIDE_FRAME
+                self._frame = []
+                return None
+            elif b == '\xff':
+                # start of a closing frame
+                self._state = self.WAIT_FOR_CLOSE
+                self._frame = []
+                return None
+            else:
+                raise FrameDecodeError("Invalid byte '%r' while waiting for "
+                                       "a new frame" % b)
+        elif self._state == self.INSIDE_FRAME:
+            if b == '\xff':
+                # end of frame: reset state, form the new frame and return it
+                self._state = self.WAIT_FOR_FRAME_TYPE
+                frame = ''.join(self._frame)
+                self._frame = []
+                return frame
+            else:
+                # accumulate frame data
+                self._frame.append(b)
+        elif self._state == self.WAIT_FOR_CLOSE:
+            if b == '\x00':
+                # closing frame received
+                self._state = self.WAIT_FOR_FRAME_TYPE
+                self._frame = []
+                return self.CLOSING_FRAME
+            else:
+                raise FrameDecodeError("Invalid byte '%r' while waiting for "
+                                       "close message" % b)
+        else:
+            raise FrameDecodeError("Invalid decoder state. "
+                                   "This shouldn't happen")
