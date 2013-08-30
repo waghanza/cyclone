@@ -299,6 +299,8 @@ class WebSocketProtocol17(WebSocketProtocol):
                 payload[k] ^= frame_mask_array[k % 4]
 
             return str(payload)
+        else:
+            return data[i:i+self._frame_payload_len]
 
     def sendMessage(self, message, code=0x81):
         if isinstance(message, unicode):
