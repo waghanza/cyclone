@@ -145,7 +145,7 @@ class RequestHandler(object):
         self.request.connection.no_keep_alive = self.no_keep_alive
         self.initialize(**kwargs)
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         """Hook for subclass initialization.
 
         A dictionary passed as the third argument of a url spec will be
