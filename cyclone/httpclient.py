@@ -136,7 +136,10 @@ class HTTPClient(object):
         response.headers = dict(response.headers.getAllRawHeaders())
         # HTTP 204 and 304 responses have no body
         # http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
-        if response.code in (204, 304):
+        # resources, which have been requested with HEAD method
+        # have no body too.
+        # http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
+        if response.code in (204, 304) or self.method == 'HEAD':
             response.body = ''
         else:
             d = defer.Deferred()
