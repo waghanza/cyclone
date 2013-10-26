@@ -296,7 +296,7 @@ class DatabaseModel(DatabaseCRUD):
     def count(cls, **kwargs):
         if "where" in kwargs:
             where, args = kwargs["where"][0], kwargs["where"][1:]
-            rs = yield cls.db.runQuery("select count(*) as count from %s"
+            rs = yield cls.db.runQuery("select count(*) as count from %s "
                                        "where %s" %
                                        (cls.__table__(), where), args)
         else:
