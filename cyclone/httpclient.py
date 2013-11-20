@@ -223,7 +223,14 @@ class JsonRPC:
                                 "id": self.__rpcId})
         self.__rpcId += 1
         r = defer.Deferred()
-        d = fetch(self.__rpcUrl, method="POST", postdata=q)
+        d = fetch(
+            self.__rpcUrl,
+            method="POST",
+            postdata=q,
+            headers={
+                "Content-Type": "application/json-rpc"
+            }
+        )
 
         def _success(response, deferred):
             if response.code == 200:
