@@ -228,7 +228,7 @@ class JsonRPC:
             method="POST",
             postdata=q,
             headers={
-                "Content-Type": "application/json-rpc"
+                "Content-Type": ["application/json-rpc"]
             }
         )
 
