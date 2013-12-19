@@ -18,7 +18,7 @@
 """Non-blocking HTTP client"""
 
 import functools
-import types
+from types import ListType, DictType
 
 from cyclone import escape
 from cyclone.web import HTTPError
@@ -118,7 +118,7 @@ class HTTPClient(object):
                 headers = dict(response.headers.getAllRawHeaders())
                 location = headers.get("Location")
                 if location:
-                    if isinstance(location, types.ListType):
+                    if isinstance(location, ListType):
                         location = location[0]
 
                     #print("redirecting to:", location)
@@ -237,7 +237,14 @@ class JsonRPC:
                 data = escape.json_decode(response.body)
                 error = data.get("error")
                 if error:
-                    deferred.errback(Exception(error))
+                    if isinstance(error, DictType) and 'message' in error:
+                        # JSON-RPC spec is not very verbose about error schema,
+                        # but it should look like {'code': 0, 'message': 'msg'}
+                        deferred.errback(Exception(error['message']))
+                    else:
+                        # For backward compatibility with previous versions of
+                        # cyclone.jsonrpc.JsonrpcRequestHandler
+                        deferred.errback(Exception(error))
                 else:
                     deferred.callback(data.get("result"))
             else:

@@ -77,7 +77,7 @@ class JsonrpcRequestHandler(RequestHandler):
 
     def _cbResult(self, result, jsonid):
         if isinstance(result, failure.Failure):
-            error = str(result.value)
+            error = {'code': 0, 'message': str(result.value)}
             result = None
         else:
             error = None
