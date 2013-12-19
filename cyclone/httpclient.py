@@ -210,10 +210,14 @@ class JsonRPC:
 
     Note that in the example above, ``echo`` and ``sort`` are remote methods
     provided by the server.
+
+    Optional parameters of ``httpclient.fetch`` may also be used.
     """
-    def __init__(self, url):
+    def __init__(self, url, *args, **kwargs):
         self.__rpcId = 0
         self.__rpcUrl = url
+        self.__fetch_args = args
+        self.__fetch_kwargs = kwargs
 
     def __getattr__(self, attr):
         return functools.partial(self.__rpcRequest, attr)
@@ -223,14 +227,14 @@ class JsonRPC:
                                 "id": self.__rpcId})
         self.__rpcId += 1
         r = defer.Deferred()
-        d = fetch(
-            self.__rpcUrl,
-            method="POST",
-            postdata=q,
-            headers={
-                "Content-Type": ["application/json-rpc"]
-            }
-        )
+
+        fetch_kwargs = {
+            'method': "POST",
+            'postdata': q,
+            'headers': {"Content-Type": ["application/json-rpc"]},
+        }
+        fetch_kwargs.update(self.__fetch_kwargs)
+        d = fetch(self.__rpcUrl, *self.__fetch_args, **fetch_kwargs)
 
         def _success(response, deferred):
             if response.code == 200:
