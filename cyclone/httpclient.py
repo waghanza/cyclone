@@ -18,7 +18,7 @@
 """Non-blocking HTTP client"""
 
 import functools
-import types
+from types import ListType, DictType
 
 from cyclone import escape
 from cyclone.web import HTTPError
@@ -118,7 +118,7 @@ class HTTPClient(object):
                 headers = dict(response.headers.getAllRawHeaders())
                 location = headers.get("Location")
                 if location:
-                    if isinstance(location, types.ListType):
+                    if isinstance(location, ListType):
                         location = location[0]
 
                     #print("redirecting to:", location)
@@ -210,10 +210,14 @@ class JsonRPC:
 
     Note that in the example above, ``echo`` and ``sort`` are remote methods
     provided by the server.
+
+    Optional parameters of ``httpclient.fetch`` may also be used.
     """
-    def __init__(self, url):
+    def __init__(self, url, *args, **kwargs):
         self.__rpcId = 0
         self.__rpcUrl = url
+        self.__fetch_args = args
+        self.__fetch_kwargs = kwargs
 
     def __getattr__(self, attr):
         return functools.partial(self.__rpcRequest, attr)
@@ -223,21 +227,28 @@ class JsonRPC:
                                 "id": self.__rpcId})
         self.__rpcId += 1
         r = defer.Deferred()
-        d = fetch(
-            self.__rpcUrl,
-            method="POST",
-            postdata=q,
-            headers={
-                "Content-Type": ["application/json-rpc"]
-            }
-        )
+
+        fetch_kwargs = {
+            'method': "POST",
+            'postdata': q,
+            'headers': {"Content-Type": ["application/json-rpc"]},
+        }
+        fetch_kwargs.update(self.__fetch_kwargs)
+        d = fetch(self.__rpcUrl, *self.__fetch_args, **fetch_kwargs)
 
         def _success(response, deferred):
             if response.code == 200:
                 data = escape.json_decode(response.body)
                 error = data.get("error")
                 if error:
-                    deferred.errback(Exception(error))
+                    if isinstance(error, DictType) and 'message' in error:
+                        # JSON-RPC spec is not very verbose about error schema,
+                        # but it should look like {'code': 0, 'message': 'msg'}
+                        deferred.errback(Exception(error['message']))
+                    else:
+                        # For backward compatibility with previous versions of
+                        # cyclone.jsonrpc.JsonrpcRequestHandler
+                        deferred.errback(Exception(error))
                 else:
                     deferred.callback(data.get("result"))
             else:

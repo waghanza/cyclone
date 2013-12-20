@@ -56,8 +56,6 @@ class JsonrpcRequestHandler(RequestHandler):
         try:
             req = cyclone.escape.json_decode(self.request.body)
             jsonid = req["id"]
-            assert isinstance(jsonid, types.IntType), \
-                              "Invalid id type: %s" % type(jsonid)
             method = req["method"]
             assert isinstance(method, types.StringTypes), \
                               "Invalid method type: %s" % type(method)
@@ -79,7 +77,7 @@ class JsonrpcRequestHandler(RequestHandler):
 
     def _cbResult(self, result, jsonid):
         if isinstance(result, failure.Failure):
-            error = str(result.value)
+            error = {'code': 0, 'message': str(result.value)}
             result = None
         else:
             error = None
