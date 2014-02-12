@@ -213,33 +213,35 @@ class WebSocketProtocol17(WebSocketProtocol):
         self.handler._connectionMade()
 
     def rawDataReceived(self, data):
+        while True:
+            if self._partial_data:
+                data = self._partial_data + data
+                self._partial_data = None
 
-        if self._partial_data:
-            data = self._partial_data + data
-            self._partial_data = None
+            try:
+                self._processFrameHeader(data)
+            except _NotEnoughFrame:
+                self._partial_data = data
+                return
 
-        try:
-            self._processFrameHeader(data)
-        except _NotEnoughFrame:
-            self._partial_data = data
-            return
+            self._message_buffer += self._extractMessageFromFrame(data)
 
-        self._message_buffer += self._extractMessageFromFrame(data)
+            if self._frame_fin:
+                if self._frame_ops == 8:
+                    self.sendMessage(self._message_buffer, code=0x88)
+                    #self.handler.connectionLost(self._message_buffer)
+                elif self._frame_ops == 9:
+                    self.sendMessage(self._message_buffer, code=0x8A)
+                else:
+                    self.handler.messageReceived(self._message_buffer)
+                self._message_buffer = ""
 
-        if self._frame_fin:
-            if self._frame_ops == 8:
-                self.sendMessage(self._message_buffer, code=0x88)
-                #self.handler.connectionLost(self._message_buffer)
-            elif self._frame_ops == 9:
-                self.sendMessage(self._message_buffer, code=0x8A)
+            # if there is still data after this frame, process again
+            current_len = self._frame_header_len + self._frame_payload_len
+            if current_len < self._data_len:
+                data = data[current_len:]
             else:
-                self.handler.messageReceived(self._message_buffer)
-            self._message_buffer = ""
-
-        # if there is still data after this frame, process again
-        current_len = self._frame_header_len + self._frame_payload_len
-        if current_len < self._data_len:
-            self.rawDataReceived(data[current_len:])
+                break
 
     def _processFrameHeader(self, data):
 
