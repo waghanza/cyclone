@@ -794,6 +794,45 @@ class RequestHandler(object):
         normally, and had different semantics for exception handling.
         Users of ``get_error_html`` are encouraged to convert their code
         to override ``write_error`` instead.
+
+        In order for error pages to be generated for paths that do not match any
+        handlers, you can use the `error_handler` keyword argument when
+        instantiating the ``cyclone.web.Application`` object. For example:
+
+            import cyclone.web
+            import httplib
+            class CustomErrorPageMixin(object):
+                def write_error(self, status_code, **kwargs):
+                    kwargs["code"] = status_code
+                    if 'message' not in kwargs:
+                        kwargs["message"] = httplib.responses[status_code]
+
+                    try:
+                        self.render("error_%d.html" % status_code,
+                                fields=kwargs)
+                    except IOError:
+                        self.render("error_all.html", fields=kwargs)
+
+            class CustomErrorHandler(CustomErrorPageMixin,
+                    cyclone.web.ErrorHandler):
+                pass
+
+            class BaseHandler(CustomErrorPageMixin, cyclone.web.RequestHandler):
+                ...
+
+        Then, when constructing the ``cyclone.web.Application`` object:
+
+            from cyclone import web
+            application = web.Application([
+                (r"/", MainPageHandler),
+            ], error_handler=CustomErrorHandler)
+
+        This technique is also compatible with Bottle-style applications:
+
+            from cyclone.bottle import create_app
+            # create_app takes the same arguments as run
+            application = create_app(base_handler=BaseHandler,
+                error_handler=CustomErrorHandler)
         """
         if hasattr(self, 'get_error_html'):
             if 'exc_info' in kwargs:
@@ -1295,6 +1334,11 @@ class Application(protocol.ServerFactory):
     A custom subclass of StaticFileHandler can be specified with the
     static_handler_class setting.
 
+    It is also possible to customize the error pages the application generates
+    in case it does not find any handler for the incoming request by using the
+    `error_handler` keyword argument. This allows for consistent error pages
+    across the application.
+
     .. attribute:: settings
 
        Additonal keyword arguments passed to the constructor are saved in the
@@ -1304,7 +1348,7 @@ class Application(protocol.ServerFactory):
     protocol = httpserver.HTTPConnection
 
     def __init__(self, handlers=None, default_host="",
-                 transforms=None, **settings):
+                 transforms=None, error_handler=None, **settings):
         if transforms is None:
             self.transforms = []
             if settings.get("gzip"):
@@ -1314,6 +1358,7 @@ class Application(protocol.ServerFactory):
             self.transforms = transforms
         self.handlers = []
         self.named_handlers = {}
+        self.error_handler = error_handler or ErrorHandler
         self.default_host = default_host
         self.settings = ObjectDict(settings)
         self.ui_modules = {"linkify": _linkify,
@@ -1468,7 +1513,7 @@ class Application(protocol.ServerFactory):
                             args = [unquote(s) for s in match.groups()]
                     break
             if not handler:
-                handler = ErrorHandler(self, request, status_code=404)
+                handler = self.error_handler(self, request, status_code=404)
 
         # In debug mode, re-compile templates and reload static files on every
         # request so you don't need to restart to see changes
