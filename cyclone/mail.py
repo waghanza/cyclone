@@ -37,7 +37,7 @@ from email.Utils import COMMASPACE, formatdate
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from twisted.internet.ssl import ClientContextFactory
-from twisted.mail.smtp import ESMTPSenderFactory
+from twisted.mail.smtp import ESMTPSenderFactory, quoteaddr
 
 
 class Message(object):
@@ -178,7 +178,7 @@ def sendmail(mailconf, message):
     u = mailconf.get("username")
     p = mailconf.get("password")
     factory = ESMTPSenderFactory(u, p,
-                                 message.from_addr,
+                                 quoteaddr(message.from_addr),
                                  message.to_addrs,
                                  message.render(),
                                  result,
