@@ -59,7 +59,7 @@ class JsonrpcRequestHandler(RequestHandler):
             method = req["method"]
             assert isinstance(method, types.StringTypes), \
                               "Invalid method type: %s" % type(method)
-            params = req["params"]
+            params = req.get("params", [])
             assert isinstance(params, (types.ListType, types.TupleType)), \
                               "Invalid params type: %s" % type(params)
         except Exception, e:
