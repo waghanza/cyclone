@@ -158,6 +158,10 @@ def sendmail(mailconf, message):
         raise TypeError("message must be an instance of cyclone.mail.Message")
 
     host = mailconf.get("host")
+
+    if isinstance(host, unicode):
+        host = str(unicode)
+
     if not isinstance(host, types.StringType):
         raise ValueError("mailconf requires a 'host' configuration")
 
