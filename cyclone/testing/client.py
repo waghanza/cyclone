@@ -17,8 +17,7 @@ from cyclone.httpserver import HTTPRequest, HTTPConnection
 import urllib
 from twisted.test import proto_helpers
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.task import deferLater
-from twisted.internet import reactor
+
 
 class Client(object):
     def __init__(self, app):
