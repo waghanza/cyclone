@@ -6,3 +6,4 @@ install:
     - pip install coveralls
 
 script: coverage run `which trial` cyclone
+after_success: coveralls
