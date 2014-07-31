@@ -14,7 +14,20 @@
 # under the License.
 
 from twisted.trial import unittest
+from .client import Client
 
-class AppTests(unittest.TestCase):
-    def test_something(self):
-        pass
+
+class CycloneTestCase(unittest.TestCase, object):
+    client_impl = Client
+
+    def __init__(self, app_builder, *args, **kwargs):
+        """
+        Create a test case for a cyclone app.
+
+        The `app_builder` param should be a function that returns a
+        cyclone.web.Application instance will all the appropriate handlers
+        loaded etc.
+        """
+        super(CycloneTestCase, self).__init__(*args, **kwargs)
+        self._app = app_builder()
+        self.client = self.client_impl(self._app)
