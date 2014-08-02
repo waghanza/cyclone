@@ -1,5 +1,5 @@
 #
-# Copyright 2010 David Novakovic
+# Copyright 2014 David Novakovic
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -24,9 +24,13 @@ class CycloneTestCase(unittest.TestCase, object):
         """
         Create a test case for a cyclone app.
 
-        The `app_builder` param should be a function that returns a
+        The ``app_builder`` param should be a function that returns a
         cyclone.web.Application instance will all the appropriate handlers
         loaded etc.
+
+        For most use cases this should be as simple as creating a function
+        that returns you application instead of just declaring it in a file
+        somewhere.
         """
         super(CycloneTestCase, self).__init__(*args, **kwargs)
         self._app = app_builder()
