@@ -15,9 +15,13 @@
 
 from twisted.trial import unittest
 from cyclone.httpclient import StringProducer, Receiver, HTTPClient
+import cyclone.httpclient
 from cStringIO import StringIO
 from twisted.internet.defer import inlineCallbacks, Deferred, succeed
 from mock import Mock
+import functools
+from cyclone import escape
+from cyclone.web import HTTPError
 
 
 class TestStringProducer(unittest.TestCase):
@@ -121,3 +125,73 @@ class TestHTTPClient(unittest.TestCase):
         self.assertEqual(response.body, "")
         self.assertEqual(_response.headers, {"Location": "http://example.com"})
 
+
+class JsonRPCTest(unittest.TestCase):
+    URL = "http://example.com/jsonrpc"
+
+    def setUp(self):
+        self._old_fetch = cyclone.httpclient.fetch
+        cyclone.httpclient.fetch = Mock()
+        self.client = cyclone.httpclient.JsonRPC(self.URL)
+
+    def tearDown(self):
+        cyclone.httpclient.fetch = self._old_fetch
+
+    def test_create_client(self):
+        client = cyclone.httpclient.JsonRPC(self.URL)
+        self.assertEqual(client.__dict__['_JsonRPC__rpcId'], 0)
+        self.assertEqual(client.__dict__['_JsonRPC__rpcUrl'], self.URL)
+
+    def test_client_method_access(self):
+        method = self.client.foo
+        self.assertTrue(isinstance(method, functools.partial))
+        self.assertTrue(method.args[0], 'foo')
+
+    @inlineCallbacks
+    def test_rpc_request(self):
+        response = Mock()
+        response.code = 200
+        response.body = escape.json_encode({"result": True})
+        cyclone.httpclient.fetch.return_value = succeed(response)
+        result = yield self.client.foo()
+        self.assertTrue(result)
+
+    @inlineCallbacks
+    def test_rpc_request_error(self):
+        response = Mock()
+        response.code = 200
+        response.body = escape.json_encode({"error": {"message": "failed"}})
+        cyclone.httpclient.fetch.return_value = succeed(response)
+        try:
+            yield self.client.foo()
+        except Exception, e:
+            self.assertEqual(e.message, "failed")
+        else:
+            raise Exception("Should raise an error.")
+
+    @inlineCallbacks
+    def test_rpc_request_error_old(self):
+        response = Mock()
+        response.code = 200
+        response.body = escape.json_encode({"error": "some error"})
+        cyclone.httpclient.fetch.return_value = succeed(response)
+        try:
+            yield self.client.foo()
+        except Exception, e:
+            self.assertEqual(e.message, "some error")
+        else:
+            raise Exception("Should raise an error.")
+
+    @inlineCallbacks
+    def test_rpc_request_404(self):
+        response = Mock()
+        response.code = 404
+        response.phrase = "Not found."
+        response.body = escape.json_encode({"result": True})
+        cyclone.httpclient.fetch.return_value = succeed(response)
+        try:
+            yield self.client.foo()
+        except HTTPError, e:
+            self.assertEqual(e.log_message, "Not found.")
+        else:
+            raise Exception("Should raise an error.")
