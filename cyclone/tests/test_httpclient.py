@@ -162,12 +162,7 @@ class JsonRPCTest(unittest.TestCase):
         response.code = 200
         response.body = escape.json_encode({"error": {"message": "failed"}})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except Exception, e:
-            self.assertEqual(e.message, "failed")
-        else:
-            raise Exception("Should raise an error.")
+        yield self.assertFailure(self.client.foo(), Exception)
 
     @inlineCallbacks
     def test_rpc_request_error_old(self):
@@ -175,12 +170,7 @@ class JsonRPCTest(unittest.TestCase):
         response.code = 200
         response.body = escape.json_encode({"error": "some error"})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except Exception, e:
-            self.assertEqual(e.message, "some error")
-        else:
-            raise Exception("Should raise an error.")
+        yield self.assertFailure(self.client.foo(), Exception)
 
     @inlineCallbacks
     def test_rpc_request_404(self):
@@ -189,9 +179,4 @@ class JsonRPCTest(unittest.TestCase):
         response.phrase = "Not found."
         response.body = escape.json_encode({"result": True})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except HTTPError, e:
-            self.assertEqual(e.log_message, "Not found.")
-        else:
-            raise Exception("Should raise an error.")
+        yield self.assertFailure(self.client.foo(), HTTPError)
