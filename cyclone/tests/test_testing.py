@@ -24,6 +24,18 @@ class TestHandler(RequestHandler):
     def get(self):
         self.write("Something")
 
+    def post(self):
+        self.write("Something posted")
+
+    def put(self):
+        self.write("Something put")
+
+    def head(self):
+        self.write("")
+
+    def delete(self):
+        self.write("")
+
 
 class DeferredTestHandler(RequestHandler):
     @asynchronous
@@ -64,6 +76,36 @@ class TestClient(unittest.TestCase):
     def test_get_request(self):
         response = yield self.client.get("/testing/")
         self.assertEqual(response.content, "Something")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_get_request_with_params(self):
+        response = yield self.client.get("/testing/", {"q": "query"})
+        self.assertEqual(response.content, "Something")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_post_request(self):
+        response = yield self.client.post("/testing/")
+        self.assertEqual(response.content, "Something posted")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_put_request(self):
+        response = yield self.client.put("/testing/")
+        self.assertEqual(response.content, "Something put")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_head_request(self):
+        response = yield self.client.head("/testing/")
+        self.assertEqual(response.content, "")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_delete_request(self):
+        response = yield self.client.delete("/testing/")
+        self.assertEqual(response.content, "")
         self.assertTrue(len(response.headers) > 3)
 
     @inlineCallbacks
