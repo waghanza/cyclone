@@ -18,8 +18,8 @@ from twisted.trial import unittest
 from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
 from cyclone.escape import squeeze, url_escape, url_unescape
-from cyclone.escape import utf8, to_unicode
-
+from cyclone.escape import utf8, to_unicode, to_basestring
+from cyclone.escape import recursive_unicode
 
 class EscapeTest(unittest.TestCase):
     def test_xhtml_escape(self):
@@ -57,5 +57,19 @@ class EscapeTest(unittest.TestCase):
         self.assertEqual(utf8(u"rawr"), "rawr")
 
     def test_to_unicode(self):
-        self.assertEqual(to_unicode("rawr"), "rawr")
-        self.assertEqual(to_unicode(u"rawr"), "rawr")
+        self.assertEqual(to_unicode("rawr"), u"rawr")
+        self.assertEqual(to_unicode(u"rawr"), u"rawr")
+
+    def test_to_basestring(self):
+        """
+        Not sure this is 100% testable in python 2.
+        """
+        self.assertEqual(to_basestring("rawr"), "rawr")
+        self.assertEqual(to_basestring(u"rawr"), "rawr")
+
+    def test_recursive_unicode(self):
+        self.assertEqual(recursive_unicode("rawr"), u"rawr")
+        self.assertEqual(
+            recursive_unicode({"rawr": "rawr"}), {"rawr": u"rawr"})
+        self.assertEqual(
+            recursive_unicode(["rawr", "rawr"]), [u"rawr", u"rawr"])
