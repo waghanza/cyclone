@@ -21,6 +21,7 @@ from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
 from cyclone.escape import recursive_unicode
 
+
 class EscapeTest(unittest.TestCase):
     def test_xhtml_escape(self):
         xml = "<"
