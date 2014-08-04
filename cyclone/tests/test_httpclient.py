@@ -29,6 +29,8 @@ class TestStringProducer(unittest.TestCase):
     def test_stringproducer(self):
         text = "some text"
         producer = StringProducer(text)
+        self.assertNot(producer.stopProducing())
+        self.assertNot(producer.pauseProducing())
         self.assertEqual(producer.length, len(text))
         consumer = StringIO()
         yield producer.startProducing(consumer)
