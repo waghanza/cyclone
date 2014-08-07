@@ -19,7 +19,7 @@ from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
 from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
-from cyclone.escape import recursive_unicode
+from cyclone.escape import recursive_unicode, linkify
 
 
 class EscapeTest(unittest.TestCase):
@@ -74,3 +74,24 @@ class EscapeTest(unittest.TestCase):
             recursive_unicode({"rawr": "rawr"}), {"rawr": u"rawr"})
         self.assertEqual(
             recursive_unicode(["rawr", "rawr"]), [u"rawr", u"rawr"])
+
+    def test_linkify(self):
+        """
+        Rough tests just to ensure we don't have exceptions.
+        """
+        urls = [
+            "http://testing.com/a/long/url/right/here",
+        ]
+        for u in urls:
+            link = linkify(u, shorten=True)
+            self.assertTrue(
+                link.startswith("<a "), link
+            )
+        linkify("spdy://testing.com/a/long/url/right/here", shorten=True)
+        linkify(
+            "http://testing.com/alongurlrighthere"
+            "alongurlrighthere"
+            "alongurlrighthere"
+            "alongurlrighthere"
+            "/a/long/url/right/here",
+            shorten=True, require_protocol=True, extra_params=lambda x: "x=y")
