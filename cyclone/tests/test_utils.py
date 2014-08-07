@@ -89,6 +89,11 @@ class EscapeTest(unittest.TestCase):
             )
         linkify("spdy://testing.com/a/long/url/right/here", shorten=True)
         linkify(
+            "spdy://testing.com/a/long/url/right/here",
+            shorten=True,
+            extra_params="x=y"
+        )
+        linkify(
             "http://testing.com/alongurlrighthere"
             "alongurlrighthere"
             "alongurlrighthere"
