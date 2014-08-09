@@ -12,7 +12,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+from twisted.internet import address
 from twisted.trial import unittest
 from mock import Mock
 from cyclone.httpserver import HTTPConnection, _BadRequestException
@@ -197,7 +197,6 @@ class HTTPConnectionTest(unittest.TestCase):
             "HTTP/1.1 100 (Continue)"
         )
 
-
     def test_on_headers_big_body(self):
         self.con._remote_ip = Mock()
         self.con.transport = StringTransport()
@@ -211,4 +210,55 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con._on_headers(data)
         self.assertTrue(self.con._contentbuffer)
 
-    # def _on_request_body()
+    def test_on_request_body_get(self):
+        self.con.request_callback = Mock()
+        self.con._request = Mock()
+        self.con._request.method = "GET"
+        self.con._request.headers = {
+        }
+        data = ""
+        self.con._on_request_body(data)
+        self.assertEqual(self.con.request_callback.call_count, 1)
+
+    def test_on_request_body_post_form_data(self):
+        self.con.request_callback = Mock()
+        self.con._request = Mock()
+        self.con._request.arguments = {}
+        self.con._request.method = "POST"
+        self.con._request.headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        data = "a=b"
+        self.con._on_request_body(data)
+        self.assertEqual(self.con.request_callback.call_count, 1)
+        self.assertEqual(self.con._request.arguments, {"a": ["b"]})
+
+    def test_on_request_body_post_multipart_form_data(self):
+        self.con.request_callback = Mock()
+        self.con._request = Mock()
+        self.con._request.arguments = {}
+        self.con._request.method = "POST"
+        self.con._request.headers = {
+            "Content-Type": "multipart/form-data; boundary=AaB03x"
+        }
+        data = \
+            "--AaB03x\r\n"\
+            'Content-Disposition: form-data; name="a"\r\n'\
+            "\r\n"\
+            "b\r\n"\
+            "--AaB03x--\r\n"
+        self.con._on_request_body(data)
+        self.assertEqual(self.con.request_callback.call_count, 1)
+        self.assertEqual(self.con._request.arguments, {"a": ["b"]})
+
+    def test_remote_ip(self):
+        self.con.transport = StringTransport()
+        ip = self.con._remote_ip
+        self.assertTrue(ip)
+
+    def test_remote_ip_unix(self):
+        self.con.transport = Mock()
+        self.con.transport.getHost.return_value.name = "rawr"
+        self.con.transport.getPeer.return_value = address.UNIXAddress("rawr")
+        ip = self.con._remote_ip
+        self.assertTrue(ip)
