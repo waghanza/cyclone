@@ -103,6 +103,14 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con._finish_request()
         self.con.transport.loseConnection.assert_called_with()
 
+    def test_finish_request_no_keep_alive_setting(self):
+        self.con.connectionMade()
+        self.con.no_keep_alive = True
+        self.con.transport = Mock()
+        self.con._request = Mock()
+        self.con._finish_request()
+        self.con.transport.loseConnection.assert_called_with()
+
     def test_finish_request_head(self):
         self.con.connectionMade()
         self.con.transport = Mock()
