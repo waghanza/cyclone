@@ -15,7 +15,7 @@
 
 from twisted.trial import unittest
 from mock import Mock
-from cyclone.httpserver import HTTPConnection
+from cyclone.httpserver import HTTPConnection, _BadRequestException
 from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.test.proto_helpers import StringTransport
 from io import BytesIO
@@ -134,3 +134,81 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con._request.supports_http_1_1.return_value = False
         self.con._finish_request()
         self.con.transport.loseConnection.assert_called_with()
+
+    def test_on_headers_simple(self):
+        self.con._remote_ip = Mock()
+        self.con.request_callback = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET / HTTP/1.1\r\n"
+        self.con._on_headers(data)
+        self.assertEqual(self.con.request_callback.call_count, 1)
+
+    def test_on_headers_invalid(self):
+        self.con._remote_ip = Mock()
+        self.con.request_callback = Mock()
+        self.con.transport = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET /"
+        self.con._on_headers(data)
+        self.con.transport.loseConnection.assert_called_with()
+
+    def test_on_headers_invalid_version(self):
+        self.con._remote_ip = Mock()
+        self.con.request_callback = Mock()
+        self.con.transport = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET / HTTS/1.1"
+        self.con._on_headers(data)
+        self.con.transport.loseConnection.assert_called_with()
+
+    def test_on_headers_content_length(self):
+        self.con._remote_ip = Mock()
+        self.con.setRawMode = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET / HTTP/1.1\r\n"\
+            "Content-Length: 5\r\n"\
+            "\r\n"
+        self.con._on_headers(data)
+        self.con.setRawMode.assert_called_with()
+        self.assertEqual(self.con.content_length, 5)
+
+    def test_on_headers_continue(self):
+        self.con._remote_ip = Mock()
+        self.con.transport = StringTransport()
+        self.con.setRawMode = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET / HTTP/1.1\r\n"\
+            "Content-Length: 5\r\n"\
+            "Expect: 100-continue"\
+            "\r\n"
+        self.con._on_headers(data)
+        self.assertEqual(
+            self.con.transport.io.getvalue().strip(),
+            "HTTP/1.1 100 (Continue)"
+        )
+
+
+    def test_on_headers_big_body(self):
+        self.con._remote_ip = Mock()
+        self.con.transport = StringTransport()
+        self.con.setRawMode = Mock()
+        self.con.__dict__['_remote_ip'] = "127.0.0.1"
+        self.con.connectionMade()
+        data = \
+            "GET / HTTP/1.1\r\n"\
+            "Content-Length: 10000000\r\n"\
+            "\r\n"
+        self.con._on_headers(data)
+        self.assertTrue(self.con._contentbuffer)
+
+    # def _on_request_body()
