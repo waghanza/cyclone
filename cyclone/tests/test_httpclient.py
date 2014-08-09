@@ -14,10 +14,10 @@
 # under the License.
 
 from twisted.trial import unittest
-from cyclone.httpclient import StringProducer, Receiver, HTTPClient
+from cyclone.httpclient import StringProducer, Receiver, HTTPClient, fetch
 import cyclone.httpclient
 from cStringIO import StringIO
-from twisted.internet.defer import inlineCallbacks, Deferred, succeed
+from twisted.internet.defer import inlineCallbacks, Deferred, succeed, fail
 from mock import Mock
 import functools
 from cyclone import escape
@@ -29,6 +29,8 @@ class TestStringProducer(unittest.TestCase):
     def test_stringproducer(self):
         text = "some text"
         producer = StringProducer(text)
+        self.assertNot(producer.stopProducing())
+        self.assertNot(producer.pauseProducing())
         self.assertEqual(producer.length, len(text))
         consumer = StringIO()
         yield producer.startProducing(consumer)
@@ -114,16 +116,84 @@ class TestHTTPClient(unittest.TestCase):
     def test_fetch_redirect(self):
         client = HTTPClient("http://example.com")
         client.agent = Mock()
-        _response = Mock()
-        _response.code = 302
-        _response.headers.getAllRawHeaders.return_value = {
+        client.followRedirect = True
+        client.maxRedirects = 1
+        _response1 = Mock()
+        _response1.code = 302
+        _response1.headers.getAllRawHeaders.return_value = {
             "Location": "http://example.com"
         }
-        _response.deliverBody = lambda x: x.connectionLost(None)
-        client.agent.request.return_value = succeed(_response)
+        _response1.deliverBody = lambda x: x.connectionLost(None)
+        _response2 = Mock()
+        _response2.code = 200
+        _response2.headers.getAllRawHeaders.return_value = {}
+        _response2.deliverBody = lambda x: x.connectionLost(None)
+        client.agent.request.side_effect = [
+            succeed(_response1),
+            succeed(_response2)
+        ]
         response = yield client.fetch()
         self.assertEqual(response.body, "")
-        self.assertEqual(_response.headers, {"Location": "http://example.com"})
+        self.assertEqual(_response2.headers, {})
+
+    @inlineCallbacks
+    def test_fetch_redirect_list_query(self):
+        client = HTTPClient("http://example.com")
+        client.agent = Mock()
+        client.followRedirect = True
+        client.maxRedirects = 1
+        _response1 = Mock()
+        _response1.code = 302
+        _response1.headers.getAllRawHeaders.return_value = {
+            "Location": ["http://example.com"]
+        }
+        _response1.deliverBody = lambda x: x.connectionLost(None)
+        _response2 = Mock()
+        _response2.code = 200
+        _response2.headers.getAllRawHeaders.return_value = {}
+        _response2.deliverBody = lambda x: x.connectionLost(None)
+        client.agent.request.side_effect = [
+            succeed(_response1),
+            succeed(_response2)
+        ]
+        response = yield client.fetch()
+        self.assertEqual(response.body, "")
+        self.assertEqual(_response2.headers, {})
+
+    @inlineCallbacks
+    def test_fetch_redirect_empty(self):
+        client = HTTPClient("http://example.com")
+        client.agent = Mock()
+        client.followRedirect = True
+        client.maxRedirects = 1
+        _response1 = Mock()
+        _response1.code = 302
+        _response1.headers.getAllRawHeaders.return_value = {}
+        _response1.deliverBody = lambda x: x.connectionLost(None)
+        _response2 = Mock()
+        _response2.code = 200
+        _response2.headers.getAllRawHeaders.return_value = {}
+        _response2.deliverBody = lambda x: x.connectionLost(None)
+        client.agent.request.side_effect = [
+            succeed(_response1),
+            succeed(_response2)
+        ]
+        response = yield client.fetch()
+        self.assertEqual(response.body, "")
+
+
+class FetchTest(unittest.TestCase):
+    URL = "http://example.com"
+
+    def setUp(self):
+        cyclone.httpclient.HTTPClient = Mock()
+
+    def tearDown(self):
+        cyclone.httpclient.HTTPClient = HTTPClient
+
+    def test_fetch(self):
+        fetch(self.URL)
+        cyclone.httpclient.HTTPClient.assert_called_with(self.URL)
 
 
 class JsonRPCTest(unittest.TestCase):
@@ -156,42 +226,31 @@ class JsonRPCTest(unittest.TestCase):
         result = yield self.client.foo()
         self.assertTrue(result)
 
-    @inlineCallbacks
-    def test_rpc_request_error(self):
+    def test_rpc_request_error1(self):
+        response = Mock()
+        response.code = 404
+        response.body = escape.json_encode({"result": True})
+        cyclone.httpclient.fetch.return_value = fail(HTTPError(404))
+        return self.assertFailure(self.client.foo(), HTTPError)
+
+    def test_rpc_request_error2(self):
         response = Mock()
         response.code = 200
         response.body = escape.json_encode({"error": {"message": "failed"}})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except Exception, e:
-            self.assertEqual(e.message, "failed")
-        else:
-            raise Exception("Should raise an error.")
+        return self.assertFailure(self.client.foo(), Exception)
 
-    @inlineCallbacks
     def test_rpc_request_error_old(self):
         response = Mock()
         response.code = 200
         response.body = escape.json_encode({"error": "some error"})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except Exception, e:
-            self.assertEqual(e.message, "some error")
-        else:
-            raise Exception("Should raise an error.")
+        return self.assertFailure(self.client.foo(), Exception)
 
-    @inlineCallbacks
     def test_rpc_request_404(self):
         response = Mock()
         response.code = 404
         response.phrase = "Not found."
         response.body = escape.json_encode({"result": True})
         cyclone.httpclient.fetch.return_value = succeed(response)
-        try:
-            yield self.client.foo()
-        except HTTPError, e:
-            self.assertEqual(e.log_message, "Not found.")
-        else:
-            raise Exception("Should raise an error.")
+        return self.assertFailure(self.client.foo(), HTTPError)
