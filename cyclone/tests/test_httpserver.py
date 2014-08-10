@@ -362,10 +362,10 @@ class HTTPRequestTest(unittest.TestCase):
 
     def test_request_time_empty_finish(self):
         self.req._finish_time = None
-        self.assertLess(self.req.request_time(), 0.01)
+        self.assertTrue(self.req.request_time() < 0.01)
 
     def test_request_time(self):
-        self.assertLess(self.req.request_time(), 0.01)
+        self.assertTrue(self.req.request_time() <0.01)
 
     def test_repr(self):
         """
