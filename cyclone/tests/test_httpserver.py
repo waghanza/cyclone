@@ -15,10 +15,12 @@
 from twisted.internet import address
 from twisted.trial import unittest
 from mock import Mock
-from cyclone.httpserver import HTTPConnection, _BadRequestException
-from twisted.internet.defer import Deferred, inlineCallbacks
+from cyclone.httpserver import HTTPConnection, HTTPRequest
+from twisted.internet.defer import Deferred
 from twisted.test.proto_helpers import StringTransport
+from twisted.internet import interfaces
 from io import BytesIO
+import Cookie
 
 
 class HTTPConnectionTest(unittest.TestCase):
@@ -262,3 +264,111 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con.transport.getPeer.return_value = address.UNIXAddress("rawr")
         ip = self.con._remote_ip
         self.assertTrue(ip)
+
+
+class HTTPRequestTest(unittest.TestCase):
+    def setUp(self):
+        self.req = HTTPRequest("GET", "/something")
+
+    def test_init(self):
+        req = HTTPRequest("GET", "/something")
+        self.assertTrue(hasattr(req, "method"))
+        self.assertTrue(hasattr(req, "uri"))
+        self.assertTrue(hasattr(req, "version"))
+        self.assertTrue(hasattr(req, "headers"))
+        self.assertTrue(hasattr(req, "body"))
+        self.assertTrue(hasattr(req, "host"))
+        self.assertTrue(hasattr(req, "files"))
+        self.assertTrue(hasattr(req, "connection"))
+        self.assertTrue(hasattr(req, "path"))
+        self.assertTrue(hasattr(req, "arguments"))
+        self.assertTrue(hasattr(req, "remote_ip"))
+
+    def test_init_with_connection_xheaders(self):
+        connection = Mock()
+        connection.xheaders = True
+        headers = {
+            "X-Real-Ip": "127.0.0.1"
+        }
+        req = HTTPRequest(
+            "GET", "/something", headers=headers, connection=connection)
+        self.assertEqual(req.remote_ip, "127.0.0.1")
+        self.assertEqual(req.protocol, "http")
+
+    def test_init_with_invalid_connection_xheaders(self):
+        connection = Mock()
+        connection.xheaders = True
+        headers = {
+            "X-Real-Ip": "256.0.0.1"
+        }
+        req = HTTPRequest(
+            "GET", "/something", headers=headers, connection=connection)
+        self.assertEqual(req.remote_ip, None)
+        self.assertEqual(req.protocol, "http")
+
+    def test_init_with_invalid_protocol_xheaders(self):
+        connection = Mock()
+        connection.xheaders = True
+        protocol = "ftp"
+        req = HTTPRequest(
+            "GET", "/something", connection=connection, protocol=protocol)
+        self.assertEqual(req.protocol, "http")
+
+    def test_init_with_https(self):
+        connection = Mock()
+        connection.xheaders = False
+        connection.transport = StringTransport()
+        interfaces.ISSLTransport.providedBy = lambda x: True
+        req = HTTPRequest(
+            "GET", "/something", connection=connection)
+        self.assertEqual(req.protocol, "https")
+
+    def test_supports_http_1_1(self):
+        req = HTTPRequest("GET", "/something", version="HTTP/1.0")
+        self.assertFalse(req.supports_http_1_1())
+        req = HTTPRequest("GET", "/something", version="HTTP/1.1")
+        self.assertTrue(req.supports_http_1_1())
+
+    def test_cookies_create(self):
+        cookies = self.req.cookies
+        self.assertFalse(cookies)
+
+    def test_cookies_load(self):
+        self.req.headers = {
+            "Cookie": "a=b"
+        }
+        cookies = self.req.cookies
+        self.assertEqual(cookies['a'].value, 'b')
+
+    def test_cookies_invalid(self):
+        self.req.headers = {
+            "Cookie": "a"
+        }
+
+        def throw_exc(ignore):
+            raise Exception()
+
+        old_cookie = Cookie.SimpleCookie
+        Cookie.SimpleCookie = Mock()
+        Cookie.SimpleCookie.return_value.load = throw_exc
+        self.req.cookies
+        cookies = self.req.cookies
+        self.assertEqual(cookies, {})
+        Cookie.SimpleCookie = old_cookie
+
+    def test_full_url(self):
+        expected = "http://127.0.0.1/something"
+        self.assertEqual(self.req.full_url(), expected)
+
+    def test_request_time_empty_finish(self):
+        self.req._finish_time = None
+        self.assertTrue(self.req.request_time() < 0.01)
+
+    def test_request_time(self):
+        self.assertTrue(self.req.request_time() <0.01)
+
+    def test_repr(self):
+        """
+        Purely for coverage.
+        """
+        repr(self.req)
