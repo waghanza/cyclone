@@ -19,7 +19,7 @@ from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
 from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
-from cyclone.escape import recursive_unicode, linkify
+from cyclone.escape import recursive_unicode, linkify, _convert_entity
 from cyclone.util import _emit, ObjectDict, import_object
 from mock import Mock
 import datetime
@@ -103,6 +103,15 @@ class EscapeTest(unittest.TestCase):
             "alongurlrighthere"
             "/a/long/url/right/here",
             shorten=True, require_protocol=True, extra_params=lambda x: "x=y")
+
+    def test_convert_entity(self):
+        """
+        A bit hacky for now. Gets things convered though.
+        """
+        m = Mock()
+        _convert_entity(m)
+        m.group.return_value = "#"
+        _convert_entity(m)
 
 
 class UtilsTest(unittest.TestCase):
