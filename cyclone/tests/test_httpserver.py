@@ -365,7 +365,7 @@ class HTTPRequestTest(unittest.TestCase):
         self.assertTrue(self.req.request_time() < 0.01)
 
     def test_request_time(self):
-        self.assertTrue(self.req.request_time() <0.01)
+        self.assertTrue(self.req.request_time() < 0.01)
 
     def test_repr(self):
         """
