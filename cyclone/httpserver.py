@@ -155,12 +155,16 @@ class HTTPConnection(basic.LineReceiver):
             if not version.startswith("HTTP/"):
                 raise _BadRequestException(
                     "Malformed HTTP version in HTTP Request-Line")
-            headers = httputil.HTTPHeaders.parse(data[eol:])
+            try:
+                headers = httputil.HTTPHeaders.parse(data[eol:])
+                content_length = int(headers.get("Content-Length", 0))
+            except ValueError:
+                raise _BadRequestException(
+                    "Malformed HTTP headers")
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
                 headers=headers, remote_ip=self._remote_ip)
 
-            content_length = int(headers.get("Content-Length", 0))
             if content_length:
                 if headers.get("Expect") == "100-continue":
                     self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
