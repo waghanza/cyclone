@@ -85,7 +85,7 @@ setup(
     description="Non-blocking web server. "
                 "A facebook's Tornado on top of Twisted.",
     keywords="python non-blocking web server twisted facebook tornado",
-    packages=["cyclone", "twisted.plugins"],
+    packages=["cyclone", "twisted.plugins", "cyclone.tests", "cyclone.testing"],
     package_data={"twisted": ["plugins/cyclone_plugin.py"],
                   "cyclone": ["appskel_default.zip",
                               "appskel_foreman.zip",
