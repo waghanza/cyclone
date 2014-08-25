@@ -57,7 +57,8 @@ def mock_app_builder():
 
 class TestTestCase(unittest.TestCase):
     def test_create(self):
-        case = CycloneTestCase(mock_app_builder)
+        self.assertRaises(ValueError, CycloneTestCase, mock_app_builder)
+        case = CycloneTestCase(app_builder=mock_app_builder)
         self.assertTrue(case._app)
         self.assertTrue(case.client)
 
