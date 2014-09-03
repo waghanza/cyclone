@@ -19,7 +19,10 @@ from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
 from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
-from cyclone.escape import recursive_unicode, linkify
+from cyclone.escape import recursive_unicode, linkify, _convert_entity
+from cyclone.util import _emit, ObjectDict, import_object
+from mock import Mock
+import datetime
 
 
 class EscapeTest(unittest.TestCase):
@@ -100,3 +103,56 @@ class EscapeTest(unittest.TestCase):
             "alongurlrighthere"
             "/a/long/url/right/here",
             shorten=True, require_protocol=True, extra_params=lambda x: "x=y")
+
+    def test_convert_entity(self):
+        """
+        A bit hacky for now. Gets things convered though.
+        """
+        m = Mock()
+        _convert_entity(m)
+        m.group.return_value = "#"
+        _convert_entity(m)
+
+
+class UtilsTest(unittest.TestCase):
+    def test_emit(self):
+        m = Mock()
+        t = datetime.time()
+        _emit(m, {
+            "message": "some message",
+            "time": t
+        })
+        m.formatTime.assert_called_with(t)
+
+    def test_emit_empty(self):
+        m = Mock()
+        t = datetime.time()
+        failure = Mock()
+        failure.getTraceback.return_value = ""
+        _emit(m, {
+            "message": "",
+            "time": t,
+            "isError": "",
+            "failure": failure
+        })
+        self.assertEqual(m.formatTime.call_count, 0)
+
+    def test_object_dict(self):
+        od = ObjectDict()
+        self.assertRaises(AttributeError, getattr, od, "something")
+        od["foo"] = "bar"
+        self.assertEqual(od['foo'], "bar")
+        self.assertEqual(od.foo, "bar")
+        od.rah = "meow"
+        self.assertEqual(od['rah'], "meow")
+
+    def test_import_object(self):
+        import os.path
+        other_os = import_object("os.path")
+        self.assertIs(os.path, other_os)
+
+    def test_import_object_fail(self):
+        self.assertRaises(ImportError, import_object, "meowkittens.something")
+
+    def test_import_object_fail_no_method(self):
+        self.assertRaises(ImportError, import_object, "os.something")

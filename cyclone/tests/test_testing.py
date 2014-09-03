@@ -48,16 +48,28 @@ class DeferredTestHandler(RequestHandler):
         self.finish()
 
 
+class CookieTestHandler(RequestHandler):
+    def get(self):
+        self.set_secure_cookie("test_cookie", "test_value")
+        self.finish()
+
+    def post(self):
+        value = self.get_secure_cookie("test_cookie")
+        self.finish(value)
+
+
 def mock_app_builder():
     return Application([
         (r'/testing/', TestHandler),
-        (r'/deferred_testing/', DeferredTestHandler)
-    ])
+        (r'/deferred_testing/', DeferredTestHandler),
+        (r'/cookie_testing/', CookieTestHandler),
+    ], cookie_secret="insecure")
 
 
 class TestTestCase(unittest.TestCase):
     def test_create(self):
-        case = CycloneTestCase(mock_app_builder)
+        self.assertRaises(ValueError, CycloneTestCase, mock_app_builder)
+        case = CycloneTestCase(app_builder=mock_app_builder)
         self.assertTrue(case._app)
         self.assertTrue(case.client)
 
@@ -113,3 +125,14 @@ class TestClient(unittest.TestCase):
         response = yield self.client.get("/deferred_testing/")
         self.assertEqual(response.content, "Something...done!")
         self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_cookies(self):
+        response = yield self.client.get("/cookie_testing/")
+        self.assertEqual(
+            self.client.cookies.get_secure_cookie("test_cookie"),
+            "test_value"
+        )
+
+        response = yield self.client.post("/cookie_testing/")
+        self.assertEqual(response.content, "test_value")
