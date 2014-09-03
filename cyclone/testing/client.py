@@ -85,9 +85,12 @@ class Client(object):
 
     @inlineCallbacks
     def request(self, method, uri, *args, **kwargs):
-        params = kwargs.pop("params")
-        if params:
+        params = kwargs.pop("params", {}) or {}
+        if method in ["GET", "HEAD", "OPTIONS"] and params:
             uri = uri + "?" + urllib.urlencode(params)
+        elif method in ["POST", "PATCH", "PUT"]\
+                and params and not kwargs['body']:
+            kwargs['body'] = urllib.urlencode(params)
         connection = kwargs.pop('connection')
         if not connection:
             connection = HTTPConnection()
@@ -100,6 +103,8 @@ class Client(object):
                 kwargs['headers'] = {}
             kwargs['headers']['Cookie'] = cookie_value.strip()
         request = HTTPRequest(method, uri, *args, **kwargs)
+        for k, p in params.items():
+            request.arguments.setdefault(k, []).append(p)
         connection.connectionMade()
         connection._request = request
         connection.transport = proto_helpers.StringTransport()
