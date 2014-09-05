@@ -13,7 +13,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from twisted.internet import defer
 from twisted.trial import unittest
+from twisted.internet import reactor
+
 from mock import Mock
 
 from cyclone import template
@@ -112,4 +115,33 @@ class TestTemplates(unittest.TestCase):
 		self.assertEqual(
 			t2.generate(x=">"),
 			"<>>"
+		)
+
+	@defer.inlineCallbacks
+	def test_deferreds(self):
+		def _mkDeferred(rv, delay=None):
+			d = defer.Deferred()
+			if delay is None:
+				d.callback(rv)
+			else:
+				reactor.callLater(delay, d.callback, rv)
+			return d
+
+		# Test that template immidiatly resolves deferreds if possible
+		t = template.Template(r"-) {{x}} <-> {{y(63)}} :!")
+		self.assertEqual(
+			t.generate(x=_mkDeferred(42), y=_mkDeferred),
+			"-) 42 <-> 63 :!"
+		)
+
+		# Test delayed execution
+		d = t.generate(
+			x=_mkDeferred("hello", 0.1),
+			y=lambda val: _mkDeferred(val-60, 0.5)
+		)
+		self.assertTrue(isinstance(d, defer.Deferred), d)
+		txt = yield d
+		self.assertEqual(
+			txt,
+			"-) hello <-> 3 :!"
 		)
