@@ -139,6 +139,10 @@ with ``{# ... #}``.
     template.  Anything in the child template not contained in a ``block``
     tag will be ignored.  For an example, see the ``{% block %}`` tag.
 
+``{% super %}``
+    This statement is allowed only inside ``{% block %}`` statement.
+    Inserts value of the appropriate block from the parent template.
+
 ``{% for *var* in *expr* %}...{% end %}``
     Same as the python ``for`` statement.  ``{% break %}`` and
     ``{% continue %}`` may be used inside the loop.
@@ -182,6 +186,8 @@ with ``{# ... #}``.
 
 from __future__ import absolute_import, division, with_statement
 
+import collections
+import contextlib
 import datetime
 import linecache
 import os.path
@@ -276,11 +282,12 @@ class Template(object):
         buffer = StringIO()
         try:
             # named_blocks maps from names to _NamedBlock objects
-            named_blocks = {}
+            named_blocks = collections.defaultdict(list)
             ancestors = self._get_ancestors(loader)
             ancestors.reverse()
             for ancestor in ancestors:
                 ancestor.find_named_blocks(loader, named_blocks)
+
             self.file.find_named_blocks(loader, named_blocks)
             writer = _CodeWriter(buffer, named_blocks, loader,
                                  ancestors[0].template,
@@ -440,24 +447,51 @@ class _NamedBlock(_Node):
         self.body = body
         self.template = template
         self.line = line
+        self.parent = None
+        for el in body.each_child():
+            if isinstance(el, _Super):
+                el.set_parent_block(self)
 
     def each_child(self):
         return (self.body,)
 
-    def generate(self, writer):
-        block = writer.named_blocks[self.name]
+    def generate(self, writer, force_self=False):
+        if force_self:
+            block = self
+        else:
+            block = writer.named_blocks[self.name][-1]
         with writer.include(block.template, self.line):
             block.body.generate(writer)
 
     def find_named_blocks(self, loader, named_blocks):
-        named_blocks[self.name] = self
+        named_blocks[self.name].append(self)
         _Node.find_named_blocks(self, loader, named_blocks)
-
 
 class _ExtendsBlock(_Node):
     def __init__(self, name):
         self.name = name
 
+class _Super(_Node):
+
+    parent = None
+
+    def __init__(self, template, suffix, line):
+        self.template = template
+        self.suffix = suffix
+        self.line = line
+
+    def set_parent_block(self, parent):
+        self.parent = parent
+
+    def generate(self, writer):
+        parent = self.parent
+        blocks = writer.named_blocks[parent.name]
+        assert self.parent in blocks
+        idx = blocks.index(self.parent)
+        preParent = blocks[:idx]
+        if preParent:
+            preParent = preParent[-1]
+            preParent.generate(writer, force_self=True)
 
 class _IncludeBlock(_Node):
     def __init__(self, name, reader, line):
@@ -524,7 +558,6 @@ class _IntermediateControlBlock(_Node):
         writer.write_line("pass", self.line)
         writer.write_line("%s:" % self.statement, self.line,
                           writer.indent_size() - 1)
-
 
 class _Statement(_Node):
     def __init__(self, statement, line):
@@ -615,18 +648,14 @@ class _CodeWriter(object):
 
         return Indenter()
 
+    @contextlib.contextmanager
     def include(self, template, line):
         self.include_stack.append((self.current_template, line))
         self.current_template = template
-
-        class IncludeTemplate(object):
-            def __enter__(_):
-                return self
-
-            def __exit__(_, *args):
-                self.current_template = self.include_stack.pop()[0]
-
-        return IncludeTemplate()
+        try:
+            yield self
+        finally:
+            self.current_template = self.include_stack.pop()[0]
 
     def write_line(self, line, line_number, indent=None):
         if indent is None:
@@ -788,6 +817,7 @@ def _parse(reader, template, in_block=None, in_loop=None):
             "finally": set(["try"]),
         }
         allowed_parents = intermediate_blocks.get(operator)
+
         if allowed_parents is not None:
             if not in_block:
                 raise ParseError("%s outside %s block" %
@@ -805,7 +835,7 @@ def _parse(reader, template, in_block=None, in_loop=None):
             return body
 
         elif operator in ("extends", "include", "set", "import", "from",
-                          "comment", "autoescape", "raw", "module"):
+                          "comment", "autoescape", "raw", "module", "super"):
             if operator == "comment":
                 continue
             if operator == "extends":
@@ -839,6 +869,10 @@ def _parse(reader, template, in_block=None, in_loop=None):
                 block = _Expression(suffix, line, raw=True)
             elif operator == "module":
                 block = _Module(suffix, line)
+            elif operator == "super":
+                if in_block != "block":
+                    raise ParseError("'super' block cannot be attached to 'block' block")
+                block = _Super(template, suffix, line)
             body.chunks.append(block)
             continue
 
