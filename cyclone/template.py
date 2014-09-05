@@ -488,9 +488,8 @@ class _Super(_Node):
         blocks = writer.named_blocks[parent.name]
         assert self.parent in blocks
         idx = blocks.index(self.parent)
-        preParent = blocks[:idx]
-        if preParent:
-            preParent = preParent[-1]
+        if idx > 0:
+            preParent = blocks[idx-1]
             preParent.generate(writer, force_self=True)
 
 class _IncludeBlock(_Node):

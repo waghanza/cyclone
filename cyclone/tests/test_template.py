@@ -67,3 +67,49 @@ class TestTemplates(unittest.TestCase):
 		self.assertEqual(t.generate(a=42), "Unknown")
 		self.assertEqual(t.generate(a=42.5), "Unknown")
 		self.assertEqual(t.generate(a="meow"), "String")
+
+	def test_comment(self):
+		self.assertEqual(
+			template.Template(r"{% comment blah! %}42").generate(),
+			"42"
+		)
+
+	def test_set(self):
+		self.assertEqual(
+			template.Template(r"{% set x=42 %}{{ val + x }}").generate(val=-42),
+			"0"
+		)
+		self.assertEqual(
+			template.Template(r"{% set x=val2 %}{{ val + x }}").generate(val=1, val2=10),
+			"11"
+		)
+
+	def test_loops(self):
+		self.assertEqual(
+			template.Template(r"{% for x in [1,2,3,4] %}{{ x }}:{% end %}").generate(),
+			"1:2:3:4:"
+		)
+		self.assertEqual(
+			template.Template(r"{% set x=0 %}{% while x < 10 %}{{x}};{% set x += 2 %}{% end %}").generate(),
+			"0;2;4;6;8;"
+		)
+
+	def test_autoescape(self):
+		t = template.Template(r"<{{x}}>")
+		self.assertEqual(
+			t.generate(x="<"),
+			"<&lt;>"
+		)
+		self.assertEqual(
+			t.generate(x=">"),
+			"<&gt;>"
+		)
+		t2 = template.Template(r"{% autoescape None %}<{{x}}>")
+		self.assertEqual(
+			t2.generate(x="<"),
+			"<<>"
+		)
+		self.assertEqual(
+			t2.generate(x=">"),
+			"<>>"
+		)
