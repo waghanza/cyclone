@@ -204,6 +204,9 @@ from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
 from cyclone.util import unicode_type
 
+from twisted.python.failure import Failure
+from twisted.internet.defer import Deferred
+
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
 
@@ -273,7 +276,15 @@ class Template(object):
         # unittests, where different tests reuse the same name).
         linecache.clearcache()
         try:
-            return execute()
+            rv = execute()
+            assert isinstance(rv, Deferred), rv
+            if hasattr(rv, "result"):
+                # Deferred is already resolved.
+                # Return the result immidiatly to avoid compatibility problems.
+                rv = rv.result
+                if isinstance(rv, Failure):
+                    rv.raiseException()
+            return rv
         except:
             raise TemplateError("Error executing template " + self.name +
             ":\n" + _format_code(traceback.format_exception(*sys.exc_info())))
@@ -307,7 +318,6 @@ class Template(object):
                 template = loader.load(chunk.name, self.name)
                 ancestors.extend(template._get_ancestors(loader))
         return ancestors
-
 
 class BaseLoader(object):
     """Base class for template loaders."""
@@ -410,6 +420,10 @@ class _Node(object):
         for child in self.each_child():
             child.find_named_blocks(loader, named_blocks)
 
+    def maybe_deferred(self, varName, writer):
+        writer.write_line("while isinstance(%s, Deferred):" % varName, self.line)
+        with writer.indent():
+            writer.write_line("%s = yield %s" % (varName, varName), self.line)
 
 class _File(_Node):
     def __init__(self, template, body):
@@ -418,12 +432,20 @@ class _File(_Node):
         self.line = 0
 
     def generate(self, writer):
-        writer.write_line("def _execute():", self.line)
+        _write_line = lambda txt: writer.write_line(txt, self.line)
+        _write_line("from twisted.internet.defer import inlineCallbacks, returnValue, Deferred")
+        _write_line("")
+        _write_line("@inlineCallbacks")
+        _write_line("def _execute():")
         with writer.indent():
-            writer.write_line("_buffer = []", self.line)
-            writer.write_line("_append = _buffer.append", self.line)
+            # A workaround for the function to be considered a generator
+            _write_line("if 0:")
+            with writer.indent():
+                _write_line("yield None")
+            _write_line("_buffer = []")
+            _write_line("_append = _buffer.append")
             self.body.generate(writer)
-            writer.write_line("return _utf8('').join(_buffer)", self.line)
+            _write_line("returnValue(_utf8('').join(_buffer))")
 
     def each_child(self):
         return (self.body,)
@@ -575,6 +597,7 @@ class _Expression(_Node):
 
     def generate(self, writer):
         writer.write_line("_tmp = %s" % self.expression, self.line)
+        self.maybe_deferred("_tmp", writer)
         writer.write_line("if isinstance(_tmp, _string_types):"
                           " _tmp = _utf8(_tmp)", self.line)
         writer.write_line("else: _tmp = _utf8(str(_tmp))", self.line)
@@ -635,17 +658,14 @@ class _CodeWriter(object):
     def indent_size(self):
         return self._indent
 
+    @contextlib.contextmanager
     def indent(self):
-        class Indenter(object):
-            def __enter__(_):
-                self._indent += 1
-                return self
-
-            def __exit__(_, *args):
-                assert self._indent > 0
-                self._indent -= 1
-
-        return Indenter()
+        self._indent += 1
+        try:
+            yield self
+        finally:
+            assert self._indent > 0
+            self._indent -= 1
 
     @contextlib.contextmanager
     def include(self, template, line):
