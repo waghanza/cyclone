@@ -528,7 +528,7 @@ class RequestHandler(object):
     def render(self, template_name, **kwargs):
         """Renders the template with the given arguments as the response."""
         d = defer.maybeDeferred(self.render_string, template_name, **kwargs)
-        d.addCallbacks(self._insertAdditionalPageElements, self._execute_failure)
+        d.addCallback(self._insertAdditionalPageElements)
         d.addCallbacks(self.finish, self._execute_failure)
         return d
 
