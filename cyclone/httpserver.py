@@ -154,13 +154,17 @@ class HTTPConnection(basic.LineReceiver):
                 raise _BadRequestException("Malformed HTTP request line")
             if not version.startswith("HTTP/"):
                 raise _BadRequestException(
-                        "Malformed HTTP version in HTTP Request-Line")
-            headers = httputil.HTTPHeaders.parse(data[eol:])
+                    "Malformed HTTP version in HTTP Request-Line")
+            try:
+                headers = httputil.HTTPHeaders.parse(data[eol:])
+                content_length = int(headers.get("Content-Length", 0))
+            except ValueError:
+                raise _BadRequestException(
+                    "Malformed HTTP headers")
             self._request = HTTPRequest(
                 connection=self, method=method, uri=uri, version=version,
                 headers=headers, remote_ip=self._remote_ip)
 
-            content_length = int(headers.get("Content-Length", 0))
             if content_length:
                 if headers.get("Expect") == "100-continue":
                     self.transport.write("HTTP/1.1 100 (Continue)\r\n\r\n")
@@ -212,6 +216,7 @@ class HTTPConnection(basic.LineReceiver):
         else:
             remote_ip = self.transport.getPeer().host
         return remote_ip
+
 
 class HTTPRequest(object):
     """A single HTTP request.
@@ -301,14 +306,15 @@ class HTTPRequest(object):
             if not self._valid_ip(self.remote_ip):
                 self.remote_ip = remote_ip
             # AWS uses X-Forwarded-Proto
-            self.protocol = self.headers.get("X-Scheme",
-                            self.headers.get("X-Forwarded-Proto", protocol))
+            self.protocol = self.headers.get(
+                "X-Scheme",
+                self.headers.get("X-Forwarded-Proto", protocol))
             if self.protocol not in ("http", "https"):
                 self.protocol = "http"
         else:
             self.remote_ip = remote_ip
             if connection and interfaces.ISSLTransport.providedBy(
-                                                        connection.transport):
+                    connection.transport):
                 self.protocol = "https"
             else:
                 self.protocol = "http"

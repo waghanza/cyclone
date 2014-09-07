@@ -87,6 +87,6 @@ unicode_type = unicode
 basestring_type = basestring
 
 
-def doctests():
+def doctests():  # pragma: no cover
     import doctest
     return doctest.DocTestSuite()

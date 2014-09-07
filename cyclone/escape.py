@@ -43,7 +43,7 @@ try:
     assert hasattr(json, "loads") and hasattr(json, "dumps")
     _json_decode = json.loads
     _json_encode = json.dumps
-except Exception:
+except Exception:  # pragma: nocover
     try:
         import simplejson
         _json_decode = lambda s: simplejson.loads(_unicode(s))

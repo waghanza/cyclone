@@ -1,2 +1,3 @@
 [report]
-include = */cyclone/*
+include = cyclone/*
+omit = setup.py

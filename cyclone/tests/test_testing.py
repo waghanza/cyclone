@@ -24,6 +24,18 @@ class TestHandler(RequestHandler):
     def get(self):
         self.write("Something")
 
+    def post(self):
+        self.write("Something posted")
+
+    def put(self):
+        self.write("Something put")
+
+    def head(self):
+        self.write("")
+
+    def delete(self):
+        self.write("")
+
 
 class DeferredTestHandler(RequestHandler):
     @asynchronous
@@ -36,16 +48,28 @@ class DeferredTestHandler(RequestHandler):
         self.finish()
 
 
+class CookieTestHandler(RequestHandler):
+    def get(self):
+        self.set_secure_cookie("test_cookie", "test_value")
+        self.finish()
+
+    def post(self):
+        value = self.get_secure_cookie("test_cookie")
+        self.finish(value)
+
+
 def mock_app_builder():
     return Application([
         (r'/testing/', TestHandler),
-        (r'/deferred_testing/', DeferredTestHandler)
-    ])
+        (r'/deferred_testing/', DeferredTestHandler),
+        (r'/cookie_testing/', CookieTestHandler),
+    ], cookie_secret="insecure")
 
 
 class TestTestCase(unittest.TestCase):
     def test_create(self):
-        case = CycloneTestCase(mock_app_builder)
+        self.assertRaises(ValueError, CycloneTestCase, mock_app_builder)
+        case = CycloneTestCase(app_builder=mock_app_builder)
         self.assertTrue(case._app)
         self.assertTrue(case.client)
 
@@ -67,7 +91,48 @@ class TestClient(unittest.TestCase):
         self.assertTrue(len(response.headers) > 3)
 
     @inlineCallbacks
+    def test_get_request_with_params(self):
+        response = yield self.client.get("/testing/", {"q": "query"})
+        self.assertEqual(response.content, "Something")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_post_request(self):
+        response = yield self.client.post("/testing/")
+        self.assertEqual(response.content, "Something posted")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_put_request(self):
+        response = yield self.client.put("/testing/")
+        self.assertEqual(response.content, "Something put")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_head_request(self):
+        response = yield self.client.head("/testing/")
+        self.assertEqual(response.content, "")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_delete_request(self):
+        response = yield self.client.delete("/testing/")
+        self.assertEqual(response.content, "")
+        self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
     def test_get_deferred_request(self):
         response = yield self.client.get("/deferred_testing/")
         self.assertEqual(response.content, "Something...done!")
         self.assertTrue(len(response.headers) > 3)
+
+    @inlineCallbacks
+    def test_cookies(self):
+        response = yield self.client.get("/cookie_testing/")
+        self.assertEqual(
+            self.client.cookies.get_secure_cookie("test_cookie"),
+            "test_value"
+        )
+
+        response = yield self.client.post("/cookie_testing/")
+        self.assertEqual(response.content, "test_value")
