@@ -803,10 +803,13 @@ class RequestHandler(object):
 
         In order for error pages to be generated for paths that do not match any
         handlers, you can use the `error_handler` keyword argument when
-        instantiating the ``cyclone.web.Application`` object. For example:
+        instantiating the ``cyclone.web.Application`` object.
+
+        For example::
 
             import cyclone.web
             import httplib
+
             class CustomErrorPageMixin(object):
                 def write_error(self, status_code, **kwargs):
                     kwargs["code"] = status_code
@@ -826,14 +829,14 @@ class RequestHandler(object):
             class BaseHandler(CustomErrorPageMixin, cyclone.web.RequestHandler):
                 ...
 
-        Then, when constructing the ``cyclone.web.Application`` object:
+        Then, when constructing the ``cyclone.web.Application`` object::
 
             from cyclone import web
             application = web.Application([
                 (r"/", MainPageHandler),
             ], error_handler=CustomErrorHandler)
 
-        This technique is also compatible with Bottle-style applications:
+        This technique is also compatible with Bottle-style applications::
 
             from cyclone.bottle import create_app
             # create_app takes the same arguments as run
