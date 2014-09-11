@@ -49,6 +49,7 @@ class Message(object):
                 from_addr="root@localhost",
                 to_addrs=["user1", "user2", "user3"],
                 subject="Test, 123",
+                message="Hello thar!",
                 mime="text/html")
     """
 
