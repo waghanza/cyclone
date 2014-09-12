@@ -527,9 +527,13 @@ class RequestHandler(object):
 
     def render(self, template_name, **kwargs):
         """Renders the template with the given arguments as the response."""
-        html = self.render_string(template_name, **kwargs)
+        d = defer.maybeDeferred(self.render_string, template_name, **kwargs)
+        d.addCallback(self._insertAdditionalPageElements)
+        d.addCallbacks(self.finish, self._execute_failure)
+        return d
 
-        # Insert the additional JS and CSS added by the modules on the page
+    def _insertAdditionalPageElements(self, html):
+        """Insert the additional JS and CSS added by the modules on the page"""
         js_embed = []
         js_files = []
         css_embed = []
@@ -609,7 +613,7 @@ class RequestHandler(object):
         if html_bodies:
             hloc = html.index('</body>')
             html = html[:hloc] + ''.join(html_bodies) + '\n' + html[hloc:]
-        self.finish(html)
+        return html
 
     def render_string(self, template_name, **kwargs):
         """Generate the given template with the given arguments.
@@ -680,6 +684,7 @@ class RequestHandler(object):
         """Flushes the current output buffer to the network."""
         chunk = "".join(self._write_buffer)
         self._write_buffer = []
+
         if not self._headers_written:
             self._headers_written = True
             for transform in self._transforms:
@@ -811,19 +816,18 @@ class RequestHandler(object):
             import httplib
 
             class CustomErrorPageMixin(object):
-                def write_error(self, status_code, **kwargs):
+                def write_error(self, status_code, **kwargs**):
                     kwargs["code"] = status_code
+
                     if 'message' not in kwargs:
                         kwargs["message"] = httplib.responses[status_code]
 
                     try:
-                        self.render("error_%d.html" % status_code,
-                                fields=kwargs)
+                        self.render("error_%d.html" % status_code, fields=kwargs)
                     except IOError:
                         self.render("error_all.html", fields=kwargs)
 
-            class CustomErrorHandler(CustomErrorPageMixin,
-                    cyclone.web.ErrorHandler):
+            class CustomErrorHandler(CustomErrorPageMixin, cyclone.web.ErrorHandler):
                 pass
 
             class BaseHandler(CustomErrorPageMixin, cyclone.web.RequestHandler):
@@ -832,6 +836,7 @@ class RequestHandler(object):
         Then, when constructing the ``cyclone.web.Application`` object::
 
             from cyclone import web
+
             application = web.Application([
                 (r"/", MainPageHandler),
             ], error_handler=CustomErrorHandler)
@@ -839,6 +844,7 @@ class RequestHandler(object):
         This technique is also compatible with Bottle-style applications::
 
             from cyclone.bottle import create_app
+
             # create_app takes the same arguments as run
             application = create_app(base_handler=BaseHandler,
                 error_handler=CustomErrorHandler)
