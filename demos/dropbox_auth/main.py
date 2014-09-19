@@ -21,6 +21,13 @@ class AuthHandler(cyclone.web.RequestHandler, DropboxMixin):
             yield self.authorize_redirect()
 
 
+class LogoutHandler(cyclone.web.RequestHandler, DropboxMixin):
+    def get(self):
+        self.clear_cookie("oauth_user")
+        self.clear_cookie("oauth_token")
+        return "Logged out"
+                                 
+
 class MainHandler(cyclone.web.RequestHandler):
     def get_current_user(self):
         return self.get_secure_cookie("oauth_user")
@@ -39,6 +46,7 @@ class Application(cyclone.web.Application):
     def __init__(self):
         handlers = [
             (r"/auth", AuthHandler),
+            (r"/logout", LogoutHandler),
             (r"/", MainHandler),
         ]
 
