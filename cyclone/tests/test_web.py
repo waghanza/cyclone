@@ -5,6 +5,42 @@ from mock import Mock
 from cyclone import web
 from cyclone.template import DictLoader
 
+class TestUrlSpec(unittest.TestCase):
+
+    def test_reverse(self):
+        spec = web.URLSpec("/page", None)
+        self.assertEqual(spec.reverse(), "/page")
+        self.assertRaises(
+            web.URLReverseError,
+            lambda: spec.reverse(42)
+        )
+        self.assertEqual(spec.reverse(name="val ue"), "/page?name=val+ue")
+        self.assertEqual(spec.reverse(name="value", val2=42), "/page?name=value&val2=42")
+
+        spec = web.URLSpec("/page/(d+)", None)
+        self.assertRaises(
+            web.URLReverseError,
+            lambda: spec.reverse()
+        )
+        self.assertEqual(spec.reverse(1), "/page/1")
+        self.assertEqual(spec.reverse(15, name="test"), "/page/15?name=test")
+
+        spec = web.URLSpec("/page/(d+)/(/d+)/(/d+)", None)
+        self.assertRaises(
+            web.URLReverseError,
+            lambda: spec.reverse()
+        )
+        self.assertRaises(
+            web.URLReverseError,
+            lambda: spec.reverse(1)
+        )
+        self.assertRaises(
+            web.URLReverseError,
+            lambda: spec.reverse(1, 2)
+        )
+        self.assertEqual(spec.reverse(11, 22, 33), "/page/11/22/33")
+        self.assertEqual(spec.reverse(11, 22, 33, hello="world"), "/page/11/22/33?hello=world")
+
 class TestRequestHandler(unittest.TestCase):
 
     @defer.inlineCallbacks
