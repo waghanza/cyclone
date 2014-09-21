@@ -1078,7 +1078,7 @@ class RequestHandler(object):
             raise Exception("You must define the '%s' setting in your "
                             "application to use %s" % (name, feature))
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Alias for `Application.reverse_url`."""
         return self.application.reverse_url(name, *args)
 
@@ -1541,7 +1541,7 @@ class Application(protocol.ServerFactory):
         handler._execute(transforms, *args, **kwargs)
         return handler
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Returns a URL path for handler named `name`
 
         The handler must be added to the application as a named URLSpec.
@@ -1549,9 +1549,11 @@ class Application(protocol.ServerFactory):
         Args will be substituted for capturing groups in the URLSpec regex.
         They will be converted to strings if necessary, encoded as utf8,
         and url-escaped.
+
+        Kwargs will be urlencoded and passed as named parameters.
         """
         if name in self.named_handlers:
-            return self.named_handlers[name].reverse(*args)
+            return self.named_handlers[name].reverse(*args, **kwargs)
         raise KeyError("%s not found in named urls" % name)
 
     def log_request(self, handler):
@@ -2070,6 +2072,8 @@ class TemplateModule(UIModule):
     def html_body(self):
         return "".join(self._get_resources("html_body"))
 
+class URLReverseError(Exception):
+    """Error generating reversed URL."""
 
 class URLSpec(object):
     """Specifies mappings between URLs and handlers."""
@@ -2134,19 +2138,31 @@ class URLSpec(object):
 
         return (''.join(pieces), self.regex.groups)
 
-    def reverse(self, *args):
-        assert self._path is not None, \
-            "Cannot reverse url regex " + self.regex.pattern
-        assert len(args) == self._group_count, "required number of arguments "\
-            "not found"
-        if not len(args):
-            return self._path
-        converted_args = []
-        for a in args:
-            if not isinstance(a, (unicode_type, bytes_type)):
-                a = str(a)
-            converted_args.append(escape.url_escape(utf8(a)))
-        return self._path % tuple(converted_args)
+    def reverse(self, *args, **kwargs):
+        if not self._path:
+            raise URLReverseError(
+                "Cannot reverse url regex " + self.regex.pattern
+            )
+        if len(args) != self._group_count:
+            raise URLReverseError(
+                "required number of arguments not found"
+            )
+
+        rv = self._path
+        if args:
+            converted_args = []
+            for a in args:
+                if not isinstance(a, (unicode_type, bytes_type)):
+                    a = str(a)
+                converted_args.append(escape.url_escape(utf8(a)))
+            
+            rv = rv % tuple(converted_args)
+
+        if kwargs:
+            items = list(kwargs.items())
+            items.sort(key=lambda el: el[0])
+            rv += "?" + urllib.urlencode(items)
+        return rv
 
 url = URLSpec
 
