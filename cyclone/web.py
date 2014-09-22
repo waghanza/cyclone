@@ -1080,7 +1080,7 @@ class RequestHandler(object):
 
     def reverse_url(self, name, *args, **kwargs):
         """Alias for `Application.reverse_url`."""
-        return self.application.reverse_url(name, *args)
+        return self.application.reverse_url(name, *args, **kwargs)
 
     def compute_etag(self):
         """Computes the etag header to be used for this request.
@@ -2155,7 +2155,7 @@ class URLSpec(object):
                 if not isinstance(a, (unicode_type, bytes_type)):
                     a = str(a)
                 converted_args.append(escape.url_escape(utf8(a)))
-            
+
             rv = rv % tuple(converted_args)
 
         if kwargs:
