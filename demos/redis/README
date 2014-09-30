@@ -12,3 +12,11 @@ Test redis pubsub feature (redis 2.x)
   Send messages to channels:
   curl -D - -d "message=hello world" http://localhost:8888/queue/foo.bar
   curl -D - -d "message=yes, we can" http://localhost:8888/queue/l33t
+
+NOTE
+----
+
+1. It is recommned not to use numeric channel names. The QueueHandler will
+get the channel as integer while at other places it would be string.
+If you still want to use numeric channel name, make sure you cast the 
+name to str to avoid any issues.

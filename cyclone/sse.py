@@ -79,7 +79,7 @@ class SSEHandler(RequestHandler):
         self.flush()
         self.request.connection.setRawMode()
         self.notifyFinish().addCallback(self.on_connection_closed)
-        self.bind()
+        self.bind(*args, **kwargs)
 
     def on_connection_closed(self, *args, **kwargs):
         if self.settings.get("debug"):
