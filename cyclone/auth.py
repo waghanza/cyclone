@@ -1024,7 +1024,6 @@ class FacebookGraphMixin(OAuth2Mixin):
         if user is None:
             callback(None)
             return
-
         fieldmap = {}
         for field in fields:
             fieldmap[field] = user.get(field)
