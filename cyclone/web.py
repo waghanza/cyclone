@@ -1719,7 +1719,7 @@ class StaticFileHandler(RequestHandler):
         cache_time = self.get_cache_time(path, modified, mime_type)
 
         if cache_time > 0:
-            self.set_header("Expires", "%s%s" % (datetime.datetime.utcnow(),
+            self.set_header("Expires", "%s" % (datetime.datetime.utcnow() +
                                        datetime.timedelta(seconds=cache_time)))
             self.set_header("Cache-Control", "max-age=%s" % str(cache_time))
 
