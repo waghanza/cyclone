@@ -20,6 +20,10 @@ from cyclone.web import Application
 from cyclone.escape import unicode_type
 from mock import Mock
 from datetime import datetime
+import Cookie
+import email.utils
+import calendar
+import time
 
 
 class RequestHandlerTest(unittest.TestCase):
@@ -132,4 +136,73 @@ class RequestHandlerTest(unittest.TestCase):
         self.rh.get_arguments.return_value = ["a"]
         self.rh.get_argument("test")
         self.rh.get_arguments.assert_called_with("test", strip=True)
+        self.rh.get_arguments.return_value = None
+        self.assertEqual(
+            self.rh.get_argument("arg", "something"),
+            "something"
+        )
+        self.assertRaises(HTTPError, self.rh.get_argument, "arg")
 
+    def test_get_arguments(self):
+        self.rh.request.arguments = {"arg": ["something"]}
+        val = self.rh.get_arguments("arg")
+        self.assertEqual(val, ["something"])
+
+    def test_cookies(self):
+        self.rh.request.cookies = "rawr"
+        self.assertEqual(self.rh.cookies, "rawr")
+
+    def test_decode_argument(self):
+        self.assertEqual(
+            self.rh.decode_argument("somearg"),
+            "somearg"
+        )
+
+    def test_get_cookie(self):
+        morsel = Mock()
+        morsel.value = "value"
+        self.rh.request.cookies = {"testcookie": morsel}
+        val = self.rh.get_cookie("testcookie")
+        self.assertEqual(val, "value")
+        val = self.rh.get_cookie("non_existent")
+        self.assertEqual(val, None)
+
+    def test_set_cookie(self):
+        self.rh.set_cookie("mycookie", "cookievalue")
+        self.assertEqual(
+            self.rh._new_cookie["mycookie"].value,
+            "cookievalue"
+        )
+
+    def test_set_invalid_cookie(self):
+        self.assertRaises(
+            ValueError, self.rh.set_cookie, "\x00bbb", "badcookie")
+
+    def test_set_cookie_already_exists(self):
+        self.rh._new_cookie = Cookie.SimpleCookie()
+        self.rh._new_cookie["name"] = "value"
+        self.rh.set_cookie("name", "value")
+
+    def test_set_cookie_domain(self):
+        self.rh.set_cookie("name", "value", domain="foo.com")
+        self.assertEqual(
+            self.rh._new_cookie["name"]['domain'],
+            "foo.com"
+        )
+
+    def test_set_cookie_expires_days(self):
+        self.rh.set_cookie("name", "value", expires_days=5, max_age=55)
+        expires = self.rh._new_cookie["name"]['expires']
+        self.assertTrue(
+            expires >
+            email.utils.formatdate(
+                calendar.timegm(time.gmtime()),
+                localtime=False,
+                usegmt=True
+            )
+        )
+
+    def test_clear_cookie(self):
+        self.rh.set_cookie("name", "value")
+        self.rh.clear_cookie("name")
+        print self.rh.get_cookie("name")
