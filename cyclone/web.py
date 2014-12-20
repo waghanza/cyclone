@@ -527,9 +527,13 @@ class RequestHandler(object):
 
     def render(self, template_name, **kwargs):
         """Renders the template with the given arguments as the response."""
-        html = self.render_string(template_name, **kwargs)
+        d = defer.maybeDeferred(self.render_string, template_name, **kwargs)
+        d.addCallback(self._insertAdditionalPageElements)
+        d.addCallbacks(self.finish, self._execute_failure)
+        return d
 
-        # Insert the additional JS and CSS added by the modules on the page
+    def _insertAdditionalPageElements(self, html): # pragma: no cover
+        """Insert the additional JS and CSS added by the modules on the page"""
         js_embed = []
         js_files = []
         css_embed = []
@@ -609,7 +613,7 @@ class RequestHandler(object):
         if html_bodies:
             hloc = html.index('</body>')
             html = html[:hloc] + ''.join(html_bodies) + '\n' + html[hloc:]
-        self.finish(html)
+        return html
 
     def render_string(self, template_name, **kwargs):
         """Generate the given template with the given arguments.
@@ -680,6 +684,7 @@ class RequestHandler(object):
         """Flushes the current output buffer to the network."""
         chunk = "".join(self._write_buffer)
         self._write_buffer = []
+
         if not self._headers_written:
             self._headers_written = True
             for transform in self._transforms:
@@ -688,7 +693,7 @@ class RequestHandler(object):
                     self._status_code, self._headers, chunk, include_footers)
             headers = self._generate_headers()
         else:
-            for transform in self._transforms:
+            for transform in self._transforms:  # pragma: no cover
                 chunk = transform.transform_chunk(chunk, include_footers)
             headers = ""
 
@@ -803,39 +808,43 @@ class RequestHandler(object):
 
         In order for error pages to be generated for paths that do not match any
         handlers, you can use the `error_handler` keyword argument when
-        instantiating the ``cyclone.web.Application`` object. For example:
+        instantiating the ``cyclone.web.Application`` object.
+
+        For example::
 
             import cyclone.web
             import httplib
+
             class CustomErrorPageMixin(object):
-                def write_error(self, status_code, **kwargs):
+                def write_error(self, status_code, **kwargs**):
                     kwargs["code"] = status_code
+
                     if 'message' not in kwargs:
                         kwargs["message"] = httplib.responses[status_code]
 
                     try:
-                        self.render("error_%d.html" % status_code,
-                                fields=kwargs)
+                        self.render("error_%d.html" % status_code, fields=kwargs)
                     except IOError:
                         self.render("error_all.html", fields=kwargs)
 
-            class CustomErrorHandler(CustomErrorPageMixin,
-                    cyclone.web.ErrorHandler):
+            class CustomErrorHandler(CustomErrorPageMixin, cyclone.web.ErrorHandler):
                 pass
 
             class BaseHandler(CustomErrorPageMixin, cyclone.web.RequestHandler):
                 ...
 
-        Then, when constructing the ``cyclone.web.Application`` object:
+        Then, when constructing the ``cyclone.web.Application`` object::
 
             from cyclone import web
+
             application = web.Application([
                 (r"/", MainPageHandler),
             ], error_handler=CustomErrorHandler)
 
-        This technique is also compatible with Bottle-style applications:
+        This technique is also compatible with Bottle-style applications::
 
             from cyclone.bottle import create_app
+
             # create_app takes the same arguments as run
             application = create_app(base_handler=BaseHandler,
                 error_handler=CustomErrorHandler)
@@ -1069,9 +1078,9 @@ class RequestHandler(object):
             raise Exception("You must define the '%s' setting in your "
                             "application to use %s" % (name, feature))
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Alias for `Application.reverse_url`."""
-        return self.application.reverse_url(name, *args)
+        return self.application.reverse_url(name, *args, **kwargs)
 
     def compute_etag(self):
         """Computes the etag header to be used for this request.
@@ -1532,7 +1541,7 @@ class Application(protocol.ServerFactory):
         handler._execute(transforms, *args, **kwargs)
         return handler
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Returns a URL path for handler named `name`
 
         The handler must be added to the application as a named URLSpec.
@@ -1540,9 +1549,11 @@ class Application(protocol.ServerFactory):
         Args will be substituted for capturing groups in the URLSpec regex.
         They will be converted to strings if necessary, encoded as utf8,
         and url-escaped.
+
+        Kwargs will be urlencoded and passed as named parameters.
         """
         if name in self.named_handlers:
-            return self.named_handlers[name].reverse(*args)
+            return self.named_handlers[name].reverse(*args, **kwargs)
         raise KeyError("%s not found in named urls" % name)
 
     def log_request(self, handler):
@@ -1708,7 +1719,7 @@ class StaticFileHandler(RequestHandler):
         cache_time = self.get_cache_time(path, modified, mime_type)
 
         if cache_time > 0:
-            self.set_header("Expires", "%s%s" % (datetime.datetime.utcnow(),
+            self.set_header("Expires", "%s" % (datetime.datetime.utcnow() +
                                        datetime.timedelta(seconds=cache_time)))
             self.set_header("Cache-Control", "max-age=%s" % str(cache_time))
 
@@ -2061,6 +2072,8 @@ class TemplateModule(UIModule):
     def html_body(self):
         return "".join(self._get_resources("html_body"))
 
+class URLReverseError(Exception):
+    """Error generating reversed URL."""
 
 class URLSpec(object):
     """Specifies mappings between URLs and handlers."""
@@ -2125,19 +2138,31 @@ class URLSpec(object):
 
         return (''.join(pieces), self.regex.groups)
 
-    def reverse(self, *args):
-        assert self._path is not None, \
-            "Cannot reverse url regex " + self.regex.pattern
-        assert len(args) == self._group_count, "required number of arguments "\
-            "not found"
-        if not len(args):
-            return self._path
-        converted_args = []
-        for a in args:
-            if not isinstance(a, (unicode_type, bytes_type)):
-                a = str(a)
-            converted_args.append(escape.url_escape(utf8(a)))
-        return self._path % tuple(converted_args)
+    def reverse(self, *args, **kwargs):
+        if not self._path:
+            raise URLReverseError(
+                "Cannot reverse url regex " + self.regex.pattern
+            )
+        if len(args) != self._group_count:
+            raise URLReverseError(
+                "required number of arguments not found"
+            )
+
+        rv = self._path
+        if args:
+            converted_args = []
+            for a in args:
+                if not isinstance(a, (unicode_type, bytes_type)):
+                    a = str(a)
+                converted_args.append(escape.url_escape(utf8(a)))
+
+            rv = rv % tuple(converted_args)
+
+        if kwargs:
+            items = list(kwargs.items())
+            items.sort(key=lambda el: el[0])
+            rv += "?" + urllib.urlencode(items)
+        return rv
 
 url = URLSpec
 

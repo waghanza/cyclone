@@ -1024,7 +1024,6 @@ class FacebookGraphMixin(OAuth2Mixin):
         if user is None:
             callback(None)
             return
-        
         fieldmap = {}
         for field in fields:
             fieldmap[field] = user.get(field)
@@ -1079,7 +1078,7 @@ class FacebookGraphMixin(OAuth2Mixin):
         callback = self.async_callback(self._on_facebook_request, callback)
         if post_args is not None:
             httpclient.fetch(url, method="POST",
-                    body=urllib.urlencode(post_args)).addCallback(callback)
+                    postdata=urllib.urlencode(post_args)).addCallback(callback)
         else:
             httpclient.fetch(url).addCallback(callback)
 

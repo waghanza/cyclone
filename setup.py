@@ -43,11 +43,11 @@ else:
 if sys.subversion[0].lower().startswith("pypy"):
     import distutils.core
     setup = distutils.core.setup
-    extra = dict(requires=requires)
+    extra = dict(extras_require={'ssl': requires})
 else:
     import setuptools
     setup = setuptools.setup
-    extra = dict(install_requires=requires)
+    extra = dict(extras_require={'ssl': requires})
 
     try:
         from setuptools.command import egg_info

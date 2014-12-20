@@ -37,7 +37,7 @@ from email.Utils import COMMASPACE, formatdate
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from twisted.internet.ssl import ClientContextFactory
-from twisted.mail.smtp import ESMTPSenderFactory, quoteaddr
+# from twisted.mail.smtp import ESMTPSenderFactory, quoteaddr
 
 
 class Message(object):
@@ -49,6 +49,7 @@ class Message(object):
                 from_addr="root@localhost",
                 to_addrs=["user1", "user2", "user3"],
                 subject="Test, 123",
+                message="Hello thar!",
                 mime="text/html")
     """
 

@@ -16,7 +16,7 @@
 
 from twisted.trial import unittest
 from cyclone.web import RequestHandler, HTTPError
-from cyclone.web import Application
+from cyclone.web import Application, URLSpec, URLReverseError
 from cyclone.escape import unicode_type
 from mock import Mock
 from datetime import datetime
@@ -24,6 +24,8 @@ import Cookie
 import email.utils
 import calendar
 import time
+from twisted.internet import defer, reactor
+from cyclone.template import DictLoader
 
 
 class RequestHandlerTest(unittest.TestCase):
@@ -203,6 +205,205 @@ class RequestHandlerTest(unittest.TestCase):
         )
 
     def test_clear_cookie(self):
+        morsel = Mock()
+        self.rh.request.cookies = {"testcookie": morsel}
         self.rh.set_cookie("name", "value")
         self.rh.clear_cookie("name")
-        print self.rh.get_cookie("name")
+        self.assertEqual(None, self.rh.get_cookie("name"))
+
+    def test_clear_all_cookies(self):
+        self.rh.clear_cookie = Mock()
+        self.rh.request.cookies = {"foo": None}
+        self.rh.clear_all_cookies()
+        self.rh.clear_cookie.assert_called_with("foo")
+
+    def test_redirect_too_late(self):
+        self.rh._headers_written = True
+        self.assertRaises(Exception, self.rh.redirect, "/")
+
+    def test_redirect_with_perm(self):
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.rh.redirect("/", permanent=True)
+
+    def test_redirect_with_slashes(self):
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.assertRaises(
+            AssertionError,
+            self.rh.redirect,
+            "//example.com",
+            status=400)
+
+    def test_redirect_bad_url(self):
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.rh.request.uri = "foo"
+        self.rh.redirect("http://foo.com", permanent=True)
+
+    def test_write_when_finished(self):
+        self.rh._finished = True
+        self.assertRaises(RuntimeError, self.rh.write, "foo")
+
+    def test_write_dict(self):
+        self.rh.write({"foo": "bar"})
+        self.assertEqual(
+            self.rh._write_buffer,
+            ['{"foo": "bar"}']
+        )
+
+    def test_create_template_loader(self):
+        self.rh.application.settings = {"autoescape": True}
+        res = self.rh.create_template_loader("/foo")
+        self.assertTrue(res)
+
+
+class TestUrlSpec(unittest.TestCase):
+
+    def test_reverse(self):
+        spec = URLSpec("/page", None)
+        self.assertEqual(spec.reverse(), "/page")
+        self.assertRaises(
+            URLReverseError,
+            lambda: spec.reverse(42)
+        )
+        self.assertEqual(
+            spec.reverse(name="val ue"),
+            "/page?name=val+ue")
+        self.assertEqual(
+            spec.reverse(name="value", val2=42),
+            "/page?name=value&val2=42")
+
+        spec = URLSpec("/page/(d+)", None)
+        self.assertRaises(
+            URLReverseError,
+            lambda: spec.reverse()
+        )
+        self.assertEqual(spec.reverse(1), "/page/1")
+        self.assertEqual(
+            spec.reverse(15, name="test"),
+            "/page/15?name=test")
+
+        spec = URLSpec("/page/(d+)/(/d+)/(/d+)", None)
+        self.assertRaises(
+            URLReverseError,
+            lambda: spec.reverse()
+        )
+        self.assertRaises(
+            URLReverseError,
+            lambda: spec.reverse(1)
+        )
+        self.assertRaises(
+            URLReverseError,
+            lambda: spec.reverse(1, 2)
+        )
+        self.assertEqual(spec.reverse(11, 22, 33), "/page/11/22/33")
+        self.assertEqual(
+            spec.reverse(11, 22, 33, hello="world"),
+            "/page/11/22/33?hello=world")
+
+
+class TestRequestHandler(unittest.TestCase):
+
+    @defer.inlineCallbacks
+    def test_render_string(self):
+        _mkDeferred = self._mkDeferred
+        self.assertEqual(
+            self.handler.render_string("simple.html", msg="Hello World!"),
+            "simple: Hello World!"
+        )
+        self.assertEqual(
+            self.handler.render_string(
+                "simple.html", msg=_mkDeferred("Hello Deferred!")),
+            "simple: Hello Deferred!"
+        )
+        d = self.handler.render_string(
+            "simple.html",
+            msg=_mkDeferred("Hello Deferred!", 0.1))
+        self.assertTrue(isinstance(d, defer.Deferred), d)
+        msg = yield d
+        self.assertEqual(msg, "simple: Hello Deferred!")
+
+    def test_generate_headers(self):
+        headers = self.handler._generate_headers()
+        self.assertIn(
+            "HTTP MOCK 200 OK",
+            headers,
+        )
+
+    @defer.inlineCallbacks
+    def test_simple_handler(self):
+        self.handler.get = lambda: self.handler.finish("HELLO WORLD")
+        page = yield self._execute_request(False)
+        self.assertEqual(page, "HELLO WORLD")
+
+    @defer.inlineCallbacks
+    def test_deferred_handler(self):
+        self.handler.get = lambda: self._mkDeferred(
+            lambda: self.handler.finish("HELLO DEFERRED"), 0.01)
+        page = yield self._execute_request(False)
+        self.assertEqual(page, "HELLO DEFERRED")
+
+    @defer.inlineCallbacks
+    def test_deferred_arg_in_render(self):
+        templateArg = self._mkDeferred("it works!", 0.1)
+        handlerGetFn = lambda: self.handler.render(
+            "simple.html", msg=templateArg)
+        self.handler.get = handlerGetFn
+        page = yield self._execute_request(False)
+        self.assertEqual(page, "simple: it works!")
+
+    def setUp(self):
+        self.app = app = Mock()
+        app.ui_methods = {}
+        app.ui_modules = {}
+        app.settings = {
+            "template_loader": DictLoader({
+                "simple.html": "simple: {{msg}}",
+            }),
+        }
+
+        self.request = request = Mock()
+        request.headers = {}
+        request.method = "GET"
+        request.version = "HTTP MOCK"
+        request.notifyFinish.return_value = defer.Deferred()
+        request.supports_http_1_1.return_value = True
+
+        self.handler = RequestHandler(app, request)
+        self._onFinishD = defer.Deferred()
+
+        origFinish = self.handler.on_finish
+        self.handler.on_finish = lambda: (
+            origFinish(),
+            self._onFinishD.callback(None),
+        )
+
+    def _mkDeferred(self, rv, delay=None):
+        d = defer.Deferred()
+
+        if callable(rv):
+            cb = lambda: d.callback(rv())
+        else:
+            cb = lambda: d.callback(rv)
+
+        if delay is None:
+            cb()
+        else:
+            reactor.callLater(delay, cb)
+        return d
+
+    @defer.inlineCallbacks
+    def _execute_request(self, outputHeaders):
+        handler = self.handler
+
+        handler._headers_written = True
+        handler._execute([])
+        yield self._onFinishD
+
+        out = ""
+        for (args, kwargs) in self.request.write.call_args_list:
+            self.assertFalse(kwargs)
+            self.assertEqual(len(args), 1)
+            out += args[0]
+        defer.returnValue(out)
