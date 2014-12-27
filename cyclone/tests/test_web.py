@@ -257,6 +257,68 @@ class RequestHandlerTest(unittest.TestCase):
         res = self.rh.create_template_loader("/foo")
         self.assertTrue(res)
 
+    def test_finish_already_finished(self):
+        self.rh._finished = True
+        self.assertRaises(RuntimeError, self.rh.finish)
+
+    def test_finish_304_with_body(self):
+        self.rh._status_code = 304
+        self.rh._write_buffer = ""
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.rh.finish()
+
+    def test_send_error(self):
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.rh.write_error = Mock()
+        self.rh.send_error()
+        self.rh.write_error.assert_called_with(500)
+
+    def test_write_error(self):
+        self.rh.flush = Mock()
+        self.rh._log = Mock()
+        self.rh.get_error_html = Mock()
+        exc = [Mock(), Mock()]
+        self.rh.finish = Mock()
+        self.rh.write_error(500, exc_info=exc)
+
+    def test_locale(self):
+        self.request.headers = {
+            "Accept-Language": "en"
+        }
+        self.rh.locale
+
+    def test_get_user_locale(self):
+        self.rh.get_user_locale()
+
+    def test_get_browser_locale(self):
+        self.request.headers = {
+            "Accept-Language": "en"
+        }
+        self.rh.get_browser_locale()
+
+    def test_current_user(self):
+        self.rh.current_user
+
+    def test_xsrf_token(self):
+        self.request.cookies = {}
+        self.rh.xsrf_token
+
+    def test_check_xsrf_cookie(self):
+        self.request.arguments = {self.rh.xsrf_cookie_name: "foo"}
+        self.request.cookies = {}
+        self.assertRaises(HTTPError, self.rh.check_xsrf_cookie)
+
+    def test_xsrf_form_html(self):
+        self.request.arguments = {self.rh.xsrf_cookie_name: "foo"}
+        self.request.cookies = {}
+        self.rh.xsrf_form_html()
+
+    def test_static_url(self):
+        self.rh.application.settings = {"static_path": "."}
+        self.rh.static_url("/")
+
 
 class TestUrlSpec(unittest.TestCase):
 
