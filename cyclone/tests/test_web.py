@@ -51,13 +51,13 @@ class RequestHandlerTest(unittest.TestCase):
         self.assertRaises(HTTPError, self.rh.default)
 
     def test_prepare(self):
-        self.assertIsNone(self.rh.prepare())
+        self.assertEqual(self.rh.prepare(), None)
 
     def test_on_finish(self):
-        self.assertIsNone(self.rh.on_finish())
+        self.assertEqual(self.rh.on_finish(), None)
 
     def test_on_connection_close(self):
-        self.assertIsNone(self.rh.on_connection_close())
+        self.assertEqual(self.rh.on_connection_close(), None)
 
     def test_clear(self):
         self.request.headers = {
