@@ -868,6 +868,7 @@ class RequestHandler(object):
                 self.write(line)
             self.finish()
         else:
+            self.set_header('Content-Type', 'text/html; charset=UTF-8')
             self.finish("<html><title>%(code)d: %(message)s</title>"
                         "<body>%(code)d: %(message)s</body></html>" %
                         {"code": status_code, "message": self._reason})
