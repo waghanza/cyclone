@@ -110,16 +110,16 @@ def new_project(**kwargs):
     zf = kwargs["skel"]
     dst = kwargs["project_path"]
 
-    os.mkdir(dst, 0755)
+    os.mkdir(dst, 0o0755)
     for n in zf.namelist():
         mod = n.replace("modname", kwargs["modname"])
         if n[-1] in (os.path.sep, "\\", "/"):
-            os.mkdir(os.path.join(dst, mod), 0755)
+            os.mkdir(os.path.join(dst, mod), 0o0755)
         else:
             ext = n.rsplit(".", 1)[-1]
-            fd = open(os.path.join(dst, mod), "w", 0644)
+            fd = open(os.path.join(dst, mod), "w", 0o0644)
             if ext in ("conf", "html", "txt", "py", "md", "sh", "d") or \
-                    n in ("Procfile"):
+                    n in "Procfile":
                 #print "patching: %s" % n
                 fd.write(string.Template(zf.read(n)).substitute(kwargs))
             else:
@@ -128,7 +128,7 @@ def new_project(**kwargs):
 
     # make sure we can actually run start.sh
     if os.path.exists(os.path.join(dst, "start.sh")):
-        os.chmod(os.path.join(dst, "start.sh"), 0755)
+        os.chmod(os.path.join(dst, "start.sh"), 0o0755)
 
     if kwargs["use_git"] is True:
         os.chdir(kwargs["project_path"])
@@ -163,7 +163,7 @@ Examples:
  $ cyclone app -n > hello.py
 
  For a project that requires sign up:
- $ cyclone app --project=foobar --appskel=signup""" % (version))
+ $ cyclone app --project=foobar --appskel=signup""" % version)
     sys.exit(0)
 
 
@@ -191,8 +191,8 @@ def main():
             usage(default_version)
 
         if o in ("-n", "--new"):
-            print "%s%s" % (DEFAULT_LICENSE % {"year": datetime.now().year},
-                            SAMPLE_SERVER)
+            license = DEFAULT_LICENSE % {"year": datetime.now().year}
+            print("%s%s" % (license, SAMPLE_SERVER))
             sys.exit(1)
 
         if o in ("-g", "--git"):

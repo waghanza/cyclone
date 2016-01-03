@@ -104,7 +104,7 @@ class DatabaseMixin(object):
             def _ping_mysql():
                 try:
                     yield cls.mysql.runQuery("select 1")
-                except Exception, e:
+                except Exception as e:
                     log.msg("MySQL ping error:", e)
                 else:
                     if conf["mysql_settings"].debug:

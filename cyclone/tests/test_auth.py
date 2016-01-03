@@ -15,7 +15,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import urllib
+try:
+    import urllib.parse as urllib_parse  # py3
+except ImportError:
+    import urllib as urllib_parse  # py2
+
 import cyclone.web
 
 from twisted.trial import unittest
@@ -47,4 +51,4 @@ class TestFacebookGraphMixin(unittest.TestCase):
         args, kwargs = mock.call_args
         self.assertIn('postdata', kwargs)
         self.assertEqual(kwargs['postdata'],
-                         urllib.urlencode(_args))
+                         urllib_parse.urlencode(_args))

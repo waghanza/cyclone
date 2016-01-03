@@ -81,7 +81,7 @@ class SendmailHandler(cyclone.web.RequestHandler):
             response = yield cyclone.mail.sendmail(
                                 self.settings.email_settings, msg)
             self.render("response.html", title="Success", response=response)
-        except Exception, e:
+        except Exception as e:
             self.render("response.html", title="Failure", response=str(e))
 
 

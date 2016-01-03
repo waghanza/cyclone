@@ -15,19 +15,27 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import re
 import sys
 import platform
+import setuptools
 from distutils import log
-from distutils.version import LooseVersion
-from distutils.version import StrictVersion
 
 requires = ["twisted"]
 
+def version_cmp(version1, version2):
+    """
+    Return True if version1 is less greater than version2
+    """
+    def normalize(v):
+        return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
+    return normalize(version1) < normalize(version2)
 
 # Avoid installation problems on old RedHat distributions (ex. CentOS 5)
 # http://stackoverflow.com/questions/7340784/easy-install-pyopenssl-error
 py_version = platform.python_version()
-if LooseVersion(py_version) < StrictVersion('2.6'):
+
+if (version_cmp(str(py_version), str('2.6'))):
     distname, version, _id = platform.dist()
 else:
     distname, version, _id = platform.linux_distribution()
@@ -38,44 +46,35 @@ if is_redhat and version and StrictVersion(version) < StrictVersion('6.0'):
 else:
     requires.append("pyopenssl")
 
+extra = dict(extras_require={'ssl': requires})
 
-# PyPy and setuptools don't get along too well, yet.
-if sys.subversion[0].lower().startswith("pypy"):
-    import distutils.core
-    setup = distutils.core.setup
-    extra = dict(extras_require={'ssl': requires})
+try:
+    from setuptools.command import egg_info
+    egg_info.write_toplevel_names
+except (ImportError, AttributeError):
+    pass
 else:
-    import setuptools
-    setup = setuptools.setup
-    extra = dict(extras_require={'ssl': requires})
+    """
+    'twisted' should not occur in the top_level.txt file as this
+    triggers a bug in pip that removes all of twisted when a package
+    with a twisted plugin is removed.
+    """
+    def _top_level_package(name):
+        return name.split('.', 1)[0]
 
-    try:
-        from setuptools.command import egg_info
-        egg_info.write_toplevel_names
-    except (ImportError, AttributeError):
-        pass
-    else:
-        """
-        'twisted' should not occur in the top_level.txt file as this
-        triggers a bug in pip that removes all of twisted when a package
-        with a twisted plugin is removed.
-        """
-        def _top_level_package(name):
-            return name.split('.', 1)[0]
+    def _hacked_write_toplevel_names(cmd, basename, filename):
+        pkgs = dict.fromkeys(
+            [_top_level_package(k)
+                for k in cmd.distribution.iter_distribution_names()
+                if _top_level_package(k) != "twisted"
+            ]
+        )
+        cmd.write_file("top-level names", filename, '\n'.join(pkgs) + '\n')
 
-        def _hacked_write_toplevel_names(cmd, basename, filename):
-            pkgs = dict.fromkeys(
-                [_top_level_package(k)
-                    for k in cmd.distribution.iter_distribution_names()
-                    if _top_level_package(k) != "twisted"
-                ]
-            )
-            cmd.write_file("top-level names", filename, '\n'.join(pkgs) + '\n')
-
-        egg_info.write_toplevel_names = _hacked_write_toplevel_names
+    egg_info.write_toplevel_names = _hacked_write_toplevel_names
 
 
-setup(
+setuptools.setup(
     name="cyclone",
     version="git-2015052801",
     author="fiorix",
@@ -97,6 +96,6 @@ setup(
 try:
     from twisted.plugin import IPlugin, getPlugins
     list(getPlugins(IPlugin))
-except Exception, e:
+except Exception as e:
     log.warn("*** Failed to update Twisted plugin cache. ***")
     log.warn(str(e))

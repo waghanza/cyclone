@@ -57,9 +57,22 @@ import binascii
 import hashlib
 import hmac
 import time
-import urllib
-import urlparse
 import uuid
+
+try:
+    import urlparse  # py2
+except ImportError:
+    import urllib.parse as urlparse  # py3
+
+try:
+    import urllib.parse as urllib_parse  # py3
+except ImportError:
+    import urllib as urllib_parse  # py2
+
+try:
+    long  # py2
+except NameError:
+    long = int  # py3
 
 
 class OpenIdMixin(object):
@@ -82,7 +95,7 @@ class OpenIdMixin(object):
         """
         callback_uri = callback_uri or self.request.uri
         args = self._openid_args(callback_uri, ax_attrs=ax_attrs)
-        self.redirect(self._OPENID_ENDPOINT + "?" + urllib.urlencode(args))
+        self.redirect(self._OPENID_ENDPOINT + "?" + urllib_parse.urlencode(args))
 
     def get_authenticated_user(self, callback):
         """Fetches the authenticated user data upon redirect.
@@ -98,7 +111,7 @@ class OpenIdMixin(object):
         callback = self.async_callback(self._on_authentication_verified,
                                        callback)
         httpclient.fetch(url, method="POST",
-                postdata=urllib.urlencode(args)).addBoth(callback)
+                postdata=urllib_parse.urlencode(args)).addBoth(callback)
 
     def _openid_args(self, callback_uri, ax_attrs=[], oauth_scope=None):
         url = urlparse.urljoin(self.request.full_url(), callback_uri)
@@ -287,7 +300,7 @@ class OAuthMixin(object):
             signature = _oauth_signature(consumer_token, "GET", url, args)
 
         args["oauth_signature"] = signature
-        return url + "?" + urllib.urlencode(args)
+        return url + "?" + urllib_parse.urlencode(args)
 
     def _on_request_token(self, authorize_url, callback_uri, response):
         if response.error:
@@ -298,12 +311,12 @@ class OAuthMixin(object):
         self.set_cookie("_oauth_request_token", data)
         args = dict(oauth_token=request_token["key"])
         if callback_uri == "oob":
-            self.finish(authorize_url + "?" + urllib.urlencode(args))
+            self.finish(authorize_url + "?" + urllib_parse.urlencode(args))
             return
         elif callback_uri:
             args["oauth_callback"] = urlparse.urljoin(
                 self.request.full_url(), callback_uri)
-        self.redirect(authorize_url + "?" + urllib.urlencode(args))
+        self.redirect(authorize_url + "?" + urllib_parse.urlencode(args))
 
     def _oauth_access_token_url(self, request_token):
         consumer_token = self._oauth_consumer_token()
@@ -328,7 +341,7 @@ class OAuthMixin(object):
                                          request_token)
 
         args["oauth_signature"] = signature
-        return url + "?" + urllib.urlencode(args)
+        return url + "?" + urllib_parse.urlencode(args)
 
     def _on_access_token(self, callback, response):
         if response.error:
@@ -524,10 +537,10 @@ class TwitterMixin(OAuthMixin):
                 url, access_token, all_args, method=method)
             args.update(oauth)
         if args:
-            url += "?" + urllib.urlencode(args)
+            url += "?" + urllib_parse.urlencode(args)
         if post_args is not None:
             d = httpclient.fetch(url, method="POST",
-                                 postdata=urllib.urlencode(post_args))
+                                 postdata=urllib_parse.urlencode(post_args))
             d.addCallback(self.async_callback(self._on_twitter_request,
                           callback))
         else:
@@ -649,10 +662,10 @@ class FriendFeedMixin(OAuthMixin):
                 url, access_token, all_args, method=method)
             args.update(oauth)
         if args:
-            url += "?" + urllib.urlencode(args)
+            url += "?" + urllib_parse.urlencode(args)
         if post_args is not None:
             d = httpclient.fetch(url, method="POST",
-                                 postdata=urllib.urlencode(post_args))
+                                 postdata=urllib_parse.urlencode(post_args))
             d.addCallback(self.async_callback(self._on_friendfeed_request,
                           callback))
         else:
@@ -732,7 +745,7 @@ class GoogleMixin(OpenIdMixin, OAuthMixin):
         callback_uri = callback_uri or self.request.uri
         args = self._openid_args(callback_uri, ax_attrs=ax_attrs,
                                  oauth_scope=oauth_scope)
-        self.redirect(self._OPENID_ENDPOINT + "?" + urllib.urlencode(args))
+        self.redirect(self._OPENID_ENDPOINT + "?" + urllib_parse.urlencode(args))
 
     def get_authenticated_user(self, callback):
         """Fetches the authenticated user data upon redirect."""
@@ -818,7 +831,7 @@ class FacebookMixin(object):
                 extended_permissions = [extended_permissions]
             args["req_perms"] = ",".join(extended_permissions)
         self.redirect("http://www.facebook.com/login.php?" +
-                      urllib.urlencode(args))
+                      urllib_parse.urlencode(args))
 
     def authorize_redirect(self, extended_permissions, callback_uri=None,
                            cancel_uri=None):
@@ -899,7 +912,7 @@ class FacebookMixin(object):
         args["format"] = "json"
         args["sig"] = self._signature(args)
         url = "http://api.facebook.com/restserver.php?" + \
-            urllib.urlencode(args)
+            urllib_parse.urlencode(args)
         d = httpclient.fetch(url)
         d.addCallback(self.async_callback(self._parse_response, callback))
 
@@ -1073,11 +1086,11 @@ class FacebookGraphMixin(OAuth2Mixin):
             all_args.update(args)
 
         if all_args:
-            url += "?" + urllib.urlencode(all_args)
+            url += "?" + urllib_parse.urlencode(all_args)
         callback = self.async_callback(self._on_facebook_request, callback)
         if post_args is not None:
             httpclient.fetch(url, method="POST",
-                    postdata=urllib.urlencode(post_args)).addCallback(callback)
+                    postdata=urllib_parse.urlencode(post_args)).addCallback(callback)
         else:
             httpclient.fetch(url).addCallback(callback)
 
@@ -1132,9 +1145,9 @@ def _oauth10a_signature(consumer_token,
 
     base_string = "&".join(_oauth_escape(e) for e in base_elems)
     key_elems = [escape.utf8(
-                 urllib.quote(consumer_token["secret"], safe='~'))]
+                 urllib_parse.quote(consumer_token["secret"], safe='~'))]
     key_elems.append(escape.utf8(
-                     urllib.quote(token["secret"], safe='~') if token else ""))
+                     urllib_parse.quote(token["secret"], safe='~') if token else ""))
     key = "&".join(key_elems)
 
     hash = hmac.new(key, escape.utf8(base_string), hashlib.sha1)
@@ -1144,7 +1157,7 @@ def _oauth10a_signature(consumer_token,
 def _oauth_escape(val):
     if isinstance(val, unicode_type):
         val = val.encode("utf-8")
-    return urllib.quote(val, safe="~")
+    return urllib_parse.quote(val, safe="~")
 
 
 def _oauth_parse_response(body):

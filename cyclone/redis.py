@@ -233,7 +233,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                 response = yield self.auth(self.factory.password)
                 if isinstance(response, ResponseError):
                     raise response
-            except Exception, e:
+            except Exception as e:
                 self.factory.continueTrying = False
                 self.transport.loseConnection()
 
@@ -248,7 +248,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                 response = yield self.select(self.factory.dbid)
                 if isinstance(response, ResponseError):
                     raise response
-            except Exception, e:
+            except Exception as e:
                 self.factory.continueTrying = False
                 self.transport.loseConnection()
 
@@ -462,7 +462,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                         raise InvalidData("Encoding charset was not specified")
                     try:
                         cmd = s.encode(self.charset, self.errors)
-                    except UnicodeEncodeError, e:
+                    except UnicodeEncodeError as e:
                         raise InvalidData(
                             "Error encoding unicode value '%s': %s" %
                             (repr(s), e))
@@ -1980,6 +1980,9 @@ class ShardedConnectionHandler(object):
 
 
 class ShardedUnixConnectionHandler(ShardedConnectionHandler):
+    def pipeline(self):
+        pass
+
     def __repr__(self):
         nodes = []
         for conn in self._ring.nodes:
@@ -2046,7 +2049,7 @@ class RedisFactory(protocol.ReconnectingClientFactory):
     def delConnection(self, conn):
         try:
             self.pool.remove(conn)
-        except Exception, e:
+        except Exception as e:
             log.msg("Could not remove connection from pool: %s" % str(e))
 
         self.size = len(self.pool)

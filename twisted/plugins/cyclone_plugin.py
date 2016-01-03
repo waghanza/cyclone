@@ -25,7 +25,7 @@ from twisted.application import service
 from twisted.plugin import IPlugin
 from twisted.python import usage
 from twisted.python import reflect
-from zope.interface import implements
+from zope.interface import implementer
 
 try:
     from twisted.internet import ssl
@@ -58,8 +58,8 @@ class Options(usage.Options):
             self["filename"] = args[0]
 
 
+@implementer(service.IServiceMaker, IPlugin)
 class ServiceMaker(object):
-    implements(service.IServiceMaker, IPlugin)
     tapname = "cyclone"
     description = "A high performance web server"
     options = Options

@@ -90,7 +90,7 @@ class ChatSocketHandler(cyclone.websocket.WebSocketHandler):
         for waiter in cls.waiters:
             try:
                 waiter.sendMessage(chat)
-            except Exception, e:
+            except Exception as e:
                 log.err("Error sending message. %s" % str(e))
 
     def messageReceived(self, message):

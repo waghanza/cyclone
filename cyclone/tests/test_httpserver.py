@@ -20,8 +20,12 @@ from twisted.internet.defer import Deferred
 from twisted.test.proto_helpers import StringTransport
 from twisted.internet import interfaces
 from io import BytesIO
-import Cookie
 
+try:
+    import http.cookies as Cookie
+except ImportError:
+    # python 2 compatibility
+    import Cookie
 
 class HTTPConnectionTest(unittest.TestCase):
     def setUp(self):

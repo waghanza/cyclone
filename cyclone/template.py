@@ -196,16 +196,18 @@ import re
 import sys
 import threading
 import traceback
-import types
 
 from cStringIO import StringIO
 from cyclone import escape
 from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
 from cyclone.util import unicode_type
+from cyclone.util import list_type
+from cyclone.util import exec_in
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
+
 
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
@@ -234,7 +236,7 @@ class Template(object):
         try:
             self.file = _File(self, _parse(reader, self))
             self.code = self._generate_python(loader, compress_whitespace)
-        except ParseError, e:
+        except ParseError as e:
             raise TemplateError("Error parsing template %s, line %d: %s" %
                                                 (name, reader.line, str(e)))
 
@@ -269,7 +271,7 @@ class Template(object):
         }
         namespace.update(self.namespace)
         namespace.update(kwargs)
-        exec self.compiled in namespace
+        exec_in(self.compiled, namespace)
         execute = namespace["_execute"]
         # Clear the traceback module's cache of source data now that
         # we've generated a new template (mainly for this module's
@@ -492,6 +494,7 @@ class _NamedBlock(_Node):
 class _ExtendsBlock(_Node):
     def __init__(self, name):
         self.name = name
+
 
 class _Super(_Node):
 
@@ -744,7 +747,7 @@ class _TemplateReader(object):
 
 
 def _format_code(code):
-    lines = code if isinstance(code, types.ListType) else code.splitlines()
+    lines = code if isinstance(code, list_type) else code.splitlines()
     format = "%%%dd  %%s\n" % len(repr(len(lines) + 1))
     return "".join([format % (i + 1, line) for (i, line) in enumerate(lines)])
 

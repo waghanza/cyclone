@@ -241,7 +241,7 @@ Example:
         def get(self, key):
           try:
               value = yield self.redis_conn.get(key)
-          except Exception, e:
+          except Exception as e:
               log.msg("Redis failed to get('%s'): %s" % (key, str(e)))
               raise cyclone.web.HTTPError(503)
 
@@ -253,7 +253,7 @@ Example:
             value = self.get_argument("value")
             try:
                 yield self.redis_conn.set(key, value)
-            except Exception, e:
+            except Exception as e:
                 log.msg("Redis failed to set('%s', '%s'): %s" % (key, value, str(e)))
                 raise cyclone.web.HTTPError(503)
 
@@ -264,7 +264,7 @@ Example:
         def delete(self, key):
             try:
                 n = yield self.redis_conn.delete(key)
-            except Exception, e:
+            except Exception as e:
                 log.msg("Redis failed to del('%s'): %s" % (key, str(e)))
                 raise cyclone.web.HTTPError(503)
 
@@ -438,7 +438,7 @@ Example:
         try:
             v = yield rc.get("foo")
         print "foo=", v
-            except Exception, e:
+            except Exception as e:
             print "can't get foo:", e
 
         # Commit, and get all responses from transaction.

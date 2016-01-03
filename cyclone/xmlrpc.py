@@ -61,14 +61,14 @@ class XmlrpcRequestHandler(RequestHandler):
         self.set_header("Content-Type", "text/xml")
         try:
             args, functionPath = xmlrpclib.loads(self.request.body)
-        except Exception, e:
+        except Exception as e:
             f = xmlrpclib.Fault(self.FAILURE,
                                 "Can't deserialize input: %s" % e)
             self._cbRender(f)
         else:
             try:
                 function = self._getFunction(functionPath)
-            except xmlrpclib.Fault, f:
+            except xmlrpclib.Fault as f:
                 self._cbRender(f)
             else:
                 d = defer.maybeDeferred(function, *args)
@@ -101,7 +101,7 @@ class XmlrpcRequestHandler(RequestHandler):
         try:
             s = xmlrpclib.dumps(result,
                 methodresponse=True, allow_none=self.allowNone)
-        except Exception, e:
+        except Exception as e:
             f = xmlrpclib.Fault(self.FAILURE, "can't serialize output: %s" % e)
             s = xmlrpclib.dumps(f,
                 methodresponse=True, allow_none=self.allowNone)

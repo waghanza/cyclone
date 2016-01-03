@@ -27,7 +27,12 @@ from cyclone.escape import parse_qs_bytes
 from cyclone.escape import utf8
 
 from twisted.python import log
-from urllib import urlencode  # py2
+
+try:
+     from urllib.parse import urlencode
+except ImportError:
+    # python 2 compatibility
+    from urllib import urlencode
 
 
 class HTTPHeaders(dict):

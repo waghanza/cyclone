@@ -63,7 +63,7 @@ def auth_login(cli):
 
     try:
         redis_pwd = yield cli.redisdb.get("cyclone:%s" % usr)
-    except Exception, e:
+    except Exception as e:
         log.msg("Redis failed to get('cyclone:%s'): %s" % (usr, str(e)))
         raise cyclone.web.HTTPError(503)  # Service Unavailable
 
@@ -112,7 +112,7 @@ try:
     from twisted.python.logfile import DailyLogFile
     logFile = DailyLogFile.fromFullPath("server.log")
     print("Logging to daily log file: server.log")
-except Exception, e:
+except Exception as e:
     import sys
     logFile = sys.stdout
 

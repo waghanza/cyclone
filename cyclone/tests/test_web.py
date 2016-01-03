@@ -20,7 +20,13 @@ from cyclone.web import Application, URLSpec, URLReverseError
 from cyclone.escape import unicode_type
 from mock import Mock
 from datetime import datetime
-import Cookie
+
+try:
+    import http.cookies as Cookie
+except ImportError:
+    # python 2 compatibility
+    import Cookie
+
 import email.utils
 import calendar
 import time

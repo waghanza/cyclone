@@ -50,7 +50,7 @@ class SampleRedisHandler(BaseHandler, DatabaseMixin):
         if self.redis:
             try:
                 response = yield self.redis.get("foo")
-            except Exception, e:
+            except Exception as e:
                 log.msg("Redis query failed: %s" % str(e))
                 raise cyclone.web.HTTPError(503)  # Service Unavailable
             else:
@@ -65,7 +65,7 @@ class SampleMySQLHandler(BaseHandler, DatabaseMixin):
         if self.mysql:
             try:
                 response = yield self.mysql.runQuery("select now()")
-            except Exception, e:
+            except Exception as e:
                 log.msg("MySQL query failed: %s" % str(e))
                 raise cyclone.web.HTTPError(503)  # Service Unavailable
             else:

@@ -178,7 +178,7 @@ def load_gettext_translations(directory, domain):
                     "LC_MESSAGES", domain + ".mo"))
             _translations[lang] = gettext.translation(domain, directory,
                                                       languages=[lang])
-        except Exception, e:
+        except Exception as e:
             # These messages are not printed in twistd, because it's
             # before the log is open.
             print("Cannot load translation for '%s': %s" % (lang, str(e)))
