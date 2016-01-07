@@ -75,6 +75,9 @@ class JsonrpcRequestHandler(RequestHandler):
             self._cbResult(AttributeError("method not found: %s" % method),
                            jsonid)
 
+    def set_default_headers(self):
+        self.set_header('Content-Type', 'application/json; charset=UTF-8')
+
     def _cbResult(self, result, jsonid):
         if isinstance(result, failure.Failure):
             error = {'code': 0, 'message': str(result.value)}
