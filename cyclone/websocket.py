@@ -278,7 +278,7 @@ class WebSocketProtocol17(WebSocketProtocol):
                 raise _NotEnoughFrame()
             self._frame_payload_len = struct.unpack("!Q", data[i - 8:i])[0]
 
-        if (self._frame_mask):
+        if self._frame_mask:
             i += 4
 
         if (self._data_len - i) < self._frame_payload_len:
@@ -433,7 +433,7 @@ class WebSocketProtocol76(WebSocketProtocol):
             if l.isdigit():
                 nums.append(l)
             if l.isspace():
-                spaces = spaces + 1
+                spaces += 1
         x = int(''.join(nums)) / spaces
         return x
 

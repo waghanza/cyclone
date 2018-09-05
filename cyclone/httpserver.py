@@ -31,7 +31,12 @@ This module also defines the `HTTPRequest` class which is exposed via
 
 from __future__ import absolute_import, division, with_statement
 
-import Cookie
+try:
+    import http.cookies as Cookie
+except ImportError:
+    # python 2 compatibility
+    import Cookie
+
 import socket
 import time
 
@@ -179,7 +184,7 @@ class HTTPConnection(basic.LineReceiver):
                 return
 
             self.request_callback(self._request)
-        except _BadRequestException, e:
+        except _BadRequestException as e:
             log.msg("Malformed HTTP request from %s: %s", self._remote_ip, e)
             self.transport.loseConnection()
 
@@ -384,7 +389,7 @@ class HTTPRequest(object):
                                      socket.SOCK_STREAM,
                                      0, socket.AI_NUMERICHOST)
             return bool(res)
-        except socket.gaierror, e:
+        except socket.gaierror as e:
             if e.args[0] == socket.EAI_NONAME:
                 return False
             raise

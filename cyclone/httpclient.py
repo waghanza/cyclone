@@ -18,7 +18,18 @@
 """Non-blocking HTTP client"""
 
 import functools
-from types import ListType, DictType
+
+try:
+    from types import ListType
+except ImportError:
+    # python 3 compatibility
+    ListType = list
+
+try:
+    from types import DictType
+except ImportError:
+    # python 3 compatibility
+    DictType = dict
 
 from cyclone import escape
 from cyclone.web import HTTPError
@@ -32,16 +43,14 @@ from twisted.web.client import Agent, ProxyAgent
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
 
-from zope.interface import implements
+from zope.interface import implementer
 
 
 agent = Agent(reactor)
 proxy_agent = ProxyAgent(None, reactor)
 
-
+@implementer(IBodyProducer)
 class StringProducer(object):
-    implements(IBodyProducer)
-
     def __init__(self, body):
         self.body = body
         self.length = len(body)

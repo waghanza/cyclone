@@ -53,12 +53,12 @@ class EscapeTest(unittest.TestCase):
         self.assertEqual(url_escape("a value"), "a+value")
 
     def test_url_unescape(self):
-        self.assertEqual(url_unescape("a+value", encoding=None), "a value")
+        self.assertEqual(url_unescape("a+value", encoding=None), b"a value")
         self.assertEqual(url_unescape("a+value"), "a value")
 
     def test_utf8(self):
-        self.assertEqual(utf8("rawr"), "rawr")
-        self.assertEqual(utf8(u"rawr"), "rawr")
+        self.assertEqual(utf8("rawr"), b"rawr")
+        self.assertEqual(utf8(u"rawr"), b"rawr")
 
     def test_to_unicode(self):
         self.assertEqual(to_unicode("rawr"), u"rawr")

@@ -62,7 +62,7 @@ class JsonrpcRequestHandler(RequestHandler):
             params = req.get("params", [])
             assert isinstance(params, (types.ListType, types.TupleType)), \
                               "Invalid params type: %s" % type(params)
-        except Exception, e:
+        except Exception as e:
             log.msg("Bad Request: %s" % str(e))
             raise HTTPError(400)
 

@@ -19,7 +19,12 @@ from cyclone.httputil import HTTPHeaders
 import urllib
 from twisted.test import proto_helpers
 from twisted.internet.defer import inlineCallbacks, returnValue
-from Cookie import SimpleCookie
+
+try:
+    from http.cookies import SimpleCookie
+except ImportError:
+    # python 2 compatibility
+    from Cookie import SimpleCookie
 
 
 class DecodingSimpleCookie(SimpleCookie):

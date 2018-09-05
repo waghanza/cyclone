@@ -23,13 +23,28 @@ have crept in over time.
 
 from __future__ import absolute_import, division, with_statement
 
-import htmlentitydefs
+try:
+    from urllib.parse import parse_qs as _parse_qs  # py3
+except ImportError:
+    from urlparse import parse_qs as _parse_qs  # Python 2.6+
+
+try:
+    import htmlentitydefs  # py2
+except ImportError:
+    import html.entities as htmlentitydefs  # py3
+
+try:
+    import urllib.parse as urllib_parse  # py3
+except ImportError:
+    import urllib as urllib_parse  # py2
+
 import re
-import urllib
+import sys
 
 from cyclone.util import basestring_type
 from cyclone.util import bytes_type
 from cyclone.util import unicode_type
+from cyclone.util import unicode_char_type
 
 try:
     from urlparse import parse_qs  # Python 2.6+
@@ -101,23 +116,55 @@ def squeeze(value):
 
 def url_escape(value):
     """Returns a valid URL-encoded version of the given value."""
-    return urllib.quote_plus(utf8(value))
+    return urllib_parse.quote_plus(utf8(value))
 
 
-def url_unescape(value, encoding='utf-8'):
-    """Decodes the given value from a URL.
+if sys.version_info[0] < 3:
+    def url_unescape(value, encoding='utf-8'):
+        """Decodes the given value from a URL.
 
-    The argument may be either a byte or unicode string.
+        The argument may be either a byte or unicode string.
 
-    If encoding is None, the result will be a byte string.  Otherwise,
-    the result is a unicode string in the specified encoding.
-    """
-    if encoding is None:
-        return urllib.unquote_plus(utf8(value))
-    else:
-        return unicode(urllib.unquote_plus(utf8(value)), encoding)
+        If encoding is None, the result will be a byte string.  Otherwise,
+        the result is a unicode string in the specified encoding.
+        """
+        if encoding is None:
+            return urllib_parse.unquote_plus(utf8(value))
+        else:
+            return unicode_type(urllib_parse.unquote_plus(utf8(value)), encoding)
 
-parse_qs_bytes = parse_qs
+    parse_qs_bytes = parse_qs
+else:
+    def url_unescape(value, encoding='utf-8'):
+        """Decodes the given value from a URL.
+
+        The argument may be either a byte or unicode string.
+
+        If encoding is None, the result will be a byte string.  Otherwise,
+        the result is a unicode string in the specified encoding.
+        """
+        if encoding is None:
+            value = to_basestring(value).replace('+', ' ')
+            return urllib_parse.unquote_to_bytes(value)
+        else:
+            return urllib_parse.unquote_plus(to_basestring(value), encoding=encoding)
+
+    def parse_qs_bytes(qs, keep_blank_values=False, strict_parsing=False):
+        """Parses a query string like urlparse.parse_qs, but returns the
+        values as byte strings.
+
+        Keys still become type str (interpreted as latin1 in python3!)
+        because it's too painful to keep them as byte strings in
+        python3 and in practice they're nearly always ascii anyway.
+        """
+        # This is gross, but python3 doesn't give us another way.
+        # Latin1 is the universal donor of character encodings.
+        result = _parse_qs(qs, keep_blank_values, strict_parsing,
+                           encoding='latin1', errors='strict')
+        encoded = {}
+        for k, v in result.items():
+            encoded[k] = [i.encode('latin1') for i in v]
+        return encoded
 
 _UTF8_TYPES = (bytes, type(None))
 
@@ -305,7 +352,7 @@ def linkify(text, shorten=False, extra_params="",
 def _convert_entity(m):
     if m.group(1) == "#":
         try:
-            return unichr(int(m.group(2)))
+            return unicode_char_type(int(m.group(2)))
         except ValueError:
             return "&#%s;" % m.group(2)
     try:
@@ -317,7 +364,7 @@ def _convert_entity(m):
 def _build_unicode_map():
     unicode_map = {}
     for name, value in htmlentitydefs.name2codepoint.items():
-        unicode_map[name] = unichr(value)
+        unicode_map[name] = unicode_char_type(value)
     return unicode_map
 
 _HTML_UNICODE_MAP = _build_unicode_map()

@@ -181,7 +181,7 @@ class SignUpHandler(BaseHandler, storage.DatabaseMixin):
 
         try:
             r = yield cyclone.mail.sendmail(self.settings.email_settings, msg)
-        except Exception, e:
+        except Exception as e:
             # delete password from redis
             yield self.redis.delete(k)
 
@@ -337,7 +337,7 @@ class PasswdHandler(BaseHandler, storage.DatabaseMixin):
 
         try:
             r = yield cyclone.mail.sendmail(self.settings.email_settings, msg)
-        except Exception, e:
+        except Exception as e:
             # do not delete from redis
             # yield self.redis.delete(k)
 

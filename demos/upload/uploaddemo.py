@@ -46,7 +46,7 @@ class Application(cyclone.web.Application):
         if not os.path.exists(settings["repository_path"]):
             try:
                 os.mkdir(settings["repository_path"])
-            except Exception, e:
+            except Exception as e:
                 print("mkdir failed: %s" % str(e))
                 sys.exit(1)
 
@@ -80,7 +80,7 @@ class IndexHandler(cyclone.web.RequestHandler):
             fp = open(os.path.abspath(fn), "w")
             fp.write(body)
             fp.close()
-        except Exception, e:
+        except Exception as e:
             log.msg("Could not write file: %s" % str(e))
             raise cyclone.web.HTTPError(500)
 

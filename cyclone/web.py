@@ -52,7 +52,27 @@ http://twistedmatrix.com/documents/current/core/howto/threading.html
 
 from __future__ import absolute_import, division, with_statement
 
-import Cookie
+try:
+    import Cookie  # py2
+except ImportError:
+    import http.cookies as Cookie  # py3
+
+try:
+    import urlparse  # py2
+except ImportError:
+    import urllib.parse as urlparse  # py3
+
+try:
+    from urllib import urlencode  # py2
+except ImportError:
+    from urllib.parse import urlencode  # py3
+
+try:
+    import httplib # py2
+except ImportError:
+    import http.client as httplib  # py3
+
+
 import base64
 import binascii
 import calendar
@@ -62,7 +82,6 @@ import functools
 import gzip
 import hashlib
 import hmac
-import httplib
 import itertools
 import mimetypes
 import numbers
@@ -74,8 +93,6 @@ import threading
 import time
 import traceback
 import types
-import urllib
-import urlparse
 import uuid
 
 import cyclone
@@ -84,12 +101,11 @@ from cyclone import httpserver
 from cyclone import locale
 from cyclone import template
 from cyclone.escape import utf8, _unicode
-from cyclone.util import ObjectDict
-from cyclone.util import bytes_type
-from cyclone.util import import_object
-from cyclone.util import unicode_type
+from cyclone.util import ObjectDict, import_object, \
+    bytes_type, unicode_type, \
+    list_type, dict_type, int_type, tuple_type, string_type
 
-from cStringIO import StringIO as BytesIO  # python 2
+from io import BytesIO
 from twisted.python import failure
 from twisted.python import log
 from twisted.internet import defer
@@ -484,7 +500,7 @@ class RequestHandler(object):
         if status is None:
             status = 301 if permanent else 302
         else:
-            assert isinstance(status, types.IntType) and 300 <= status <= 399
+            assert isinstance(status, int_type) and 300 <= status <= 399
         self.set_status(status)
         # Remove whitespace
         url = re.sub(r"[\x00-\x20]+", "", utf8(url))
@@ -518,8 +534,8 @@ class RequestHandler(object):
             raise RuntimeError("Cannot write() after finish().  May be caused "
                                "by using async operations without the "
                                "@asynchronous decorator.")
-        if isinstance(chunk, types.DictType) or \
-                (self.serialize_lists and isinstance(chunk, types.ListType)):
+        if isinstance(chunk, dict_type) or \
+                (self.serialize_lists and isinstance(chunk, list_type)):
             chunk = escape.json_encode(chunk)
             self.set_header("Content-Type", "application/json")
         chunk = utf8(chunk)
@@ -782,7 +798,7 @@ class RequestHandler(object):
         self.set_status(status_code, reason=reason)
         try:
             self.write_error(status_code, **kwargs)
-        except Exception, e:
+        except Exception as e:
             log.msg("Uncaught exception in write_error: " + str(e))
         if not self._finished:
             self.finish()
@@ -855,7 +871,7 @@ class RequestHandler(object):
                 kwargs['exception'] = exc_info[1]
                 try:
                     # Put the traceback into sys.exc_info()
-                    raise exc_info[0], exc_info[1], exc_info[2]
+                    raise exc_info[0].with_traceback(exc_info[1], exc_info[2])
                 except Exception:
                     self.finish(self.get_error_html(status_code, **kwargs))
             else:
@@ -1066,7 +1082,7 @@ class RequestHandler(object):
         def wrapper(*args, **kwargs):
             try:
                 return callback(*args, **kwargs)
-            except Exception, e:
+            except Exception as e:
                 if self._headers_written:
                     log.msg("Exception after headers written: " + e)
                 else:
@@ -1113,7 +1129,7 @@ class RequestHandler(object):
                     self._execute_handler,
                     lambda f: self._handle_request_exception(f.value),
                     callbackArgs=(args, kwargs))
-        except Exception, e:
+        except Exception as e:
             self._handle_request_exception(e)
 
     def _deferred_handler(self, function, *args, **kwargs):
@@ -1419,17 +1435,17 @@ class Application(protocol.ServerFactory):
             self.handlers.append((re.compile(host_pattern), handlers))
 
         for spec in host_handlers:
-            if isinstance(spec, types.TupleType):
+            if isinstance(spec, tuple_type):
                 assert len(spec) in (2, 3)
                 pattern = spec[0]
                 handler = spec[1]
 
-                if isinstance(handler, types.StringType):
+                if isinstance(handler, string_type):
                     # import the Module and instantiate the class
                     # Must be a fully qualified name (module.ClassName)
                     try:
                         handler = import_object(handler)
-                    except ImportError, e:
+                    except ImportError as e:
                         reactor.callWhenRunning(log.msg,
                             "Unable to load handler '%s' for "
                             "'%s': %s" % (handler, pattern, e))
@@ -1468,7 +1484,7 @@ class Application(protocol.ServerFactory):
         if isinstance(methods, types.ModuleType):
             self._load_ui_methods(dict((n, getattr(methods, n))
                                        for n in dir(methods)))
-        elif isinstance(methods, types.ListType):
+        elif isinstance(methods, list_type):
             for m in methods:
                 self._load_ui_methods(m)
         else:
@@ -1481,11 +1497,11 @@ class Application(protocol.ServerFactory):
         if isinstance(modules, types.ModuleType):
             self._load_ui_modules(dict((n, getattr(modules, n))
                                        for n in dir(modules)))
-        elif isinstance(modules, types.ListType):
+        elif isinstance(modules, list_type):
             for m in modules:
                 self._load_ui_modules(m)
         else:
-            assert isinstance(modules, types.DictType)
+            assert isinstance(modules, dict_type)
             for name, cls in modules.items():
                 try:
                     if issubclass(cls, UIModule):
@@ -1942,7 +1958,7 @@ def authenticated(method):
                     else:
                         next_url = self.request.uri
                     url = "%s?%s" % (url,
-                                     urllib.urlencode(dict(next=next_url)))
+                                     urlencode(dict(next=next_url)))
                 return self.redirect(url)
             raise HTTPError(403)
         return method(self, *args, **kwargs)
@@ -2126,7 +2142,7 @@ class URLSpec(object):
         if self.regex.groups != pattern.count('('):
             # The pattern is too complicated for our simplistic matching,
             # so we can't support reversing it.
-            return (None, None)
+            return None, None
 
         pieces = []
         for fragment in pattern.split('('):
@@ -2137,7 +2153,7 @@ class URLSpec(object):
             else:
                 pieces.append(fragment)
 
-        return (''.join(pieces), self.regex.groups)
+        return ''.join(pieces), self.regex.groups
 
     def reverse(self, *args, **kwargs):
         if not self._path:
@@ -2162,7 +2178,7 @@ class URLSpec(object):
         if kwargs:
             items = list(kwargs.items())
             items.sort(key=lambda el: el[0])
-            rv += "?" + urllib.urlencode(items)
+            rv += "?" + urlencode(items)
         return rv
 
 url = URLSpec
@@ -2172,7 +2188,7 @@ def _time_independent_equals(a, b):
     if len(a) != len(b):
         return False
     result = 0
-    if isinstance(a[0], types.IntType):  # python3 byte strings
+    if isinstance(a[0], int_type):  # python3 byte strings
         for x, y in zip(a, b):
             result |= x ^ y
     else:  # python2

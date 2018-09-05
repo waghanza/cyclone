@@ -215,7 +215,7 @@ This is how you handle it::
         def get(self):
             try:
                 response = yield fetch("http://freegeoip.net/xml/")
-            except Exception, e:
+            except Exception as e:
                 raise web.HTTPError(503, str(e))  # Service Unavailable
             ...
 

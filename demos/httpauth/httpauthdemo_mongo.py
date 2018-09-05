@@ -62,7 +62,7 @@ def HTTPBasic(method):
             response = yield self.mongodb.cyclonedb.users.find_one(
                              {"usr": usr, "pwd": pwd}, fields=["usr"])
             mongo_usr = response.get("usr")
-        except Exception, e:
+        except Exception as e:
             log.msg("MongoDB failed to find(): %s" % str(e))
             raise cyclone.web.HTTPError(503)  # Service Unavailable
 
@@ -97,7 +97,7 @@ class CreateUserHandler(cyclone.web.RequestHandler):
             ObjId = yield self.mongodb.cyclonedb.users.update(
                           {"usr": usr}, {"usr": usr, "pwd": pwd},
                           upsert=True, safe=True)
-        except Exception, e:
+        except Exception as e:
             log.msg("MongoDB failed to upsert(): %s" % str(e))
             raise cyclone.web.HTTPError(503)  # Service Unavailable
 
