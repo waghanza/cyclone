@@ -197,7 +197,7 @@ import sys
 import threading
 import traceback
 
-if (sys.version_info > (3, 0)):
+if (sys.version_info >= (3, 0)):
     from io import StringIO
 else:
     from cStringIO import StringIO
