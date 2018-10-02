@@ -197,7 +197,10 @@ import sys
 import threading
 import traceback
 
-from cStringIO import StringIO
+if (sys.version_info > (3, 0)):
+    from io import StringIO
+else:
+    from cStringIO import StringIO
 from cyclone import escape
 from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
