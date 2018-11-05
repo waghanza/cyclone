@@ -1,11 +1,18 @@
 language: python
 python:
-    - "2.7"
-    - "pypy"
-
+- '2.7'
+- pypy
 install:
-    - pip install -r cyclone/tests/test_requirements.txt
-    - pip install coveralls
-
+- pip install -r cyclone/tests/test_requirements.txt
+- pip install coveralls
 script: coverage run `which trial` cyclone
 after_success: coveralls
+deploy:
+  provider: pypi
+  user: fiorix
+  password:
+    secure: EgUIImke5aN2Q9ybtPfB1RDtvYLouJSjhvetdIWiUJZHxeViaufQQBv2eXkyUaIvwYAagfhnCNSR4Ql9mNr/nksSGvJ+tn9AH014OUSpPcrdmDMZdImWPo7hraNNnEs+pG7an6faBdLDYRtTv8Hx74dW54jCmo9AYBBelwklxwA=
+  on:
+    tags: true
+    branch: master
+  distributions: "sdist bdist_wheel"
