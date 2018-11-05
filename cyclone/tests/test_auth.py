@@ -15,17 +15,19 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-try:
-    import urllib.parse as urllib_parse  # py3
-except ImportError:
-    import urllib as urllib_parse  # py2
-
 import cyclone.web
 
-from twisted.trial import unittest
-from twisted.internet import defer
 from cyclone.auth import FacebookGraphMixin
-from mock import patch, MagicMock
+from twisted.trial import unittest
+
+try:
+    # py3
+    import urllib.parse as urllib_parse
+    from unittest.mock import MagicMock, patch
+except ImportError:
+    # py2
+    from mock import MagicMock, patch
+    import urllib as urllib_parse
 
 
 class TestHandler(cyclone.web.RequestHandler,

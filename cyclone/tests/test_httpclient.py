@@ -13,15 +13,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from twisted.trial import unittest
-from cyclone.httpclient import StringProducer, Receiver, HTTPClient, fetch
 import cyclone.httpclient
-from cStringIO import StringIO
-from twisted.internet.defer import inlineCallbacks, Deferred, succeed, fail
-from mock import Mock
 import functools
+
+from cStringIO import StringIO
 from cyclone import escape
+from cyclone.httpclient import StringProducer, Receiver, HTTPClient, fetch
 from cyclone.web import HTTPError
+from twisted.internet.defer import inlineCallbacks, Deferred, succeed, fail
+from twisted.trial import unittest
+
+try:
+    from mock import Mock
+except ImportError:
+    from unittest.mock import Mock
 
 
 class TestStringProducer(unittest.TestCase):

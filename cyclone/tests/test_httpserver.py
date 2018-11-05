@@ -12,20 +12,24 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from twisted.internet import address
-from twisted.trial import unittest
-from mock import Mock
+
 from cyclone.httpserver import HTTPConnection, HTTPRequest
+from io import BytesIO
+from twisted.internet import address
+from twisted.internet import interfaces
 from twisted.internet.defer import Deferred
 from twisted.test.proto_helpers import StringTransport
-from twisted.internet import interfaces
-from io import BytesIO
+from twisted.trial import unittest
 
 try:
+    # py3
     import http.cookies as Cookie
+    from unittest.mock import Mock
 except ImportError:
-    # python 2 compatibility
+    # py2
     import Cookie
+    from mock import Mock
+
 
 class HTTPConnectionTest(unittest.TestCase):
     def setUp(self):

@@ -12,11 +12,17 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from twisted.trial import unittest
+
+import types
+
 from cyclone.mail import ContextFactory, ClientContextFactory, Message
 from cyclone.mail import sendmail
-from mock import Mock, patch
-import types
+from twisted.trial import unittest
+
+try:
+    from mock import Mock, patch
+except ImportError:
+    from unittest.mock import Mock, patch
 
 
 class ContextFactoryTest(unittest.TestCase):

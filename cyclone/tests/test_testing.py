@@ -13,11 +13,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from twisted.trial import unittest
 from cyclone.testing import CycloneTestCase, Client
 from cyclone.web import Application, RequestHandler, asynchronous
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
 
 
 class TestHandler(RequestHandler):

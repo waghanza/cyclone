@@ -13,13 +13,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from twisted.internet import defer
-from twisted.trial import unittest
-from twisted.internet import reactor
-
-from mock import Mock
-
 from cyclone import template
+from twisted.internet import defer
+from twisted.internet import reactor
+from twisted.trial import unittest
 
 
 class TestTemplates(unittest.TestCase):

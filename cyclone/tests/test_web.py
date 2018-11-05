@@ -13,25 +13,25 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import email.utils
+import time
 
-from twisted.trial import unittest
-from cyclone.web import RequestHandler, HTTPError
-from cyclone.web import Application, URLSpec, URLReverseError
 from cyclone.escape import unicode_type
-from mock import Mock
+from cyclone.template import DictLoader
+from cyclone.web import Application, URLSpec, URLReverseError
+from cyclone.web import RequestHandler, HTTPError
 from datetime import datetime
+from twisted.internet import defer, reactor
+from twisted.trial import unittest
 
 try:
+    # py3
     import http.cookies as Cookie
+    from unittest.mock import Mock
 except ImportError:
-    # python 2 compatibility
+    # py2
     import Cookie
-
-import email.utils
-import calendar
-import time
-from twisted.internet import defer, reactor
-from cyclone.template import DictLoader
+    from mock import Mock
 
 
 class RequestHandlerTest(unittest.TestCase):
@@ -73,7 +73,7 @@ class RequestHandlerTest(unittest.TestCase):
         self.rh.clear()
         self.assertEqual(
             set(self.rh._headers.keys()),
-            set(["Server", "Content-Type", "Date", "Connection"])
+            {"Server", "Content-Type", "Date", "Connection"},
         )
         self.assertEqual(self.rh._list_headers, [])
 

@@ -13,10 +13,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from twisted.trial import unittest
-from mock import Mock
-
 from cyclone import escape
+from twisted.trial import unittest
 
 
 class TestEscape(unittest.TestCase):

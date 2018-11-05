@@ -13,16 +13,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 
-from twisted.trial import unittest
-from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
+from cyclone.escape import recursive_unicode, linkify, _convert_entity
 from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
-from cyclone.escape import recursive_unicode, linkify, _convert_entity
+from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.util import _emit, ObjectDict, import_object
-from mock import Mock
-import datetime
+from twisted.trial import unittest
+
+try:
+    from mock import Mock
+except ImportError:
+    from unittest.mock import Mock
 
 
 class EscapeTest(unittest.TestCase):
