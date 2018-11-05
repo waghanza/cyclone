@@ -81,8 +81,8 @@ setuptools.setup(
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    description="Non-blocking web server. "
-                "A facebook's Tornado on top of Twisted.",
+    description="Non-blocking web server for Python. "
+                "Tornado API as a Twisted protocol.",
     keywords="python non-blocking web server twisted facebook tornado",
     packages=["cyclone", "twisted.plugins", "cyclone.tests", "cyclone.testing"],
     package_data={"twisted": ["plugins/cyclone_plugin.py"],
