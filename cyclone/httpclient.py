@@ -18,19 +18,6 @@
 """Non-blocking HTTP client"""
 
 import functools
-
-try:
-    from types import ListType
-except ImportError:
-    # python 3 compatibility
-    ListType = list
-
-try:
-    from types import DictType
-except ImportError:
-    # python 3 compatibility
-    DictType = dict
-
 from cyclone import escape
 from cyclone.web import HTTPError
 
@@ -48,6 +35,7 @@ from zope.interface import implementer
 
 agent = Agent(reactor)
 proxy_agent = ProxyAgent(None, reactor)
+
 
 @implementer(IBodyProducer)
 class StringProducer(object):
@@ -127,7 +115,7 @@ class HTTPClient(object):
                 headers = dict(response.headers.getAllRawHeaders())
                 location = headers.get("Location")
                 if location:
-                    if isinstance(location, ListType):
+                    if isinstance(location, list):
                         location = location[0]
 
                     #print("redirecting to:", location)
@@ -140,7 +128,6 @@ class HTTPClient(object):
                     break
             else:
                 break
-
         response.error = response.code >= 400
         response.headers = dict(response.headers.getAllRawHeaders())
         # HTTP 204 and 304 responses have no body
@@ -203,7 +190,7 @@ def fetch(url, *args, **kwargs):
                         port string as second member;
                         describing which proxy to use when making request
     """
-    return HTTPClient(escape.utf8(url), *args, **kwargs).fetch()
+    return HTTPClient(url, *args, **kwargs).fetch()
 
 
 class JsonRPC:
@@ -250,7 +237,7 @@ class JsonRPC:
                 data = escape.json_decode(response.body)
                 error = data.get("error")
                 if error:
-                    if isinstance(error, DictType) and 'message' in error:
+                    if isinstance(error, dict) and 'message' in error:
                         # JSON-RPC spec is not very verbose about error schema,
                         # but it should look like {'code': 0, 'message': 'msg'}
                         deferred.errback(Exception(error['message']))

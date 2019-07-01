@@ -19,12 +19,7 @@ from cyclone.httputil import HTTPHeaders
 import urllib
 from twisted.test import proto_helpers
 from twisted.internet.defer import inlineCallbacks, returnValue
-
-try:
-    from http.cookies import SimpleCookie
-except ImportError:
-    # python 2 compatibility
-    from Cookie import SimpleCookie
+from http.cookies import SimpleCookie
 
 
 class DecodingSimpleCookie(SimpleCookie):
@@ -94,10 +89,10 @@ class Client(object):
     def request(self, method, uri, *args, **kwargs):
         params = kwargs.pop("params", {}) or {}
         if method in ["GET", "HEAD", "OPTIONS"] and params:
-            uri = uri + "?" + urllib.urlencode(params)
+            uri = uri + "?" + urllib.parse.urlencode(params)
         elif method in ["POST", "PATCH", "PUT"]\
                 and params and not kwargs['body']:
-            kwargs['body'] = urllib.urlencode(params)
+            kwargs['body'] = urllib.parse.urlencode(params)
         connection = kwargs.pop('connection')
         if not connection:
             connection = HTTPConnection()
@@ -120,14 +115,14 @@ class Client(object):
 
         def setup_response():
             headers = HTTPHeaders()
-            for line in handler._generate_headers().split("\r\n"):
-                if line.startswith("HTTP") or not line.strip():
+            for line in handler._generate_headers().split(b"\r\n"):
+                if line.startswith(b"HTTP") or not line.strip():
                     continue
                 headers.parse_line(line)
             for cookie in headers.get_list("Set-Cookie"):
                 self.cookies.load(cookie)
             response_body = connection.transport.io.getvalue()
-            handler.content = response_body.split("\r\n\r\n", 1)[1]
+            handler.content = response_body.split(b"\r\n\r\n", 1)[1]
             handler.headers = headers
 
         if handler._finished:

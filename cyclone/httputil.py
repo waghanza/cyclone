@@ -27,12 +27,7 @@ from cyclone.escape import parse_qs_bytes
 from cyclone.escape import utf8
 
 from twisted.python import log
-
-try:
-     from urllib.parse import urlencode
-except ImportError:
-    # python 2 compatibility
-    from urllib import urlencode
+from urllib import parse as urllib_parse
 
 
 class HTTPHeaders(dict):
@@ -113,14 +108,15 @@ class HTTPHeaders(dict):
         >>> h.get('content-type')
         'text/html'
         """
-        if line[0].isspace():
+        temp = native_str(line)
+        if temp[0].isspace():
             # continuation of a multi-line header
-            new_part = ' ' + line.lstrip()
+            new_part = ' ' + temp.lstrip()
             self._as_list[self._last_key][-1] += new_part
             dict.__setitem__(self, self._last_key,
                              self[self._last_key] + new_part)
         else:
-            name, value = line.split(":", 1)
+            name, value = temp.split(":", 1)
             self.add(name, value.strip())
 
     @classmethod
@@ -203,7 +199,7 @@ def url_concat(url, args):
         return url
     if url[-1] not in ('?', '&'):
         url += '&' if ('?' in url) else '?'
-    return url + urlencode(args)
+    return url + urllib_parse.urlencode(args)
 
 
 class HTTPFile(ObjectDict):
@@ -255,24 +251,24 @@ def parse_multipart_form_data(boundary, data, arguments, files):
     # xmpp).  I think we're also supposed to handle backslash-escapes
     # here but I'll save that until we see a client that uses them
     # in the wild.
-    if boundary.startswith('"') and boundary.endswith('"'):
+    if boundary.startswith(b'"') and boundary.endswith(b'"'):
         boundary = boundary[1:-1]
-    final_boundary_index = data.rfind("--" + boundary + "--")
+    final_boundary_index = data.rfind(b"--" + boundary + b"--")
     if final_boundary_index == -1:
         log.msg("Invalid multipart/form-data: no final boundary")
         return
-    parts = data[:final_boundary_index].split("--" + boundary + "\r\n")
+    parts = data[:final_boundary_index].split(b"--" + boundary + b"\r\n")
     for part in parts:
         if not part:
             continue
-        eoh = part.find("\r\n\r\n")
+        eoh = part.find(b"\r\n\r\n")
         if eoh == -1:
             log.msg("multipart/form-data missing headers")
             continue
-        headers = HTTPHeaders.parse(part[:eoh].decode("utf-8"))
+        headers = HTTPHeaders.parse(part[:eoh])
         disp_header = headers.get("Content-Disposition", "")
         disposition, disp_params = _parse_header(disp_header)
-        if disposition != "form-data" or not part.endswith("\r\n"):
+        if disposition != "form-data" or not part.endswith(b"\r\n"):
             log.msg("Invalid multipart/form-data")
             continue
         value = part[eoh + 4:-2]

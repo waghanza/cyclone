@@ -52,7 +52,7 @@ def HTTPBasic(method):
                 assert pwd == str(redis_pwd)  # it may come back as an int!
             except AssertionError:
                 msg = "Authentication failed"
-            except cyclone.redis.ConnectionError, e:
+            except cyclone.redis.ConnectionError as e:
                 # There's nothing we can do here. Just wait for the
                 # connection to resume.
                 log.msg("Redis is unavailable: %s" % e)

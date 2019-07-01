@@ -239,7 +239,7 @@ Example::
         def get(self):
             try:
                 rs = yield self.mysql.runQuery("SELECT 1")
-            except MySQLdb.OperationalError, e:
+            except MySQLdb.OperationalError as e:
                 log.msg("MySQL error: " + str(e))
                 raise web.HTTPError(503)  # Service Unavailable
             ...
@@ -261,7 +261,7 @@ Same goes for Redis::
         def get(self):
             try:
                 rs = yield self.redis.get("foo")
-            except cyclone.redis.RedisError, e:
+            except cyclone.redis.RedisError as e:
                 log.msg("Redis error: " + str(e))
                 raise web.HTTPError(503)  # Service Unavailable
 
@@ -288,9 +288,9 @@ errors::
         def wrapper(self, *args, **kwargs):
             try:
                 result = yield defer.maybeDeferred(method, self, *args, **kwargs)
-            except MySQLdb.OperationalError, e:
+            except MySQLdb.OperationalError as e:
                 log.msg("MySQL error: " + str(e))
-            except cyclone.redis.RedisError, e:
+            except cyclone.redis.RedisError as e:
                 log.msg("Redis error: " + str(e))
             else:
                 defer.returnValue(result)

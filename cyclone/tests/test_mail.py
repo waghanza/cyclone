@@ -12,17 +12,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-import types
-
+from twisted.trial import unittest
 from cyclone.mail import ContextFactory, ClientContextFactory, Message
 from cyclone.mail import sendmail
-from twisted.trial import unittest
-
-try:
-    from mock import Mock, patch
-except ImportError:
-    from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch
 
 
 class ContextFactoryTest(unittest.TestCase):
@@ -54,7 +47,7 @@ class MessageTest(unittest.TestCase):
             "hi thar",
             "This is a message."
         )
-        self.assertTrue(isinstance(message.to_addrs, types.ListType))
+        self.assertTrue(isinstance(message.to_addrs, list))
 
     def test_attach(self):
         open("foo.txt", "w").write("sometext")

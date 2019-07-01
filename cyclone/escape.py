@@ -22,59 +22,18 @@ have crept in over time.
 """
 
 from __future__ import absolute_import, division, with_statement
-
-try:
-    from urllib.parse import parse_qs as _parse_qs  # py3
-except ImportError:
-    from urlparse import parse_qs as _parse_qs  # Python 2.6+
-
-try:
-    import htmlentitydefs  # py2
-except ImportError:
-    import html.entities as htmlentitydefs  # py3
-
-try:
-    import urllib.parse as urllib_parse  # py3
-except ImportError:
-    import urllib as urllib_parse  # py2
-
+from html import entities as html_entities
 import re
-import sys
-
+import json
+from urllib import parse as urllib_parse
 from cyclone.util import basestring_type
 from cyclone.util import bytes_type
 from cyclone.util import unicode_type
-from cyclone.util import unicode_char_type
 
-try:
-    from urlparse import parse_qs  # Python 2.6+
-except ImportError:
-    from cgi import parse_qs
 
-# json module is in the standard library as of python 2.6; fall back to
-# simplejson if present for older versions.
-try:
-    import json
-    assert hasattr(json, "loads") and hasattr(json, "dumps")
-    _json_decode = json.loads
-    _json_encode = json.dumps
-except Exception:  # pragma: nocover
-    try:
-        import simplejson
-        _json_decode = lambda s: simplejson.loads(_unicode(s))
-        _json_encode = lambda v: simplejson.dumps(v)
-    except ImportError:
-        try:
-            # For Google AppEngine
-            from django.utils import simplejson
-            _json_decode = lambda s: simplejson.loads(_unicode(s))
-            _json_encode = lambda v: simplejson.dumps(v)
-        except ImportError:
-            def _json_decode(s):
-                raise NotImplementedError(
-                    "A JSON parser is required, e.g., simplejson at "
-                    "http://pypi.python.org/pypi/simplejson/")
-            _json_encode = _json_decode
+_json_decode = json.loads
+_json_encode = json.dumps
+
 
 
 _XHTML_ESCAPE_RE = re.compile('[&<>"\']')
@@ -83,8 +42,7 @@ _XHTML_ESCAPE_DICT = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'"
 
 def xhtml_escape(value):
     """Escapes a string so it is valid within XML or XHTML."""
-    return _XHTML_ESCAPE_RE.sub(lambda match:
-                    _XHTML_ESCAPE_DICT[match.group(0)], to_basestring(value))
+    return _XHTML_ESCAPE_RE.sub(lambda match: _XHTML_ESCAPE_DICT[match.group(0)], to_basestring(value))
 
 
 def xhtml_unescape(value):
@@ -116,55 +74,22 @@ def squeeze(value):
 
 def url_escape(value):
     """Returns a valid URL-encoded version of the given value."""
-    return urllib_parse.quote_plus(utf8(value))
+    return urllib_parse.quote_plus(value)
 
 
-if sys.version_info[0] < 3:
-    def url_unescape(value, encoding='utf-8'):
-        """Decodes the given value from a URL.
+def url_unescape(value, encoding='utf-8'):
+    """Decodes the given value from a URL.
 
-        The argument may be either a byte or unicode string.
+    The argument may be either a byte or unicode string.
 
-        If encoding is None, the result will be a byte string.  Otherwise,
-        the result is a unicode string in the specified encoding.
-        """
-        if encoding is None:
-            return urllib_parse.unquote_plus(utf8(value))
-        else:
-            return unicode_type(urllib_parse.unquote_plus(utf8(value)), encoding)
+    If encoding is None, the result will be a byte string.  Otherwise,
+    the result is a unicode string in the specified encoding.
+    """
+    return urllib_parse.unquote_plus(value)
 
-    parse_qs_bytes = parse_qs
-else:
-    def url_unescape(value, encoding='utf-8'):
-        """Decodes the given value from a URL.
 
-        The argument may be either a byte or unicode string.
+parse_qs_bytes = urllib_parse.parse_qs
 
-        If encoding is None, the result will be a byte string.  Otherwise,
-        the result is a unicode string in the specified encoding.
-        """
-        if encoding is None:
-            value = to_basestring(value).replace('+', ' ')
-            return urllib_parse.unquote_to_bytes(value)
-        else:
-            return urllib_parse.unquote_plus(to_basestring(value), encoding=encoding)
-
-    def parse_qs_bytes(qs, keep_blank_values=False, strict_parsing=False):
-        """Parses a query string like urlparse.parse_qs, but returns the
-        values as byte strings.
-
-        Keys still become type str (interpreted as latin1 in python3!)
-        because it's too painful to keep them as byte strings in
-        python3 and in practice they're nearly always ascii anyway.
-        """
-        # This is gross, but python3 doesn't give us another way.
-        # Latin1 is the universal donor of character encodings.
-        result = _parse_qs(qs, keep_blank_values, strict_parsing,
-                           encoding='latin1', errors='strict')
-        encoded = {}
-        for k, v in result.items():
-            encoded[k] = [i.encode('latin1') for i in v]
-        return encoded
 
 _UTF8_TYPES = (bytes, type(None))
 
@@ -180,6 +105,7 @@ def utf8(value):
     assert isinstance(value, unicode_type)
     return value.encode("utf-8")
 
+
 _TO_UNICODE_TYPES = (unicode_type, type(None))
 
 
@@ -191,7 +117,7 @@ def to_unicode(value):
     """
     if isinstance(value, _TO_UNICODE_TYPES):
         return value
-    assert isinstance(value, bytes_type)
+    #assert isinstance(value, bytes_type)
     return value.decode("utf-8")
 
 # to_unicode was previously named _unicode not because it was private,
@@ -230,7 +156,7 @@ def recursive_unicode(obj):
     """
     if isinstance(obj, dict):
         return dict((recursive_unicode(k), recursive_unicode(v))
-                     for (k, v) in obj.iteritems())
+                    for (k, v) in obj.items())
     elif isinstance(obj, list):
         return list(recursive_unicode(i) for i in obj)
     elif isinstance(obj, tuple):
@@ -247,10 +173,12 @@ def recursive_unicode(obj):
 # This regex should avoid those problems.
 # Use to_unicode instead of tornado.util.u - we don't want backslashes getting
 # processed as escapes.
-_URL_RE = re.compile(to_unicode(r"""\b((?:([\w-]+):(/{1,3})|www[.])"""
-                                r"""(?:(?:(?:[^\s&()]|&amp;|&quot;)*"""
-                                r"""(?:[^!"#$%&'()*+,.:;<=>?@\[\]^`{|}~\s]))"""
-                                r"""|(?:\((?:[^\s&()]|&amp;|&quot;)*\)))+)"""))
+
+
+_URL_RE = re.compile(r"""\b((?:([\w-]+):(/{1,3})|www[.])"""
+                     r"""(?:(?:(?:[^\s&()]|&amp;|&quot;)*"""
+                     r"""(?:[^!"#$%&'()*+,.:;<=>?@\[\]^`{|}~\s]))"""
+                     r"""|(?:\((?:[^\s&()]|&amp;|&quot;)*\)))+)""")
 
 
 def linkify(text, shorten=False, extra_params="",
@@ -339,8 +267,7 @@ def linkify(text, shorten=False, extra_params="",
                     # have a status bar, such as Safari by default)
                     params += ' title="%s"' % href
 
-        return ('<a href="%s"%s>%s</a>'.decode("unicode_escape") %
-                (href, params, url))
+        return '<a href="%s"%s>%s</a>' % (href, params, url)
 
     # First HTML-escape so that our strings are all safe.
     # The regex is modified to avoid character entites other than &amp; so
@@ -352,7 +279,7 @@ def linkify(text, shorten=False, extra_params="",
 def _convert_entity(m):
     if m.group(1) == "#":
         try:
-            return unicode_char_type(int(m.group(2)))
+            return chr(int(m.group(2)))
         except ValueError:
             return "&#%s;" % m.group(2)
     try:
@@ -363,8 +290,9 @@ def _convert_entity(m):
 
 def _build_unicode_map():
     unicode_map = {}
-    for name, value in htmlentitydefs.name2codepoint.items():
-        unicode_map[name] = unicode_char_type(value)
+    for name, value in html_entities.name2codepoint.items():
+        unicode_map[name] = chr(value)
     return unicode_map
+
 
 _HTML_UNICODE_MAP = _build_unicode_map()

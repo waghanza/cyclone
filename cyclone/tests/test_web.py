@@ -13,26 +13,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import email.utils
-import time
-
-from cyclone.escape import unicode_type
-from cyclone.template import DictLoader
-from cyclone.web import Application, URLSpec, URLReverseError
-from cyclone.web import RequestHandler, HTTPError
-from datetime import datetime
-from twisted.internet import defer, reactor
 from twisted.trial import unittest
-
-try:
-    # py3
-    import http.cookies as Cookie
-    from unittest.mock import Mock
-except ImportError:
-    # py2
-    import Cookie
-    from mock import Mock
-
+from cyclone.web import RequestHandler, HTTPError
+from cyclone.web import Application, URLSpec, URLReverseError
+from cyclone.escape import unicode_type
+from unittest.mock import Mock
+from datetime import datetime
+from http import cookies as http_cookies
+import email.utils
+import calendar
+import time
+from twisted.internet import defer, reactor
+from cyclone.template import DictLoader
 
 class RequestHandlerTest(unittest.TestCase):
     def assertHasAttr(self, obj, attr_name):
@@ -73,7 +65,7 @@ class RequestHandlerTest(unittest.TestCase):
         self.rh.clear()
         self.assertEqual(
             set(self.rh._headers.keys()),
-            {"Server", "Content-Type", "Date", "Connection"},
+            set(["Server", "Content-Type", "Date", "Connection"])
         )
         self.assertEqual(self.rh._list_headers, [])
 
@@ -118,7 +110,7 @@ class RequestHandlerTest(unittest.TestCase):
     def test_convert_unicode_header_value(self):
         value = self.rh._convert_header_value(u"Value")
         self.assertEqual(value, "Value")
-        self.assertTrue(type(value) != unicode_type)
+        self.assertTrue(type(value) == unicode_type)
 
     def test_convert_unicode_datetime_header_value(self):
         now = datetime(2014, 4, 4)
@@ -187,7 +179,7 @@ class RequestHandlerTest(unittest.TestCase):
             ValueError, self.rh.set_cookie, "\x00bbb", "badcookie")
 
     def test_set_cookie_already_exists(self):
-        self.rh._new_cookie = Cookie.SimpleCookie()
+        self.rh._new_cookie = http_cookies.SimpleCookie()
         self.rh._new_cookie["name"] = "value"
         self.rh.set_cookie("name", "value")
 
@@ -251,7 +243,7 @@ class RequestHandlerTest(unittest.TestCase):
         self.rh.write({"foo": "bar"})
         self.assertEqual(
             self.rh._write_buffer,
-            ['{"foo": "bar"}']
+            [b'{"foo": "bar"}']
         )
 
     def test_create_template_loader(self):
@@ -374,24 +366,24 @@ class TestRequestHandler(unittest.TestCase):
         _mkDeferred = self._mkDeferred
         self.assertEqual(
             self.handler.render_string("simple.html", msg="Hello World!"),
-            "simple: Hello World!"
+            b"simple: Hello World!"
         )
         self.assertEqual(
             self.handler.render_string(
                 "simple.html", msg=_mkDeferred("Hello Deferred!")),
-            "simple: Hello Deferred!"
+            b"simple: Hello Deferred!"
         )
         d = self.handler.render_string(
             "simple.html",
             msg=_mkDeferred("Hello Deferred!", 0.1))
         self.assertTrue(isinstance(d, defer.Deferred), d)
         msg = yield d
-        self.assertEqual(msg, "simple: Hello Deferred!")
+        self.assertEqual(msg, b"simple: Hello Deferred!")
 
     def test_generate_headers(self):
         headers = self.handler._generate_headers()
         self.assertIn(
-            "HTTP MOCK 200 OK",
+            b"HTTP MOCK 200 OK",
             headers,
         )
 
@@ -399,14 +391,14 @@ class TestRequestHandler(unittest.TestCase):
     def test_simple_handler(self):
         self.handler.get = lambda: self.handler.finish("HELLO WORLD")
         page = yield self._execute_request(False)
-        self.assertEqual(page, "HELLO WORLD")
+        self.assertEqual(page, b"HELLO WORLD")
 
     @defer.inlineCallbacks
     def test_deferred_handler(self):
         self.handler.get = lambda: self._mkDeferred(
             lambda: self.handler.finish("HELLO DEFERRED"), 0.01)
         page = yield self._execute_request(False)
-        self.assertEqual(page, "HELLO DEFERRED")
+        self.assertEqual(page, b"HELLO DEFERRED")
 
     @defer.inlineCallbacks
     def test_deferred_arg_in_render(self):
@@ -415,7 +407,7 @@ class TestRequestHandler(unittest.TestCase):
             "simple.html", msg=templateArg)
         self.handler.get = handlerGetFn
         page = yield self._execute_request(False)
-        self.assertEqual(page, "simple: it works!")
+        self.assertEqual(page, b"simple: it works!")
 
     def setUp(self):
         self.app = app = Mock()
@@ -464,8 +456,7 @@ class TestRequestHandler(unittest.TestCase):
         handler._headers_written = True
         handler._execute([])
         yield self._onFinishD
-
-        out = ""
+        out = b""
         for (args, kwargs) in self.request.write.call_args_list:
             self.assertFalse(kwargs)
             self.assertEqual(len(args), 1)

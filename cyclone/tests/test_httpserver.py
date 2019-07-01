@@ -12,23 +12,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-from cyclone.httpserver import HTTPConnection, HTTPRequest
-from io import BytesIO
 from twisted.internet import address
-from twisted.internet import interfaces
+from twisted.trial import unittest
+from unittest.mock import Mock
+from unittest import mock
+from cyclone.httpserver import HTTPConnection, HTTPRequest
 from twisted.internet.defer import Deferred
 from twisted.test.proto_helpers import StringTransport
-from twisted.trial import unittest
-
-try:
-    # py3
-    import http.cookies as Cookie
-    from unittest.mock import Mock
-except ImportError:
-    # py2
-    import Cookie
-    from mock import Mock
+from twisted.internet import interfaces
+from io import BytesIO
+from http import cookies as http_cookies
 
 
 class HTTPConnectionTest(unittest.TestCase):
@@ -58,27 +51,27 @@ class HTTPConnectionTest(unittest.TestCase):
 
     def test_lineReceived(self):
         self.con.connectionMade()
-        line = "Header: something"
+        line = b"Header: something"
         self.con.lineReceived(line)
         self.assertTrue(line + self.con.delimiter in self.con._headersbuffer)
         self.con._on_headers = Mock()
-        self.con.lineReceived("")
-        self.con._on_headers.assert_called_with('Header: something\r\n')
+        self.con.lineReceived(b"")
+        self.con._on_headers.assert_called_with(b'Header: something\r\n')
 
     def test_rawDataReceived(self):
         self.con.connectionMade()
         self.con._contentbuffer = BytesIO()
         self.con._on_request_body = Mock()
         self.con.content_length = 5
-        data = "some data"
+        data = b"some data"
         self.con.rawDataReceived(data)
-        self.con._on_request_body.assert_called_with("some ")
+        self.con._on_request_body.assert_called_with(b"some ")
 
     def test_write(self):
         self.con.transport = StringTransport()
         self.con._request = Mock()
-        self.con.write("data")
-        self.assertEqual(self.con.transport.io.getvalue(), "data")
+        self.con.write(b"data")
+        self.assertEqual(self.con.transport.io.getvalue(), b"data")
 
     def test_finish(self):
         self.con._request = Mock()
@@ -146,79 +139,85 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con.transport.loseConnection.assert_called_with()
 
     def test_on_headers_simple(self):
-        self.con._remote_ip = Mock()
-        self.con.request_callback = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET / HTTP/1.1\r\n"
-        self.con._on_headers(data)
-        self.assertEqual(self.con.request_callback.call_count, 1)
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.request_callback = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = b"GET / HTTP/1.1\r\n"
+            self.con._on_headers(data)
+            self.assertEqual(self.con.request_callback.call_count, 1)
 
     def test_on_headers_invalid(self):
-        self.con._remote_ip = Mock()
-        self.con.request_callback = Mock()
-        self.con.transport = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET /"
-        self.con._on_headers(data)
-        self.con.transport.loseConnection.assert_called_with()
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.request_callback = Mock()
+            self.con.transport = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = b"GET /"
+            self.con._on_headers(data)
+            self.con.transport.loseConnection.assert_called_with()
 
     def test_on_headers_invalid_version(self):
-        self.con._remote_ip = Mock()
-        self.con.request_callback = Mock()
-        self.con.transport = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET / HTTS/1.1"
-        self.con._on_headers(data)
-        self.con.transport.loseConnection.assert_called_with()
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.request_callback = Mock()
+            self.con.transport = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = b"GET / HTTS/1.1"
+            self.con._on_headers(data)
+            self.con.transport.loseConnection.assert_called_with()
 
     def test_on_headers_content_length(self):
-        self.con._remote_ip = Mock()
-        self.con.setRawMode = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET / HTTP/1.1\r\n"\
-            "Content-Length: 5\r\n"\
-            "\r\n"
-        self.con._on_headers(data)
-        self.con.setRawMode.assert_called_with()
-        self.assertEqual(self.con.content_length, 5)
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.setRawMode = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = \
+                b"GET / HTTP/1.1\r\n" \
+                b"Content-Length: 5\r\n" \
+                b"\r\n"
+            self.con._on_headers(data)
+            self.con.setRawMode.assert_called_with()
+            self.assertEqual(self.con.content_length, 5)
 
     def test_on_headers_continue(self):
-        self.con._remote_ip = Mock()
-        self.con.transport = StringTransport()
-        self.con.setRawMode = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET / HTTP/1.1\r\n"\
-            "Content-Length: 5\r\n"\
-            "Expect: 100-continue"\
-            "\r\n"
-        self.con._on_headers(data)
-        self.assertEqual(
-            self.con.transport.io.getvalue().strip(),
-            "HTTP/1.1 100 (Continue)"
-        )
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.transport = StringTransport()
+            self.con.setRawMode = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = \
+                b"GET / HTTP/1.1\r\n"\
+                b"Content-Length: 5\r\n"\
+                b"Expect: 100-continue"\
+                b"\r\n"
+            self.con._on_headers(data)
+            self.assertEqual(self.con.transport.io.getvalue().strip(), b"HTTP/1.1 100 (Continue)")
 
     def test_on_headers_big_body(self):
-        self.con._remote_ip = Mock()
-        self.con.transport = StringTransport()
-        self.con.setRawMode = Mock()
-        self.con.__dict__['_remote_ip'] = "127.0.0.1"
-        self.con.connectionMade()
-        data = \
-            "GET / HTTP/1.1\r\n"\
-            "Content-Length: 10000000\r\n"\
-            "\r\n"
-        self.con._on_headers(data)
-        self.assertTrue(self.con._contentbuffer)
+        with mock.patch.object(HTTPConnection, '_remote_ip', return_value=None) as m_obj:
+            self.con = HTTPConnection()
+            self.con.factory = Mock()
+            self.con.transport = StringTransport()
+            self.con.setRawMode = Mock()
+            self.con._remote_ip = "127.0.0.1"
+            self.con.connectionMade()
+            data = \
+                b"GET / HTTP/1.1\r\n"\
+                b"Content-Length: 10000000\r\n"\
+                b"\r\n"
+            self.con._on_headers(data)
+            self.assertTrue(self.con._contentbuffer)
 
     def test_on_request_body_get(self):
         self.con.request_callback = Mock()
@@ -226,7 +225,7 @@ class HTTPConnectionTest(unittest.TestCase):
         self.con._request.method = "GET"
         self.con._request.headers = {
         }
-        data = ""
+        data = b""
         self.con._on_request_body(data)
         self.assertEqual(self.con.request_callback.call_count, 1)
 
@@ -252,14 +251,14 @@ class HTTPConnectionTest(unittest.TestCase):
             "Content-Type": "multipart/form-data; boundary=AaB03x"
         }
         data = \
-            "--AaB03x\r\n"\
-            'Content-Disposition: form-data; name="a"\r\n'\
-            "\r\n"\
-            "b\r\n"\
-            "--AaB03x--\r\n"
+            b"--AaB03x\r\n"\
+            b'Content-Disposition: form-data; name="a"\r\n'\
+            b"\r\n"\
+            b"b\r\n"\
+            b"--AaB03x--\r\n"
         self.con._on_request_body(data)
         self.assertEqual(self.con.request_callback.call_count, 1)
-        self.assertEqual(self.con._request.arguments, {"a": ["b"]})
+        self.assertEqual(self.con._request.arguments, {"a": [b"b"]})
 
     def test_remote_ip(self):
         self.con.transport = StringTransport()
@@ -356,13 +355,13 @@ class HTTPRequestTest(unittest.TestCase):
         def throw_exc(ignore):
             raise Exception()
 
-        old_cookie = Cookie.SimpleCookie
-        Cookie.SimpleCookie = Mock()
-        Cookie.SimpleCookie.return_value.load = throw_exc
+        old_cookie = http_cookies.SimpleCookie
+        http_cookies.SimpleCookie = Mock()
+        http_cookies.SimpleCookie.return_value.load = throw_exc
         self.req.cookies
         cookies = self.req.cookies
         self.assertEqual(cookies, {})
-        Cookie.SimpleCookie = old_cookie
+        http_cookies.SimpleCookie = old_cookie
 
     def test_full_url(self):
         expected = "http://127.0.0.1/something"

@@ -83,7 +83,7 @@ def list_or_args(command, keys, args):
     oldapi = bool(args)
     try:
         iter(keys)
-        if isinstance(keys, (str, unicode)):
+        if isinstance(keys, (str,)):
             keys = [keys]
             if not oldapi:
                 return keys
@@ -287,7 +287,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
 
         if token == "$":  # bulk data
             try:
-                self.bulk_length = long(data)
+                self.bulk_length = int(data)
             except ValueError:
                 self.replyReceived(InvalidResponse("Cannot convert data "
                                                    "'%s' to integer" % data))
@@ -301,7 +301,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
 
         elif token == "*":  # multi-bulk data
             try:
-                n = long(data)
+                n = int(data)
             except (TypeError, ValueError):
                 self.multi_bulk = MultiBulkStorage()
                 self.replyReceived(InvalidResponse("Cannot convert "
@@ -457,7 +457,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
             for s in args:
                 if isinstance(s, str):
                     cmd = s
-                elif isinstance(s, unicode):
+                elif isinstance(s, str):
                     if self.charset is None:
                         raise InvalidData("Encoding charset was not specified")
                     try:
@@ -745,7 +745,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         srclen = len(srckeys)
         if srclen == 0:
             return defer.fail(RedisError("no ``srckeys`` specified"))
-        if isinstance(operation, (str, unicode)):
+        if isinstance(operation, str):
             operation = operation.upper()
         elif operation is operator.and_ or operation is operator.__and__:
             operation = 'AND'
@@ -895,7 +895,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         Blocking LPOP
         """
-        if isinstance(keys, (str, unicode)):
+        if isinstance(keys, str):
             keys = [keys]
         else:
             keys = list(keys)
@@ -907,7 +907,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         Blocking RPOP
         """
-        if isinstance(keys, (str, unicode)):
+        if isinstance(keys, str):
             keys = [keys]
         else:
             keys = list(keys)
@@ -1235,7 +1235,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
                 aggregate = 'SUM'
             else:
                 err_flag = True
-                if isinstance(aggregate, (str, unicode)):
+                if isinstance(aggregate, str):
                     aggregate_u = aggregate.upper()
                     if aggregate_u in ('MIN', 'MAX', 'SUM'):
                         aggregate = aggregate_u
@@ -1307,7 +1307,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
         """
         Remove the specified field or fields from a hash
         """
-        if isinstance(fields, (str, unicode)):
+        if isinstance(fields, str):
             fields = [fields]
         else:
             fields = list(fields)
@@ -1382,7 +1382,7 @@ class BaseRedisProtocol(LineReceiver, policies.TimeoutMixin):
             self.inMulti = False
             self.unwatch_cc = self._clear_txstate
             self.commit_cc = lambda: ()
-        if isinstance(keys, (str, unicode)):
+        if isinstance(keys, str):
             keys = [keys]
         d = self.execute_command("WATCH", *keys).addCallback(self._tx_started)
         return d
@@ -1643,7 +1643,7 @@ class HiredisProtocol(BaseRedisProtocol):
             self._reader.feed(data)
         res = self._reader.gets()
         while res is not False:
-            if isinstance(res, basestring):
+            if isinstance(res, str):
                 res = self.tryConvertData(res)
             elif isinstance(res, list):
                 res = map(self.tryConvertData, res)
@@ -1698,22 +1698,22 @@ class SubscriberProtocol(RedisProtocol):
             self.replyQueue.put(reply)
 
     def subscribe(self, channels):
-        if isinstance(channels, (str, unicode)):
+        if isinstance(channels, str):
             channels = [channels]
         return self.execute_command("SUBSCRIBE", *channels)
 
     def unsubscribe(self, channels):
-        if isinstance(channels, (str, unicode)):
+        if isinstance(channels, str):
             channels = [channels]
         return self.execute_command("UNSUBSCRIBE", *channels)
 
     def psubscribe(self, patterns):
-        if isinstance(patterns, (str, unicode)):
+        if isinstance(patterns, str):
             patterns = [patterns]
         return self.execute_command("PSUBSCRIBE", *patterns)
 
     def punsubscribe(self, patterns):
-        if isinstance(patterns, (str, unicode)):
+        if isinstance(patterns, str):
             patterns = [patterns]
         return self.execute_command("PUNSUBSCRIBE", *patterns)
 
@@ -1855,7 +1855,7 @@ class HashRing(object):
 
     def add_node(self, node):
         self.nodes.append(node)
-        for x in xrange(self.replicas):
+        for x in range(self.replicas):
             crckey = zlib.crc32("%s:%d" % (node._factory.uuid, x))
             self.ring[crckey] = node
             self.sorted_keys.append(crckey)
@@ -1864,7 +1864,7 @@ class HashRing(object):
 
     def remove_node(self, node):
         self.nodes.remove(node)
-        for x in xrange(self.replicas):
+        for x in range(self.replicas):
             crckey = zlib.crc32("%s:%d" % (node, x))
             self.ring.remove(crckey)
             self.sorted_keys.remove(crckey)
@@ -1919,7 +1919,7 @@ class ShardedConnectionHandler(object):
     def _wrap(self, method, *args, **kwargs):
         try:
             key = args[0]
-            assert isinstance(key, (str, unicode))
+            assert isinstance(key, str)
         except:
             raise ValueError(
                 "Method '%s' requires a key as the first argument" % method)
@@ -1980,9 +1980,6 @@ class ShardedConnectionHandler(object):
 
 
 class ShardedUnixConnectionHandler(ShardedConnectionHandler):
-    def pipeline(self):
-        pass
-
     def __repr__(self):
         nodes = []
         for conn in self._ring.nodes:
@@ -2007,7 +2004,7 @@ class RedisFactory(protocol.ReconnectingClientFactory):
             raise ValueError("Redis poolsize must be an integer, not %s" %
                              repr(poolsize))
 
-        if not isinstance(dbid, (int, types.NoneType)):
+        if not isinstance(dbid, (int, None)):
             raise ValueError("Redis dbid must be an integer, not %s" %
                              repr(dbid))
 
@@ -2116,7 +2113,7 @@ def makeConnection(host, port, dbid, poolsize, reconnect, isLazy,
     factory = RedisFactory(uuid, dbid, poolsize, isLazy, ConnectionHandler,
                            charset, password, replyTimeout, convertNumbers)
     factory.continueTrying = reconnect
-    for x in xrange(poolsize):
+    for x in range(poolsize):
         reactor.connectTCP(host, port, factory, connectTimeout)
 
     if isLazy:
@@ -2228,7 +2225,7 @@ def makeUnixConnection(path, dbid, poolsize, reconnect, isLazy,
     factory = RedisFactory(path, dbid, poolsize, isLazy, UnixConnectionHandler,
                            charset, password, replyTimeout, convertNumbers)
     factory.continueTrying = reconnect
-    for x in xrange(poolsize):
+    for x in range(poolsize):
         reactor.connectUNIX(path, factory, connectTimeout)
 
     if isLazy:

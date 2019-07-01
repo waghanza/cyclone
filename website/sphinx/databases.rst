@@ -23,9 +23,9 @@ Here is an example of a server with both Redis and MySQL::
         def wrapper(self, *args, **kwargs):
             try:
                 result = yield defer.maybeDeferred(method, self, *args, **kwargs)
-            except MySQLdb.OperationalError, e:
+            except MySQLdb.OperationalError as e:
                 log.msg("MySQL error: " + str(e))
-            except cyclone.redis.RedisError, e:
+            except cyclone.redis.RedisError as e:
                 log.msg("Redis error: " + str(e))
             else:
                 defer.returnValue(result)

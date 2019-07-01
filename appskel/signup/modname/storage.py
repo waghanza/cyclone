@@ -5,7 +5,7 @@ $license
 try:
     sqlite_ok = True
     import cyclone.sqlite
-except ImportError, sqlite_err:
+except ImportError as sqlite_err:
     sqlite_ok = False
 
 import MySQLdb
@@ -38,11 +38,11 @@ def DatabaseSafe(method):
     def run(self, *args, **kwargs):
         try:
             r = yield defer.maybeDeferred(method, self, *args, **kwargs)
-        except cyclone.redis.ConnectionError, e:
+        except cyclone.redis.ConnectionError as e:
             m = "redis.ConnectionError: %s" % e
             log.msg(m)
             raise cyclone.web.HTTPError(503, m)  # Service Unavailable
-        except (MySQLdb.InterfaceError, MySQLdb.OperationalError), e:
+        except (MySQLdb.InterfaceError, MySQLdb.OperationalError) as e:
             m = "mysql.Error: %s" % e
             log.msg(m)
             raise cyclone.web.HTTPError(503, m)  # Service Unavailable

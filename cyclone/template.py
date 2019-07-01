@@ -196,21 +196,14 @@ import re
 import sys
 import threading
 import traceback
-
-if (sys.version_info >= (3, 0)):
-    from io import StringIO
-else:
-    from cStringIO import StringIO
+from io import StringIO
 from cyclone import escape
 from cyclone.util import ObjectDict
 from cyclone.util import bytes_type
 from cyclone.util import unicode_type
-from cyclone.util import list_type
-from cyclone.util import exec_in
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
-
 
 _DEFAULT_AUTOESCAPE = "xhtml_escape"
 _UNSET = object()
@@ -240,8 +233,7 @@ class Template(object):
             self.file = _File(self, _parse(reader, self))
             self.code = self._generate_python(loader, compress_whitespace)
         except ParseError as e:
-            raise TemplateError("Error parsing template %s, line %d: %s" %
-                                                (name, reader.line, str(e)))
+            raise TemplateError("Error parsing template %s, line %d: %s" %(name, reader.line, str(e)))
 
         self.loader = loader
         try:
@@ -253,7 +245,7 @@ class Template(object):
                 "exec")
         except Exception:
             raise TemplateError("Error compiling template " + name + ":\n" +
-                                 _format_code(self.code).rstrip())
+                                _format_code(self.code).rstrip())
 
     def generate(self, **kwargs):
         """Generate this template with the given arguments."""
@@ -274,7 +266,7 @@ class Template(object):
         }
         namespace.update(self.namespace)
         namespace.update(kwargs)
-        exec_in(self.compiled, namespace)
+        exec(self.compiled, namespace, namespace)
         execute = namespace["_execute"]
         # Clear the traceback module's cache of source data now that
         # we've generated a new template (mainly for this module's
@@ -290,9 +282,8 @@ class Template(object):
                 if isinstance(rv, Failure):
                     rv.raiseException()
             return rv
-        except:
-            raise TemplateError("Error executing template " + self.name +
-            ":\n" + _format_code(traceback.format_exception(*sys.exc_info())))
+        except Exception:
+            raise TemplateError("Error executing template " + self.name + ":\n" + _format_code(traceback.format_exception(*sys.exc_info())))
 
     def _generate_python(self, loader, compress_whitespace):
         buffer = StringIO()
@@ -323,6 +314,7 @@ class Template(object):
                 template = loader.load(chunk.name, self.name)
                 ancestors.extend(template._get_ancestors(loader))
         return ancestors
+
 
 class BaseLoader(object):
     """Base class for template loaders."""
@@ -430,6 +422,7 @@ class _Node(object):
         with writer.indent():
             writer.write_line("%s = yield %s" % (varName, varName), self.line)
 
+
 class _File(_Node):
     def __init__(self, template, body):
         self.template = template
@@ -494,6 +487,7 @@ class _NamedBlock(_Node):
         named_blocks[self.name].append(self)
         _Node.find_named_blocks(self, loader, named_blocks)
 
+
 class _ExtendsBlock(_Node):
     def __init__(self, name):
         self.name = name
@@ -519,6 +513,7 @@ class _Super(_Node):
         if idx > 0:
             preParent = blocks[idx-1]
             preParent.generate(writer, force_self=True)
+
 
 class _IncludeBlock(_Node):
     def __init__(self, name, reader, line):
@@ -554,8 +549,7 @@ class _ApplyBlock(_Node):
             writer.write_line("_append = _buffer.append", self.line)
             self.body.generate(writer)
             writer.write_line("return _utf8('').join(_buffer)", self.line)
-        writer.write_line("_append(_utf8(%s(%s())))" % (
-            self.method, method_name), self.line)
+        writer.write_line("_append(_utf8(%s(%s())))" % (self.method, method_name), self.line)
 
 
 class _ControlBlock(_Node):
@@ -583,8 +577,8 @@ class _IntermediateControlBlock(_Node):
     def generate(self, writer):
         # In case the previous block was empty
         writer.write_line("pass", self.line)
-        writer.write_line("%s:" % self.statement, self.line,
-                          writer.indent_size() - 1)
+        writer.write_line("%s:" % self.statement, self.line, writer.indent_size() - 1)
+
 
 class _Statement(_Node):
     def __init__(self, statement, line):
@@ -750,7 +744,7 @@ class _TemplateReader(object):
 
 
 def _format_code(code):
-    lines = code if isinstance(code, list_type) else code.splitlines()
+    lines = code if isinstance(code, list) else code.splitlines()
     format = "%%%dd  %%s\n" % len(repr(len(lines) + 1))
     return "".join([format % (i + 1, line) for (i, line) in enumerate(lines)])
 

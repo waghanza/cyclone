@@ -13,20 +13,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import cyclone.httpclient
-import functools
-
-from cStringIO import StringIO
-from cyclone import escape
-from cyclone.httpclient import StringProducer, Receiver, HTTPClient, fetch
-from cyclone.web import HTTPError
-from twisted.internet.defer import inlineCallbacks, Deferred, succeed, fail
 from twisted.trial import unittest
-
-try:
-    from mock import Mock
-except ImportError:
-    from unittest.mock import Mock
+from cyclone.httpclient import StringProducer, Receiver, HTTPClient, fetch
+import cyclone.httpclient
+from io import StringIO
+from twisted.internet.defer import inlineCallbacks, Deferred, succeed, fail
+from unittest.mock import Mock
+#from unittest import mock
+import functools
+from cyclone import escape
+from cyclone.web import HTTPError
 
 
 class TestStringProducer(unittest.TestCase):
@@ -99,6 +95,7 @@ class TestHTTPClient(unittest.TestCase):
         client = HTTPClient("http://example.com")
         client.agent = Mock()
         _response = Mock()
+        _response.code = 200
         _response.headers.getAllRawHeaders.return_value = {}
         _response.deliverBody = lambda x: x.dataReceived("done") \
             or x.connectionLost(None)
@@ -113,6 +110,7 @@ class TestHTTPClient(unittest.TestCase):
         _response = Mock()
         _response.headers.getAllRawHeaders.return_value = {}
         _response.deliverBody = lambda x: x.connectionLost(None)
+        _response.code = 200
         client.agent.request.return_value = succeed(_response)
         response = yield client.fetch()
         self.assertEqual(response.body, "")

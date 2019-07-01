@@ -5,7 +5,7 @@ $license
 try:
     sqlite_ok = True
     import cyclone.sqlite
-except ImportError, sqlite_err:
+except ImportError as sqlite_err:
     sqlite_ok = False
 
 import cyclone.redis

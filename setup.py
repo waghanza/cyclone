@@ -21,57 +21,25 @@ import platform
 import setuptools
 from distutils import log
 
-requires = ["twisted"]
-
-def version_cmp(version1, version2):
-    """
-    Return True if version1 is less greater than version2
-    """
-    def normalize(v):
-        return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
-    return normalize(version1) < normalize(version2)
-
-# Avoid installation problems on old RedHat distributions (ex. CentOS 5)
-# http://stackoverflow.com/questions/7340784/easy-install-pyopenssl-error
-py_version = platform.python_version()
-
-if (version_cmp(str(py_version), str('2.6'))):
-    distname, version, _id = platform.dist()
-else:
-    distname, version, _id = platform.linux_distribution()
-
-is_redhat = distname in ["CentOS", "redhat"]
-if is_redhat and version and StrictVersion(version) < StrictVersion('6.0'):
-    requires.append("pyopenssl==0.12")
-else:
-    requires.append("pyopenssl")
-
-extra = dict(extras_require={'ssl': requires})
-
-try:
-    from setuptools.command import egg_info
-    egg_info.write_toplevel_names
-except (ImportError, AttributeError):
-    pass
-else:
-    """
-    'twisted' should not occur in the top_level.txt file as this
-    triggers a bug in pip that removes all of twisted when a package
-    with a twisted plugin is removed.
-    """
-    def _top_level_package(name):
-        return name.split('.', 1)[0]
-
-    def _hacked_write_toplevel_names(cmd, basename, filename):
-        pkgs = dict.fromkeys(
-            [_top_level_package(k)
-                for k in cmd.distribution.iter_distribution_names()
-                if _top_level_package(k) != "twisted"
-            ]
-        )
-        cmd.write_file("top-level names", filename, '\n'.join(pkgs) + '\n')
-
-    egg_info.write_toplevel_names = _hacked_write_toplevel_names
+CLASSIFIERS = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Web Environment',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3 :: Only',
+    'Topic :: Internet',
+    'Topic :: Utilities',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Internet :: WWW/HTTP',
+    'Topic :: Internet :: WWW/HTTP :: WSGI',
+    'Topic :: Internet :: WWW/HTTP :: WSGI :: Server',
+    'Topic :: Internet :: WWW/HTTP :: Dynamic Content']
 
 
 setuptools.setup(
@@ -90,12 +58,6 @@ setuptools.setup(
                               "appskel_foreman.zip",
                               "appskel_signup.zip"]},
     scripts=["scripts/cyclone"],
-    **extra
+    install_requires=["twisted==19.2.1","pyOpenSSL==19.0.0"],
+    classifiers=CLASSIFIERS,
 )
-
-try:
-    from twisted.plugin import IPlugin, getPlugins
-    list(getPlugins(IPlugin))
-except Exception as e:
-    log.warn("*** Failed to update Twisted plugin cache. ***")
-    log.warn(str(e))

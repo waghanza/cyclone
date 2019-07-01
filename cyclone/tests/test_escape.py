@@ -13,21 +13,24 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from cyclone import escape
 from twisted.trial import unittest
+from unittest.mock import Mock
+
+from cyclone import escape
 
 
 class TestEscape(unittest.TestCase):
+
     def test_xhtml(self):
         self.assertEqual(
-                escape.xhtml_escape("abc42"),
-                "abc42"
+            escape.xhtml_escape("abc42"),
+            "abc42"
         )
         self.assertEqual(
-                escape.xhtml_escape("<>"),
-                "&lt;&gt;"
+            escape.xhtml_escape("<>"),
+            "&lt;&gt;"
         )
         self.assertEqual(
-                escape.xhtml_escape("\"'"),
-                "&quot;&#39;"
+            escape.xhtml_escape("\"'"),
+            "&quot;&#39;"
         )

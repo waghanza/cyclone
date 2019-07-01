@@ -25,14 +25,15 @@ For more information, check out the `e-mail demo
 import types
 import os.path
 
-from cStringIO import StringIO
+from io import StringIO
 from OpenSSL.SSL import OP_NO_SSLv3
 
-from email import Encoders
-from email.MIMEText import MIMEText
-from email.MIMEBase import MIMEBase
-from email.MIMEMultipart import MIMEMultipart
-from email.Utils import COMMASPACE, formatdate
+from email import encoders as email_encoders
+from email.mime import text as email_mime_text
+from email.mime import base as email_mime_base
+from email.mime import multipart as email_mime_multipart
+from email import utils as email_utils
+
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
@@ -69,14 +70,14 @@ class Message(object):
         self.subject = subject
         self.from_addr = from_addr
 
-        if isinstance(to_addrs, types.StringType):
+        if isinstance(to_addrs, str):
             self.to_addrs = [to_addrs]
         else:
             self.to_addrs = to_addrs
 
         self.msg = None
         self.__cache = None
-        self.message = MIMEText(message, _charset=charset)
+        self.message = email_mime_text.MIMEText(message, _charset=charset)
         self.message.set_type(mime)
 
     def attach(self, filename, mime=None, charset=None, content=None):
@@ -95,13 +96,13 @@ class Message(object):
             fd = open(filename)
             content = fd.read()
             fd.close()
-        elif not isinstance(content, types.StringType):
+        elif not isinstance(content, str):
             raise TypeError("Don't know how to attach content: %s" %
                             repr(content))
 
-        part = MIMEBase("application", "octet-stream")
+        part = email_mime_base.MIMEBase("application", "octet-stream")
         part.set_payload(content)
-        Encoders.encode_base64(part)
+        email_encoders.encode_base64(part)
         part.add_header("Content-Disposition",
                         "attachment", filename=base)
 
@@ -112,7 +113,7 @@ class Message(object):
             part.set_charset(charset)
 
         if self.msg is None:
-            self.msg = MIMEMultipart()
+            self.msg = email_mime_multipart.MIMEMultipart()
             self.msg.attach(self.message)
 
         self.msg.attach(part)
@@ -126,8 +127,8 @@ class Message(object):
 
         self.msg["Subject"] = self.subject
         self.msg["From"] = self.from_addr
-        self.msg["To"] = COMMASPACE.join(self.to_addrs)
-        self.msg["Date"] = formatdate(localtime=True)
+        self.msg["To"] = email_utils.COMMASPACE.join(self.to_addrs)
+        self.msg["Date"] = email_utils.formatdate(localtime=True)
 
         if self.__cache is None:
             self.__cache = self.msg.as_string()
@@ -163,7 +164,7 @@ def sendmail(mailconf, message):
         d = mail.sendmail(mailconf, msg)
         d.addCallback(on_response)
     """
-    if not isinstance(mailconf, types.DictType):
+    if not isinstance(mailconf, dict):
         raise TypeError("mailconf must be a regular python dictionary")
 
     if not isinstance(message, Message):
@@ -171,10 +172,10 @@ def sendmail(mailconf, message):
 
     host = mailconf.get("host")
 
-    if isinstance(host, unicode):
-        host = str(unicode)
+    #if isinstance(host, unicode):
+    #    host = str(unicode)
 
-    if not isinstance(host, types.StringType):
+    if not isinstance(host, str):
         raise ValueError("mailconf requires a 'host' configuration")
 
     use_tls = mailconf.get("tls")
@@ -186,7 +187,7 @@ def sendmail(mailconf, message):
         port = mailconf.get("port", 25)
         contextFactory = None
 
-    if not isinstance(port, types.IntType):
+    if not isinstance(port, int):
         raise ValueError("mailconf requires a proper 'port' configuration")
 
     result = Deferred()

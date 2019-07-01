@@ -57,22 +57,9 @@ import binascii
 import hashlib
 import hmac
 import time
+import urllib
+from urllib import parse as urllib_parse
 import uuid
-
-try:
-    import urlparse  # py2
-except ImportError:
-    import urllib.parse as urlparse  # py3
-
-try:
-    import urllib.parse as urllib_parse  # py3
-except ImportError:
-    import urllib as urllib_parse  # py2
-
-try:
-    long  # py2
-except NameError:
-    long = int  # py3
 
 
 class OpenIdMixin(object):
@@ -114,7 +101,7 @@ class OpenIdMixin(object):
                 postdata=urllib_parse.urlencode(args)).addBoth(callback)
 
     def _openid_args(self, callback_uri, ax_attrs=[], oauth_scope=None):
-        url = urlparse.urljoin(self.request.full_url(), callback_uri)
+        url = urllib_parse.urljoin(self.request.full_url(), callback_uri)
         args = {
             "openid.ns": "http://specs.openid.net/auth/2.0",
             "openid.claimed_id":
@@ -122,7 +109,7 @@ class OpenIdMixin(object):
             "openid.identity":
                 "http://specs.openid.net/auth/2.0/identifier_select",
             "openid.return_to": url,
-            "openid.realm": urlparse.urljoin(url, '/'),
+            "openid.realm": urllib_parse.urljoin(url, '/'),
             "openid.mode": "checkid_setup",
         }
         if ax_attrs:
@@ -291,7 +278,7 @@ class OAuthMixin(object):
             if callback_uri == "oob":
                 args["oauth_callback"] = "oob"
             elif callback_uri:
-                args["oauth_callback"] = urlparse.urljoin(
+                args["oauth_callback"] = urllib_parse.urljoin(
                     self.request.full_url(), callback_uri)
             if extra_params:
                 args.update(extra_params)
@@ -314,7 +301,7 @@ class OAuthMixin(object):
             self.finish(authorize_url + "?" + urllib_parse.urlencode(args))
             return
         elif callback_uri:
-            args["oauth_callback"] = urlparse.urljoin(
+            args["oauth_callback"] = urllib_parse.urljoin(
                 self.request.full_url(), callback_uri)
         self.redirect(authorize_url + "?" + urllib_parse.urlencode(args))
 
@@ -820,11 +807,11 @@ class FacebookMixin(object):
             "v": "1.0",
             "fbconnect": "true",
             "display": "page",
-            "next": urlparse.urljoin(self.request.full_url(), callback_uri),
+            "next": urllib_parse.urljoin(self.request.full_url(), callback_uri),
             "return_session": "true",
         }
         if cancel_uri:
-            args["cancel_url"] = urlparse.urljoin(
+            args["cancel_url"] = urllib_parse.urljoin(
                 self.request.full_url(), cancel_uri)
         if extended_permissions:
             if isinstance(extended_permissions, (unicode_type, bytes_type)):
@@ -908,7 +895,7 @@ class FacebookMixin(object):
         args["api_key"] = self.settings["facebook_api_key"]
         args["v"] = "1.0"
         args["method"] = method
-        args["call_id"] = str(long(time.time() * 1e6))
+        args["call_id"] = str(int(time.time() * 1e6))
         args["format"] = "json"
         args["sig"] = self._signature(args)
         url = "http://api.facebook.com/restserver.php?" + \
@@ -940,7 +927,7 @@ class FacebookMixin(object):
             return
         try:
             json = escape.json_decode(response.body)
-        except:
+        except Exception:
             log.msg("Invalid JSON from Facebook: %r" % response.body)
             callback(None)
             return
@@ -954,7 +941,7 @@ class FacebookMixin(object):
     def _signature(self, args):
         parts = ["%s=%s" % (n, args[n]) for n in sorted(args.keys())]
         body = "".join(parts) + self.settings["facebook_secret"]
-        if isinstance(body, unicode):
+        if isinstance(body, str):
             body = body.encode("utf-8")
         return hashlib.md5(body).hexdigest()
 
@@ -966,7 +953,7 @@ class FacebookGraphMixin(OAuth2Mixin):
     _OAUTH_NO_CALLBACKS = False
 
     def get_authenticated_user(self, redirect_uri, client_id, client_secret,
-                              code, callback, extra_fields=None):
+                               code, callback, extra_fields=None):
         """Handles the login for the Facebook user, returning a user object.
 
         Example usage::
@@ -1014,7 +1001,7 @@ class FacebookGraphMixin(OAuth2Mixin):
     def _on_access_token(self, redirect_uri, client_id, client_secret,
                         callback, fields, response):
         if response.error:
-            log.warning('Facebook auth error: %s' % str(response))
+            log.msg('Facebook auth error: %s' % str(response))
             callback(None)
             return
 
@@ -1045,7 +1032,7 @@ class FacebookGraphMixin(OAuth2Mixin):
         callback(fieldmap)
 
     def facebook_request(self, path, callback, access_token=None,
-                           post_args=None, **args):
+                         post_args=None, **args):
         """Fetches the given relative API path, e.g., "/btaylor/picture"
 
         If the request is a POST, post_args should be provided. Query
@@ -1090,14 +1077,13 @@ class FacebookGraphMixin(OAuth2Mixin):
         callback = self.async_callback(self._on_facebook_request, callback)
         if post_args is not None:
             httpclient.fetch(url, method="POST",
-                    postdata=urllib_parse.urlencode(post_args)).addCallback(callback)
+                             postdata=urllib_parse.urlencode(post_args)).addCallback(callback)
         else:
             httpclient.fetch(url).addCallback(callback)
 
     def _on_facebook_request(self, callback, response):
         if response.error:
-            log.warning("Error response %s fetching %s", response.error,
-                            response.request.url)
+            log.msg("Error response %s fetching %s", response.error, response.request.url)
             callback(None)
             return
         callback(escape.json_decode(response.body))
@@ -1108,7 +1094,7 @@ def _oauth_signature(consumer_token, method, url, parameters={}, token=None):
 
     See http://oauth.net/core/1.0/#signing_process
     """
-    parts = urlparse.urlparse(url)
+    parts = urllib_parse.urlparse(url)
     scheme, netloc, path = parts[:3]
     normalized_url = scheme.lower() + "://" + netloc.lower() + path
 
@@ -1133,7 +1119,7 @@ def _oauth10a_signature(consumer_token,
 
     See http://oauth.net/core/1.0a/#signing_process
     """
-    parts = urlparse.urlparse(url)
+    parts = urllib_parse.urlparse(url)
     scheme, netloc, path = parts[:3]
     normalized_url = scheme.lower() + "://" + netloc.lower() + path
 
@@ -1144,10 +1130,8 @@ def _oauth10a_signature(consumer_token,
                                for k, v in sorted(parameters.items())))
 
     base_string = "&".join(_oauth_escape(e) for e in base_elems)
-    key_elems = [escape.utf8(
-                 urllib_parse.quote(consumer_token["secret"], safe='~'))]
-    key_elems.append(escape.utf8(
-                     urllib_parse.quote(token["secret"], safe='~') if token else ""))
+    key_elems = [escape.utf8(urllib_parse.quote(consumer_token["secret"], safe='~'))]
+    key_elems.append(escape.utf8(urllib_parse.quote(token["secret"], safe='~') if token else ""))
     key = "&".join(key_elems)
 
     hash = hmac.new(key, escape.utf8(base_string), hashlib.sha1)
@@ -1161,7 +1145,7 @@ def _oauth_escape(val):
 
 
 def _oauth_parse_response(body):
-    p = escape.parse_qs(body, keep_blank_values=False)
+    p = urllib_parse.parse_qs(body, keep_blank_values=False)
     token = dict(key=p["oauth_token"][0], secret=p["oauth_token_secret"][0])
 
     # Add the extra parameters the Provider included to the token

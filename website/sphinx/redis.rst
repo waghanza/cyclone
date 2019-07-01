@@ -170,7 +170,7 @@ Example:
           print "foo:", v
 
           yield rc.disconnect()
-        except redis.ConnectionError, e:
+        except redis.ConnectionError as e:
           print str(e)
 
 
@@ -487,7 +487,7 @@ A "COUNTER" example, using WATCH/MULTI:
          try:
              r = yield t.commit()
              print "commit=", repr(r)
-         except redis.WatchError, e:
+         except redis.WatchError as e:
              a1 = yield rc.get("a1")
              print "transaction has failed."
              print "current a1 value: ", a1

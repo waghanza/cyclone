@@ -13,21 +13,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from cyclone.sqlite import InlineSQLite
 from twisted.trial import unittest
-
-try:
-    from mock import Mock
-except ImportError:
-    from unittest.mock import Mock
+from cyclone.sqlite import InlineSQLite
+from unittest.mock import Mock
 
 
 class InlineSQLiteTest(unittest.TestCase):
     def setUp(self):
         self.isq = InlineSQLite()
         self.isq.runOperation(
-            "create table foobar_test (val1 string, val2 string)")
-        self.isq.runOperation('insert into foobar_test values ("a", "b")')
+            "create table `nothing` (val1 string, val2 string)")
+        self.isq.runOperation('insert into `nothing` values ("a", "b")')
 
     def test_init(self):
         self.assertTrue(hasattr(self.isq, "autoCommit"))
@@ -41,16 +37,16 @@ class InlineSQLiteTest(unittest.TestCase):
         self.assertEqual(res, [1, 2, 3])
 
     def test_runOperation(self):
-        self.isq.runOperation('insert into foobar_test values ("c", "d")')
-        res = self.isq.runQuery("select count(*) from foobar_test")
+        self.isq.runOperation('insert into `nothing` values ("c", "d")')
+        res = self.isq.runQuery("select count(*) from `nothing`")
         self.assertEqual(res[0][0], 2)
 
     def test_runOperationMany(self):
         self.isq.runOperationMany(
-            'insert into foobar_test values (?, ?)',
+            'insert into `nothing` values (?, ?)',
             [["a", "b"], ["c", "d"]]
         )
-        res = self.isq.runQuery("select count(*) from foobar_test")
+        res = self.isq.runQuery("select count(*) from `nothing`")
         self.assertEqual(res[0][0], 3)
 
     def test_commit(self):

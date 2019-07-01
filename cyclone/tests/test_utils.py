@@ -13,20 +13,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import datetime
 
+from twisted.trial import unittest
+from cyclone.escape import xhtml_escape, xhtml_unescape
 from cyclone.escape import json_encode, json_decode
-from cyclone.escape import recursive_unicode, linkify, _convert_entity
 from cyclone.escape import squeeze, url_escape, url_unescape
 from cyclone.escape import utf8, to_unicode, to_basestring
-from cyclone.escape import xhtml_escape, xhtml_unescape
+from cyclone.escape import recursive_unicode, linkify, _convert_entity
 from cyclone.util import _emit, ObjectDict, import_object
-from twisted.trial import unittest
-
-try:
-    from mock import Mock
-except ImportError:
-    from unittest.mock import Mock
+from unittest.mock import Mock
+import datetime
 
 
 class EscapeTest(unittest.TestCase):
@@ -57,7 +53,7 @@ class EscapeTest(unittest.TestCase):
         self.assertEqual(url_escape("a value"), "a+value")
 
     def test_url_unescape(self):
-        self.assertEqual(url_unescape("a+value", encoding=None), b"a value")
+        self.assertEqual(url_unescape("a+value", encoding=None), "a value")
         self.assertEqual(url_unescape("a+value"), "a value")
 
     def test_utf8(self):

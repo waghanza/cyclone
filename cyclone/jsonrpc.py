@@ -24,8 +24,6 @@ For more information, check out the `RPC demo
 <https://github.com/fiorix/cyclone/tree/master/demos/rpc>`_.
 """
 
-import types
-
 import cyclone.escape
 from cyclone.web import HTTPError, RequestHandler
 
@@ -57,11 +55,9 @@ class JsonrpcRequestHandler(RequestHandler):
             req = cyclone.escape.json_decode(self.request.body)
             jsonid = req["id"]
             method = req["method"]
-            assert isinstance(method, types.StringTypes), \
-                              "Invalid method type: %s" % type(method)
+            assert isinstance(method, str), "Invalid method type: %s" % type(method)
             params = req.get("params", [])
-            assert isinstance(params, (types.ListType, types.TupleType)), \
-                              "Invalid params type: %s" % type(params)
+            assert isinstance(params, (list, tuple)), "Invalid params type: %s" % type(params)
         except Exception as e:
             log.msg("Bad Request: %s" % str(e))
             raise HTTPError(400)

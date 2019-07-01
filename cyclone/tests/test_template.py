@@ -13,17 +13,20 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from cyclone import template
 from twisted.internet import defer
-from twisted.internet import reactor
 from twisted.trial import unittest
+from twisted.internet import reactor
+
+from unittest.mock import Mock
+
+from cyclone import template
 
 
 class TestTemplates(unittest.TestCase):
     def test_simple_var(self):
         t = template.Template(r"My name is: {{ name }}")
-        self.assertEqual(t.generate(name="Alice"), "My name is: Alice")
-        self.assertEqual(t.generate(name="Bob"), "My name is: Bob")
+        self.assertEqual(t.generate(name="Alice"), b"My name is: Alice")
+        self.assertEqual(t.generate(name="Bob"), b"My name is: Bob")
 
     def test_blocks(self):
         loader = template.DictLoader({
@@ -60,7 +63,7 @@ class TestTemplates(unittest.TestCase):
 
     def test_if(self):
         t = template.Template(
-                r"{% if a == 1 %}One{% elif a < 0 %}Negative{% elif isinstance(a, basestring) %}String{% else %}Unknown{% end %}")
+            r"{% if isinstance(a, str)%}String{% elif a < 0 %}Negative{% elif a==1 %}One{% else %}Unknown{% end %}")
         self.assertEqual(t.generate(a=1), b"One")
         self.assertEqual(t.generate(a=-1), b"Negative")
         self.assertEqual(t.generate(a=-1.67), b"Negative")
@@ -71,48 +74,48 @@ class TestTemplates(unittest.TestCase):
 
     def test_comment(self):
         self.assertEqual(
-                template.Template(r"{% comment blah! %}42").generate(),
-                b"42"
+            template.Template(r"{% comment blah! %}42").generate(),
+            b"42"
         )
 
     def test_set(self):
         self.assertEqual(
-                template.Template(r"{% set x=42 %}{{ val + x }}").generate(val=-42),
-                "0"
+            template.Template(r"{% set x=42 %}{{ val + x }}").generate(val=-42),
+            b"0"
         )
         self.assertEqual(
-                template.Template(r"{% set x=val2 %}{{ val + x }}").generate(val=1, val2=10),
-                "11"
+            template.Template(r"{% set x=val2 %}{{ val + x }}").generate(val=1, val2=10),
+            b"11"
         )
 
     def test_loops(self):
         self.assertEqual(
-                template.Template(r"{% for x in [1,2,3,4] %}{{ x }}:{% end %}").generate(),
-                "1:2:3:4:"
+            template.Template(r"{% for x in [1,2,3,4] %}{{ x }}:{% end %}").generate(),
+            b"1:2:3:4:"
         )
         self.assertEqual(
-                template.Template(r"{% set x=0 %}{% while x < 10 %}{{x}};{% set x += 2 %}{% end %}").generate(),
-                "0;2;4;6;8;"
+            template.Template(r"{% set x=0 %}{% while x < 10 %}{{x}};{% set x += 2 %}{% end %}").generate(),
+            b"0;2;4;6;8;"
         )
 
     def test_autoescape(self):
         t = template.Template(r"<{{x}}>")
         self.assertEqual(
-                t.generate(x="<"),
-                "<&lt;>"
+            t.generate(x="<"),
+            b"<&lt;>"
         )
         self.assertEqual(
-                t.generate(x=">"),
-                "<&gt;>"
+            t.generate(x=">"),
+            b"<&gt;>"
         )
         t2 = template.Template(r"{% autoescape None %}<{{x}}>")
         self.assertEqual(
-                t2.generate(x="<"),
-                "<<>"
+            t2.generate(x="<"),
+            b"<<>"
         )
         self.assertEqual(
-                t2.generate(x=">"),
-                "<>>"
+            t2.generate(x=">"),
+            b"<>>"
         )
 
     @defer.inlineCallbacks
@@ -128,18 +131,18 @@ class TestTemplates(unittest.TestCase):
         # Test that template immidiatly resolves deferreds if possible
         t = template.Template(r"-) {{x}} <-> {{y(63)}} :!")
         self.assertEqual(
-                t.generate(x=_mkDeferred(42), y=_mkDeferred),
-                "-) 42 <-> 63 :!"
+            t.generate(x=_mkDeferred(42), y=_mkDeferred),
+            b"-) 42 <-> 63 :!"
         )
 
         # Test delayed execution
         d = t.generate(
-                x=_mkDeferred("hello", 0.1),
-                y=lambda val: _mkDeferred(val - 60, 0.5)
+            x=_mkDeferred("hello", 0.1),
+            y=lambda val: _mkDeferred(val - 60, 0.5)
         )
         self.assertTrue(isinstance(d, defer.Deferred), d)
         txt = yield d
         self.assertEqual(
-                txt,
-                "-) hello <-> 3 :!"
+            txt,
+            b"-) hello <-> 3 :!"
         )
