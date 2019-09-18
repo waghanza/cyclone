@@ -44,7 +44,7 @@ CLASSIFIERS = [
 
 setuptools.setup(
     name="cyclone",
-    version="1.2",
+    version="1.3",
     author="fiorix",
     author_email="fiorix@gmail.com",
     url="http://cyclone.io/",
