@@ -16,9 +16,9 @@
 
 import cyclone.web
 import imp
+import inspect
 import os
 import sys
-import types
 
 from twisted.application import internet
 from twisted.application import service
@@ -76,11 +76,13 @@ class ServiceMaker(object):
             appmod = imp.load_source(n, options["filename"])
             for name in dir(appmod):
                 kls = getattr(appmod, name)
-                if isinstance(kls, (type, types.ClassType)):
-                    if issubclass(kls, cyclone.web.Application):
-                        options["app"] = kls
-                        if ssl_support and os.path.exists(options["ssl-cert"]):
-                            options["ssl-app"] = kls
+                if (
+                    inspect.isclass(kls) and
+                    issubclass(kls, cyclone.web.Application)
+                ):
+                    options["app"] = kls
+                    if ssl_support and os.path.exists(options["ssl-cert"]):
+                        options["ssl-app"] = kls
 
         # http
         if options["app"]:

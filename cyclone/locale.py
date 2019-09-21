@@ -426,9 +426,9 @@ class GettextLocale(Locale):
     def translate(self, message, plural_message=None, count=None):
         if plural_message is not None:
             assert count is not None
-            return self.translations.ungettext(message, plural_message, count)
+            return self.translations.ngettext(message, plural_message, count)
         else:
-            return self.translations.ugettext(message)
+            return self.translations.gettext(message)
 
 LOCALE_NAMES = {
     "af_ZA": {"name_en": u"Afrikaans", "name": u"Afrikaans"},
