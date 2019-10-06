@@ -24,6 +24,7 @@ import re
 from cyclone.util import ObjectDict
 from cyclone.escape import native_str
 from cyclone.escape import parse_qs_bytes
+from cyclone.escape import to_unicode
 from cyclone.escape import utf8
 
 from twisted.python import log
@@ -267,7 +268,7 @@ def parse_multipart_form_data(boundary, data, arguments, files):
         if eoh == -1:
             log.msg("multipart/form-data missing headers")
             continue
-        headers = HTTPHeaders.parse(part[:eoh])
+        headers = HTTPHeaders.parse(to_unicode(part[:eoh]))
         disp_header = headers.get("Content-Disposition", "")
         disposition, disp_params = _parse_header(disp_header)
         if disposition != "form-data" or not part.endswith(b"\r\n"):
