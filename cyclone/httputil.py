@@ -129,7 +129,9 @@ class HTTPHeaders(dict):
         [('Content-Length', '42'), ('Content-Type', 'text/html')]
         """
         h = cls()
-        for line in headers.splitlines():
+        for line in headers.split("\n"):
+            if line.endswith("\r"):
+                line = line[:-1]
             if line:
                 h.parse_line(line)
         return h
