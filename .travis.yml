@@ -7,7 +7,7 @@ python:
   - 3.8
   - 3.9
   - 3.10
-  - 3.11
+  - 3.11-dev
   - nightly
 
 # Allow failures on cpython nightly build
