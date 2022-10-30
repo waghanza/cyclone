@@ -33,12 +33,7 @@ The Cyclone source code is hosted on GitHub: https://github.com/fiorix/cyclone
 Prerequisites
 -------------
 
-Cyclone runs on Python 2.5, 2.6 and 2.7, and requires:
-
-- Twisted: http://twistedmatrix.com/trac/wiki/Downloads
-- pyOpenSSL: https://launchpad.net/pyopenssl (only if you want SSL/TLS)
-
-On Python 2.5, simplejson is required too.
+Cyclone requires python 3.7 (or greather) 
 
 Platforms
 ---------
