@@ -57,6 +57,7 @@ setuptools.setup(
                   "cyclone": ["appskel_default.zip",
                               "appskel_foreman.zip",
                               "appskel_signup.zip"]},
+    python_requires=">=3.7",
     scripts=["scripts/cyclone"],
     install_requires=["twisted==22.8.0","pyOpenSSL==22.0.0"],
     classifiers=CLASSIFIERS,
